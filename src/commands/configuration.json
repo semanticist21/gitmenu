@@ -64,6 +64,7 @@
   "gitside.remotes": { "type": ["array", "null"], "default": null },
   "gitside.views.pageItemLimit": { "type": "number", "default": 20 },
   "gitside.views.fileHistory.followActiveFile": { "type": "boolean", "default": true },
+  "update.mode": { "type": "string", "enum": ["none", "manual", "start", "default"], "default": "default" },
   "gitside.ai.commitMessage.language": { "type": "string", "default": "English" },
   "gitside.ai.commitMessage.customInstructions": { "type": "string", "default": "" },
   "gitside.ai.exclude": { "type": "array", "default": ["**/*.lock", "**/package-lock.json", "**/bun.lock", "**/pnpm-lock.yaml", "**/yarn.lock", "**/Cargo.lock", "**/dist/**", "**/build/**", "**/*.min.js", "**/*.map"] }

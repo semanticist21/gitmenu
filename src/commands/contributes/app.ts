@@ -24,6 +24,7 @@ export const appContribution: Contribution = {
       enablement: 'gitside.hasRepository',
     },
     { command: 'gitside.revealInFinder', title: { app: 'panel.revealInFinder' }, category, enablement: 'gitside.hasProject' },
+    { command: 'update.checkForUpdates', title: { app: 'update.check' }, category },
     { command: 'gitside.quit', title: { app: 'panel.quit' } },
   ],
   menus: {
@@ -32,6 +33,7 @@ export const appContribution: Contribution = {
       { command: 'workbench.action.showCommands', group: '1_commands' },
       { command: 'workbench.action.openSettings', group: '2_preferences@1' },
       { command: 'workbench.action.openGlobalKeybindings', group: '2_preferences@2' },
+      { command: 'update.checkForUpdates', group: '3_update' },
       { command: 'gitside.quit', group: '9_quit' },
     ],
     'gitside/project/context': [

@@ -148,16 +148,21 @@ src-tauri/src/
   queue.rs     저장소별 쓰기 큐, 네트워크 작업, index.lock 재시도, 취소
   read/        gix: status, log, commit_files, diff, blame, remote, graph
   write/       git CLI 헬퍼와 쓰기 명령, patch 적용, 복구 지점
-  remote/      호스팅별 URL, 아바타(gh GraphQL, Gravatar, 캐시)
+  avatar.rs    아바타(noreply, gh GraphQL, Gravatar, 디스크 캐시)
+  crash.rs     옵트인 크래시 리포트(경로 제거)
   ai/          Foundation Models Swift 브리지
-  update.rs    updater, 로그인 시 자동 실행
+  update.rs    updater(릴리스 빌드에만 키·피드), 로그인 시 자동 실행
 src/
   commands/    명령 레지스트리
   i18n/        10개 언어(VS Code 언어팩 복사분 + 직접 번역)
   routes/      panel(프로젝트 탭 + 뷰), detail(diff, graph, settings, keyboard-shortcuts 탭)
+  features/remote/  호스팅별 remote URL(순수 계산이라 프론트)
   features/<뷰 또는 기능>/{api.ts,components/}
   workers/     shiki worker(Oniguruma WASM)
-scripts/       아이콘 프레임 생성·템플릿 후처리
+scripts/       아이콘 생성, 번역 가져오기·검사
+site/          kkom.net 페이지
+packaging/     Homebrew cask 템플릿
+.github/       검사·릴리스(서명·notarize·universal) 워크플로
 ```
 
 ## 마일스톤

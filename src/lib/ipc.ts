@@ -83,6 +83,8 @@ export const ipc = {
   appQuit: () => invoke<void>('app_quit'),
   loginItemStatus: () => invoke<LoginItem>('login_item_status'),
   loginItemSet: (enabled: boolean) => invoke<LoginItem>('login_item_set', { enabled }),
+  updateCheck: () => invoke<{ version: string; notes: string | null } | null>('update_check'),
+  updateInstall: () => invoke<void>('update_install'),
 }
 
 /** Subscribes to a Rust event for the component's lifetime; the handler may change freely. */

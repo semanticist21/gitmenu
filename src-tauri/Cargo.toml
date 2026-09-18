@@ -39,6 +39,8 @@ objc2-foundation = { version = "0.3", features = ["NSString", "NSThread", "NSFil
 objc2-app-kit = { version = "0.3", features = ["NSStatusItem", "NSStatusBarButton", "NSButton", "NSControl", "NSView", "NSResponder", "NSAppearance", "NSApplication", "NSRunningApplication", "NSWorkspace"] }
 objc2-service-management = { version = "0.3", features = ["SMAppService"] }
 sha2 = "0.10.9"
+tauri-plugin-updater = "2"
+sentry = { version = "0.42", default-features = false, features = ["backtrace", "contexts", "panic", "reqwest", "rustls"] }
 
 [profile.release]
 codegen-units = 1

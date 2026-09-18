@@ -1,6 +1,7 @@
 mod ai;
 mod avatar;
 mod commands;
+mod crash;
 mod env;
 mod error;
 mod git;
@@ -44,8 +45,12 @@ pub fn run() {
         .setup(|app| {
             app.set_activation_policy(ActivationPolicy::Accessory);
             let handle = app.handle().clone();
+            if update::updater_configured(&handle) {
+                handle.plugin(tauri_plugin_updater::Builder::new().build())?;
+            }
             let dir = project::app_support_dir(&handle);
             let settings = Settings::load(dir.clone())?;
+            crash::init(&settings);
             settings.watch(handle.clone())?;
             let ui = project::UiState::load(&dir);
             app.manage(Arc::clone(&settings));
@@ -127,6 +132,9 @@ pub fn run() {
             commands::app_quit,
             commands::login_item_status,
             commands::login_item_set,
+            commands::update_check,
+            commands::update_install,
+            commands::crash_report,
             git::repo_status,
             git::repo_head_message,
             git::repo_diff,

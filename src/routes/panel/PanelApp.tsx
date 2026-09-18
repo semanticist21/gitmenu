@@ -1,7 +1,7 @@
 // The menu bar panel: project tabs, then the active project's repositories and views.
 import { useQuery } from '@tanstack/react-query'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { setContext } from '@/commands/context'
 import { registerHandler } from '@/commands/registry'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,8 @@ import { renderView, ViewActions } from '@/features/views/registry'
 import { t, useLocale, vsb } from '@/i18n'
 import { errorMessage, ipc, type EnvStatus, useTauriEvent } from '@/lib/ipc'
 import { useUiState } from '@/lib/uiState'
+import { useSetting } from '@/settings/settings'
+import { checkForUpdates } from '@/features/update/update'
 
 function usePanelCommands(projectIds: string[], activeId: string | null, activeRepo: string | null, togglePin: () => void) {
   useEffect(() => {
@@ -52,6 +54,7 @@ function usePanelCommands(projectIds: string[], activeId: string | null, activeR
         if (target) void ipc.revealInFinder(target)
       }),
       registerHandler('gitside.quit', () => ipc.appQuit()),
+      registerHandler('update.checkForUpdates', () => checkForUpdates(true)),
       registerHandler('workbench.action.openSettings', () => ipc.detailOpen('/detail/settings')),
       registerHandler('workbench.action.openGlobalKeybindings', () => ipc.detailOpen('/detail/keyboard-shortcuts')),
     ]
@@ -138,6 +141,15 @@ export function PanelApp() {
     togglePin,
   )
   useFolderDrop()
+
+  const updateMode = useSetting<string>('update.mode')
+  // Once per launch, when the setting is known
+  const updateChecked = useRef(false)
+  useEffect(() => {
+    if (updateChecked.current || !updateMode) return
+    updateChecked.current = true
+    if (updateMode === 'default' || updateMode === 'start') void checkForUpdates(false)
+  }, [updateMode])
 
   useRepoChangeSync()
   useEffect(() => setActiveRepo(repo?.root ?? null), [repo])

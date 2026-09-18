@@ -298,3 +298,19 @@ pub fn login_item_status() -> LoginItem {
 pub fn login_item_set(enabled: bool) -> Result<LoginItem> {
     update::set_login_item(enabled)
 }
+
+#[tauri::command]
+pub async fn update_check(app: AppHandle) -> Result<Option<update::Update>> {
+    update::check(&app).await
+}
+
+#[tauri::command]
+pub async fn update_install(app: AppHandle) -> Result<()> {
+    update::install(&app).await
+}
+
+/// Reports a window's uncaught error when crash reports are on.
+#[tauri::command]
+pub fn crash_report(message: String) {
+    crate::crash::report(&message);
+}

@@ -3,6 +3,7 @@
 // Playwright tests; never bundled into the app (main.tsx imports it only when VITE_MOCK is set).
 import { emit } from '@tauri-apps/api/event'
 import { mockIPC, mockWindows } from '@tauri-apps/api/mocks'
+import { resolveMenu, title } from '@/commands/registry'
 
 const root = '/Users/me/code/demo'
 const projects = [
@@ -63,6 +64,13 @@ const ui: Record<string, unknown> = { loginItemAsked: true, 'views.layout': new 
 const settings: Record<string, unknown> = {}
 
 export function installMocks() {
+  // For the e2e tests: the labels a registry menu should show, in order
+  Object.assign(window, {
+    __menuLabels: (menu: string, context: Record<string, unknown>) =>
+      resolveMenu(menu, context)
+        .filter((g) => g.group !== 'inline')
+        .flatMap((g) => g.items.map((i) => (i.command ? title(i.command.title) : i.submenu ? title(i.submenu.label) : ''))),
+  })
   const params = new URLSearchParams(window.location.search)
   mockWindows(window.location.hash.startsWith('#/detail') ? 'detail' : (params.get('window') ?? 'panel'))
   mockIPC(

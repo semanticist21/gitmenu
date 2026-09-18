@@ -26,7 +26,7 @@ interface Schema {
 const schemas = configuration as Record<string, Schema>
 
 const SECTIONS: { title: AppKey; match: (key: string) => boolean }[] = [
-  { title: 'settings.section.general', match: (k) => k.startsWith('gitside.') && !k.startsWith('gitside.ai.') },
+  { title: 'settings.section.general', match: (k) => (k.startsWith('gitside.') && !k.startsWith('gitside.ai.')) || k.startsWith('update.') },
   { title: 'settings.section.ai', match: (k) => k.startsWith('gitside.ai.') },
   { title: 'settings.section.git', match: (k) => k.startsWith('git.') },
   { title: 'settings.section.diff', match: (k) => k.startsWith('diffEditor.') || k.startsWith('editor.') },
