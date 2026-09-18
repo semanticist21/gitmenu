@@ -18,6 +18,8 @@ import {
   RepoList,
 } from '@/features/projects/components/ProjectBody'
 import { PromptDialog } from '@/features/prompt/PromptDialog'
+import { useRepoChangeSync } from '@/features/scm/api'
+import { setActiveRepo } from '@/features/scm/state'
 import { ViewContainer } from '@/features/views/ViewContainer'
 import { renderView, ViewActions } from '@/features/views/registry'
 import { t, useLocale, vsb } from '@/i18n'
@@ -136,6 +138,9 @@ export function PanelApp() {
     togglePin,
   )
   useFolderDrop()
+
+  useRepoChangeSync()
+  useEffect(() => setActiveRepo(repo?.root ?? null), [repo])
 
   useEffect(() => {
     setContext('gitside.window', 'panel')

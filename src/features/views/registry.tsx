@@ -31,8 +31,10 @@ export function renderView(id: string, repo: RepoInfo) {
 
 export function ViewActions({ view, repo }: { view: string; repo: RepoInfo }) {
   useLocale()
-  const context = { view: `gitside.views.${view}` }
-  const groups = resolveMenu('view/title', context)
+  // Source Control uses VS Code's own `scm/title` menu; the other views use `view/title`
+  const menu = view === 'scm' ? 'scm/title' : 'view/title'
+  const context = view === 'scm' ? { scmProvider: 'git' } : { view: `gitside.views.${view}` }
+  const groups = resolveMenu(menu, context)
   const inline = groups.filter((g) => g.group === 'navigation').flatMap((g) => g.items)
   const hasMore = groups.some((g) => g.group !== 'navigation' && g.items.length > 0)
   return (
@@ -61,7 +63,7 @@ export function ViewActions({ view, repo }: { view: string; repo: RepoInfo }) {
             <EllipsisIcon />
           </MenuTrigger>
           <MenuPopup align="end">
-            <MenuItems menu="view/title" context={context} args={[repo.root]} exclude={['navigation']} />
+            <MenuItems menu={menu} context={context} args={[repo.root]} exclude={['navigation']} />
           </MenuPopup>
         </Menu>
       )}

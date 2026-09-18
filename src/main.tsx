@@ -8,7 +8,10 @@ import { installFocusTracking, setSettingsContext } from '@/commands/context'
 import { appContribution } from '@/commands/contributes/app'
 import { useCommandHotkeys, useKeybindingsSync } from '@/commands/keybindings'
 import { contribute } from '@/commands/registry'
+import { DialogHost } from '@/components/dialogs/dialogs'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ToastProvider } from '@/components/ui/toast'
+import { setScmQueryClient } from '@/features/scm/state'
 import { setLocale } from '@/i18n'
 import { router } from '@/routes/router'
 import { settingsQuery, useSettings, useSettingsSync } from '@/settings/settings'
@@ -16,12 +19,15 @@ import { useTheme } from '@/theme/theme'
 import '@/features'
 import './index.css'
 
+if (import.meta.env.VITE_MOCK === '1') (await import('@/dev/mock')).installMocks()
+
 contribute(appContribution)
 installFocusTracking()
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: false } },
 })
+setScmQueryClient(queryClient)
 
 function Shell() {
   useSettingsSync()
@@ -41,6 +47,7 @@ function Shell() {
     <>
       <RouterProvider router={router} />
       <CommandPalette />
+      <DialogHost />
     </>
   )
 }
@@ -56,7 +63,9 @@ void queryClient
         <QueryClientProvider client={queryClient}>
           <HotkeysProvider>
             <ToastProvider>
-              <Shell />
+              <ErrorBoundary>
+                <Shell />
+              </ErrorBoundary>
             </ToastProvider>
           </HotkeysProvider>
         </QueryClientProvider>

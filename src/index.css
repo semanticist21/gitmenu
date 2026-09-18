@@ -3,6 +3,12 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* The panel is 360px wide but is a desktop surface: coss components use their compact
+   `sm:` sizes from the start */
+@theme {
+    --breakpoint-sm: 0px;
+}
+
 @theme inline {
     --animate-skeleton: skeleton 2s -1s infinite linear;
     --animate-caret-blink: 1s ease-out infinite caret-blink;
@@ -240,4 +246,19 @@
   html {
     @apply font-sans;
     }
+}
+/* VS Code's gitDecoration colors (Default Light+/Dark+) */
+:root {
+    --git-modified: #895503;
+    --git-added: #587c0c;
+    --git-deleted: #ad0707;
+    --git-untracked: #007100;
+    --git-conflict: #ad0707;
+}
+.dark {
+    --git-modified: #e2c08d;
+    --git-added: #81b88b;
+    --git-deleted: #c74e39;
+    --git-untracked: #73c991;
+    --git-conflict: #e4676b;
 }

@@ -1,11 +1,15 @@
+mod ai;
 mod commands;
 mod env;
 mod error;
+mod git;
 mod project;
 mod queue;
+mod read;
 mod settings;
 mod tray;
 mod update;
+mod write;
 
 use std::sync::Arc;
 
@@ -58,6 +62,7 @@ pub fn run() {
             });
             app.manage(Arc::clone(&env));
 
+            app.manage(Arc::new(read::Repos::default()));
             let queue = Queue::new(Arc::clone(&env), handle.clone());
             app.manage(Arc::clone(&queue));
             let projects = Projects::new(
@@ -123,6 +128,24 @@ pub fn run() {
             commands::app_quit,
             commands::login_item_status,
             commands::login_item_set,
+            git::repo_status,
+            git::repo_head_message,
+            git::repo_refs,
+            git::repo_stashes,
+            git::repo_config,
+            git::git_stage,
+            git::git_unstage,
+            git::git_discard,
+            git::git_recovery_point,
+            git::git_commit,
+            git::git_apply,
+            git::git_exec,
+            git::ai_availability,
+            git::ai_commit_message,
+            git::git_ignore,
+            git::git_clone,
+            git::trash_paths,
+            git::read_text_file,
         ])
         .build(tauri::generate_context!())
         .expect("error while building gitside")

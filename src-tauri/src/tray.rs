@@ -8,6 +8,9 @@
 //! full-screen apps without taking focus from the user's editor. Every NSPanel call runs
 //! on the main thread; calling it elsewhere deadlocks.
 
+// tauri_panel!'s event handler syntax requires `-> ()`
+#![allow(clippy::unused_unit)]
+
 use std::{
     sync::{
         Arc, Condvar, Mutex,
@@ -117,6 +120,7 @@ pub struct Tray {
     pinned: AtomicBool,
     hidden_at: Mutex<Option<Instant>>,
     last_rect: Mutex<Option<Rect>>,
+    conflicted: Mutex<std::collections::HashSet<std::path::PathBuf>>,
 }
 
 impl Tray {
@@ -135,6 +139,7 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         pinned: AtomicBool::new(false),
         hidden_at: Mutex::new(None),
         last_rect: Mutex::new(None),
+        conflicted: Mutex::new(Default::default()),
     });
     app.manage(Arc::clone(&tray_state));
     let frames = Arc::new(Frames::load());
@@ -347,9 +352,21 @@ pub fn set_activity(app: &AppHandle, activity: Option<Activity>) {
     }
 }
 
-pub fn set_conflict(app: &AppHandle, conflict: bool) {
-    if let Some(tray) = app.try_state::<Arc<Tray>>() {
-        tray.update(|s| s.conflict = conflict);
+/// Records whether `root` has merge conflicts; the icon shows the conflict badge while any does.
+pub fn set_repo_conflict(app: &AppHandle, root: &std::path::Path, conflict: bool) {
+    let Some(tray) = app.try_state::<Arc<Tray>>() else {
+        return;
+    };
+    let mut repos = tray.conflicted.lock().unwrap();
+    let changed = if conflict {
+        repos.insert(root.to_path_buf())
+    } else {
+        repos.remove(root)
+    };
+    let any = !repos.is_empty();
+    drop(repos);
+    if changed {
+        tray.update(|s| s.conflict = any);
     }
 }
 

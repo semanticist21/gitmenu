@@ -57,9 +57,12 @@ export function vs(key: string, ...args: unknown[]): string {
   return format(vscode.package[key] ?? vscodeEnglish.package[key] ?? key, args)
 }
 
-/** A VS Code git extension runtime message by its English text. */
+/**
+ * A VS Code git extension runtime message by its English text. Some keys carry a
+ * translator comment after `/{Locked=…}`; it is part of the key but never shown.
+ */
 export function vsb(english: string, ...args: unknown[]): string {
-  return format(vscode.bundle[english] ?? english, args)
+  return format(vscode.bundle[english] ?? english.replace(/\/\{Locked=.*$/s, ''), args)
 }
 
 /** Strips VS Code's markdown command links (`[Label](command:…)`) down to plain lines. */

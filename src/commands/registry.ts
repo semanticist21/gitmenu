@@ -3,16 +3,20 @@
 // Features register handlers for the commands they own; menus, the palette and shortcuts
 // all read from here.
 import type { LucideIcon } from 'lucide-react'
-import { t, vs } from '@/i18n'
+import { t, vs, vsb } from '@/i18n'
 import type { AppKey } from '@/i18n/app/en'
 import { contextSnapshot } from './context'
 import { type Context, matchesWhen } from './when'
 
-/** A label: a VS Code git nls key, an app string key, or plain text. */
-export type Title = { vs: string } | { app: AppKey } | { text: string }
+/**
+ * A label: a VS Code git nls key (`vs`), a VS Code git runtime message by its English text
+ * (`vsb`), an app string key (`app`), or text that is never translated (product names).
+ */
+export type Title = { vs: string } | { vsb: string } | { app: AppKey } | { text: string }
 
 export function title(value: Title): string {
   if ('vs' in value) return vs(value.vs)
+  if ('vsb' in value) return vsb(value.vsb, '').trim()
   if ('app' in value) return t(value.app)
   return value.text
 }

@@ -1,7 +1,8 @@
 // Running git operations (with cancel) at the bottom of the window, and their errors as toasts.
 import { useQueryClient } from '@tanstack/react-query'
 import { XIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { setContext } from '@/commands/context'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { toastManager } from '@/components/ui/toast'
@@ -41,6 +42,8 @@ export function OpsBar() {
       toastManager.add({ type: 'error', title: errorText(op.error), description: op.error.stderr?.trim() || undefined })
     }
   })
+
+  useEffect(() => setContext('operationInProgress', running.length > 0), [running.length])
 
   if (running.length === 0) return null
   return (

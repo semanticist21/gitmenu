@@ -112,6 +112,13 @@ function toRaw(chord: string): RawHotkey {
   }
 }
 
+/** Sequences take hotkey strings (`Meta+K`), not raw objects. */
+function toHotkeyString(chord: string): string {
+  const raw = toRaw(chord)
+  const mods = [raw.ctrl && 'Control', raw.alt && 'Alt', raw.shift && 'Shift', raw.meta && 'Meta'].filter(Boolean)
+  return [...mods, raw.key].join('+')
+}
+
 /** The command a key triggers now: the last matching binding whose `when` holds. */
 function resolve(bindings: EffectiveBinding[], key: string): EffectiveBinding | undefined {
   const ctx = contextSnapshot()
@@ -144,7 +151,7 @@ export function useCommandHotkeys() {
 
   useHotkeySequences(
     chords.map((key) => ({
-      sequence: key.split(' ').map(toRaw) as never,
+      sequence: key.split(' ').map(toHotkeyString) as never,
       callback: (event: KeyboardEvent) => {
         const binding = resolve(bindings, key)
         if (!binding) return
