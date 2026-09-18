@@ -283,7 +283,7 @@ function openChange(args: unknown[], ref: 'change' | 'head') {
 function viewGroup(arg: unknown, group: GroupId) {
   const root = repoFrom(arg)
   if (!root) return
-  void ipc.detailOpen(`/detail/diff?${new URLSearchParams({ repo: root, group, all: '1' })}`)
+  void ipc.detailOpen(`/detail/changes?${new URLSearchParams({ repo: root, group })}`)
 }
 
 // ——— commit ———

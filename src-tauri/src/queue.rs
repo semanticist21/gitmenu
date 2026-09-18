@@ -47,10 +47,7 @@ pub enum OpKind {
 
 impl OpKind {
     fn is_network(self) -> bool {
-        matches!(
-            self,
-            OpKind::Push | OpKind::Pull | OpKind::Fetch | OpKind::Sync
-        )
+        matches!(self, OpKind::Push | OpKind::Pull | OpKind::Fetch | OpKind::Sync)
     }
 
     fn takes_write_slot(self) -> bool {
@@ -128,21 +125,11 @@ impl Queue {
 
     /// True while a write is running in this worktree; the watcher holds its events until then.
     pub fn is_writing(&self, worktree: &Path) -> bool {
-        self.writing
-            .lock()
-            .unwrap()
-            .get(worktree)
-            .is_some_and(|n| *n > 0)
+        self.writing.lock().unwrap().get(worktree).is_some_and(|n| *n > 0)
     }
 
     /// Runs `git <args>` for `target`. `label` is shown in the panel while it runs.
-    pub async fn run(
-        &self,
-        target: Target<'_>,
-        kind: OpKind,
-        label: &str,
-        args: &[&str],
-    ) -> Result<Output> {
+    pub async fn run(&self, target: Target<'_>, kind: OpKind, label: &str, args: &[&str]) -> Result<Output> {
         self.run_with_stdin(target, kind, label, args, None).await
     }
 
@@ -162,27 +149,16 @@ impl Queue {
             self.network.lock().unwrap().remove(&network_key);
         });
 
-        let slot = kind.takes_write_slot().then(|| {
-            Arc::clone(
-                self.slots
-                    .lock()
-                    .unwrap()
-                    .entry(target.worktree.to_path_buf())
-                    .or_default(),
-            )
-        });
+        let slot = kind
+            .takes_write_slot()
+            .then(|| Arc::clone(self.slots.lock().unwrap().entry(target.worktree.to_path_buf()).or_default()));
         let _slot_guard = match &slot {
             Some(slot) => Some(slot.lock().await),
             None => None,
         };
         let worktree = target.worktree.to_path_buf();
         if kind.takes_write_slot() {
-            *self
-                .writing
-                .lock()
-                .unwrap()
-                .entry(worktree.clone())
-                .or_default() += 1;
+            *self.writing.lock().unwrap().entry(worktree.clone()).or_default() += 1;
         }
         let _writing_guard = scopeguard(kind.takes_write_slot(), || {
             if let Some(n) = self.writing.lock().unwrap().get_mut(&worktree) {
@@ -192,26 +168,11 @@ impl Queue {
 
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         self.begin(id, kind);
-        let _ = self.app.emit(
-            "op://started",
-            OpEvent {
-                id,
-                repo: target.worktree,
-                kind,
-                label,
-            },
-        );
+        let _ = self.app.emit("op://started", OpEvent { id, repo: target.worktree, kind, label });
         let result = self.run_retrying(id, target.worktree, args, stdin).await;
         self.end(id, result.as_ref().err());
-        let _ = self.app.emit(
-            "op://finished",
-            OpDone {
-                id,
-                repo: target.worktree,
-                kind,
-                error: result.as_ref().err(),
-            },
-        );
+        let _ =
+            self.app.emit("op://finished", OpDone { id, repo: target.worktree, kind, error: result.as_ref().err() });
         result
     }
 
@@ -222,19 +183,11 @@ impl Queue {
         }
     }
 
-    async fn run_retrying(
-        &self,
-        id: u64,
-        cwd: &Path,
-        args: &[&str],
-        stdin: Option<Vec<u8>>,
-    ) -> Result<Output> {
+    async fn run_retrying(&self, id: u64, cwd: &Path, args: &[&str], stdin: Option<Vec<u8>>) -> Result<Output> {
         let mut attempt = 0;
         loop {
             match self.spawn(id, cwd, args, stdin.clone()).await {
-                Err(Error::Git { stderr, .. })
-                    if is_index_locked(&stderr) && attempt < LOCK_RETRIES.len() =>
-                {
+                Err(Error::Git { stderr, .. }) if is_index_locked(&stderr) && attempt < LOCK_RETRIES.len() => {
                     tokio::time::sleep(Duration::from_millis(LOCK_RETRIES[attempt])).await;
                     attempt += 1;
                 }
@@ -250,13 +203,7 @@ impl Queue {
         }
     }
 
-    async fn spawn(
-        &self,
-        id: u64,
-        cwd: &Path,
-        args: &[&str],
-        stdin: Option<Vec<u8>>,
-    ) -> Result<Output> {
+    async fn spawn(&self, id: u64, cwd: &Path, args: &[&str], stdin: Option<Vec<u8>>) -> Result<Output> {
         let mut cmd = self.env.git(cwd, args).await?;
         if stdin.is_some() {
             cmd.stdin(Stdio::piped());
@@ -293,11 +240,7 @@ impl Queue {
         if status.success() {
             Ok(Output { stdout, stderr })
         } else {
-            Err(Error::Git {
-                message: git_message(&stderr, args),
-                stderr,
-                code: status.code(),
-            })
+            Err(Error::Git { message: git_message(&stderr, args), stderr, code: status.code() })
         }
     }
 
@@ -308,8 +251,7 @@ impl Queue {
 
     fn end(&self, id: u64, error: Option<&Error>) {
         self.active.lock().unwrap().remove(&id);
-        let failed =
-            error.is_some_and(|e| !matches!(e, Error::Cancelled | Error::AlreadyRunning(_)));
+        let failed = error.is_some_and(|e| !matches!(e, Error::Cancelled | Error::AlreadyRunning(_)));
         self.update_tray(Some(failed));
     }
 
@@ -319,14 +261,9 @@ impl Queue {
         }
         // Most visible activity wins: push > pull > fetch > commit
         let active = self.active.lock().unwrap();
-        let activity = [
-            Activity::Push,
-            Activity::Pull,
-            Activity::Fetch,
-            Activity::Commit,
-        ]
-        .into_iter()
-        .find(|a| active.values().any(|k| k.activity() == Some(*a)));
+        let activity = [Activity::Push, Activity::Pull, Activity::Fetch, Activity::Commit]
+            .into_iter()
+            .find(|a| active.values().any(|k| k.activity() == Some(*a)));
         tray::set_activity(&self.app, activity);
     }
 }
@@ -343,11 +280,7 @@ fn locked_path(stderr: &str) -> Option<PathBuf> {
 
 /// Names the process that holds `path` open, or says the lock looks stale.
 async fn lock_holder(path: &Path) -> String {
-    let output = tokio::process::Command::new("/usr/sbin/lsof")
-        .args(["-Fpc", "--"])
-        .arg(path)
-        .output()
-        .await;
+    let output = tokio::process::Command::new("/usr/sbin/lsof").args(["-Fpc", "--"]).arg(path).output().await;
     if let Ok(output) = output {
         let text = String::from_utf8_lossy(&output.stdout);
         let pid = text.lines().find_map(|l| l.strip_prefix('p'));
@@ -361,20 +294,12 @@ async fn lock_holder(path: &Path) -> String {
 
 /// The line users need from git's stderr: the first `fatal:`/`error:` line, else the last line.
 fn git_message(stderr: &str, args: &[&str]) -> String {
-    let lines: Vec<&str> = stderr
-        .lines()
-        .map(str::trim)
-        .filter(|l| !l.is_empty())
-        .collect();
+    let lines: Vec<&str> = stderr.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
     lines
         .iter()
         .find(|l| l.starts_with("fatal:") || l.starts_with("error:"))
         .or(lines.last())
-        .map(|l| {
-            l.trim_start_matches("fatal: ")
-                .trim_start_matches("error: ")
-                .to_owned()
-        })
+        .map(|l| l.trim_start_matches("fatal: ").trim_start_matches("error: ").to_owned())
         .unwrap_or_else(|| format!("git {} failed", args.first().unwrap_or(&"")))
 }
 
@@ -400,13 +325,7 @@ mod tests {
     fn reads_locked_path() {
         let stderr = "fatal: Unable to create '/tmp/repo/.git/index.lock': File exists.\n\nAnother git process seems to be running";
         assert!(is_index_locked(stderr));
-        assert_eq!(
-            locked_path(stderr),
-            Some(PathBuf::from("/tmp/repo/.git/index.lock"))
-        );
-        assert_eq!(
-            git_message(stderr, &["commit"]),
-            "Unable to create '/tmp/repo/.git/index.lock': File exists."
-        );
+        assert_eq!(locked_path(stderr), Some(PathBuf::from("/tmp/repo/.git/index.lock")));
+        assert_eq!(git_message(stderr, &["commit"]), "Unable to create '/tmp/repo/.git/index.lock': File exists.");
     }
 }

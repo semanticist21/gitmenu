@@ -12,11 +12,7 @@ pub enum Error {
     #[error("git is not installed or not found on PATH")]
     GitMissing,
     #[error("{message}")]
-    Git {
-        message: String,
-        stderr: String,
-        code: Option<i32>,
-    },
+    Git { message: String, stderr: String, code: Option<i32> },
     #[error("{0}")]
     Repo(String),
     #[error("another process is holding {path}: {holder}")]

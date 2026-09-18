@@ -65,12 +65,7 @@ pub fn run() {
             app.manage(Arc::new(read::Repos::default()));
             let queue = Queue::new(Arc::clone(&env), handle.clone());
             app.manage(Arc::clone(&queue));
-            let projects = Projects::new(
-                handle.clone(),
-                Arc::clone(&settings),
-                Arc::clone(&ui),
-                queue,
-            );
+            let projects = Projects::new(handle.clone(), Arc::clone(&settings), Arc::clone(&ui), queue);
             projects.restore();
             app.manage(Arc::clone(&projects));
 
@@ -81,9 +76,7 @@ pub fn run() {
                 move |_| {
                     let settings = handle.state::<Arc<Settings>>();
                     register_global_shortcut(&handle, &settings);
-                    handle
-                        .state::<Arc<GitEnv>>()
-                        .refresh_git(&handle, &settings);
+                    handle.state::<Arc<GitEnv>>().refresh_git(&handle, &settings);
                 }
             });
 
@@ -130,6 +123,9 @@ pub fn run() {
             commands::login_item_set,
             git::repo_status,
             git::repo_head_message,
+            git::repo_diff,
+            git::repo_file,
+            git::repo_blame,
             git::repo_refs,
             git::repo_stashes,
             git::repo_config,
@@ -164,9 +160,7 @@ fn tauri_plugin_nspanel_init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 pub(crate) fn register_global_shortcut(app: &AppHandle, settings: &Settings) {
     let shortcuts = app.global_shortcut();
     let _ = shortcuts.unregister_all();
-    if let Some(accelerator) = settings
-        .get_str("gitside.panel.globalShortcut")
-        .filter(|s| !s.is_empty())
+    if let Some(accelerator) = settings.get_str("gitside.panel.globalShortcut").filter(|s| !s.is_empty())
         && let Err(e) = shortcuts.register(accelerator.as_str())
     {
         log::warn!("global shortcut {accelerator} not registered: {e}");

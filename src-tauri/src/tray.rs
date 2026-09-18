@@ -25,9 +25,7 @@ use tauri::{
     image::Image,
     tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
 };
-use tauri_nspanel::{
-    CollectionBehavior, ManagerExt, PanelLevel, StyleMask, WebviewWindowExt, tauri_panel,
-};
+use tauri_nspanel::{CollectionBehavior, ManagerExt, PanelLevel, StyleMask, WebviewWindowExt, tauri_panel};
 
 use crate::project::UiState;
 
@@ -75,8 +73,7 @@ struct Frames {
 
 macro_rules! frame {
     ($name:literal) => {
-        Image::from_bytes(include_bytes!(concat!("../icons/tray/", $name, "@2x.png")))
-            .expect("tray icon png")
+        Image::from_bytes(include_bytes!(concat!("../icons/tray/", $name, "@2x.png"))).expect("tray icon png")
     };
 }
 
@@ -151,10 +148,7 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
-                button: MouseButton::Left,
-                button_state: MouseButtonState::Up,
-                rect,
-                ..
+                button: MouseButton::Left, button_state: MouseButtonState::Up, rect, ..
             } = event
             {
                 let app = tray.app_handle();
@@ -162,11 +156,7 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                 *state.last_rect.lock().unwrap() = Some(rect);
                 // A click that lands right after the panel hid itself on blur is the same
                 // click that caused the blur; don't reopen
-                let just_hidden = state
-                    .hidden_at
-                    .lock()
-                    .unwrap()
-                    .is_some_and(|t| t.elapsed() < REOPEN_GUARD);
+                let just_hidden = state.hidden_at.lock().unwrap().is_some_and(|t| t.elapsed() < REOPEN_GUARD);
                 if just_hidden {
                     return;
                 }
@@ -181,20 +171,11 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn setup_panel(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    let window = app
-        .get_webview_window(PANEL)
-        .expect("panel window in tauri.conf.json");
-    let panel = window
-        .to_panel::<GitsidePanel>()
-        .map_err(|e| e.to_string())?;
+    let window = app.get_webview_window(PANEL).expect("panel window in tauri.conf.json");
+    let panel = window.to_panel::<GitsidePanel>().map_err(|e| e.to_string())?;
     panel.set_level(PanelLevel::Floating.value());
     panel.set_style_mask(StyleMask::empty().nonactivating_panel().resizable().into());
-    panel.set_collection_behavior(
-        CollectionBehavior::new()
-            .full_screen_auxiliary()
-            .can_join_all_spaces()
-            .into(),
-    );
+    panel.set_collection_behavior(CollectionBehavior::new().full_screen_auxiliary().can_join_all_spaces().into());
     panel.set_has_shadow(true);
     panel.set_corner_radius(10.0);
 
@@ -220,20 +201,14 @@ fn hide_if_unfocused(app: &AppHandle) {
     if tray.pinned.load(Ordering::Relaxed) {
         return;
     }
-    let ours_focused = app
-        .webview_windows()
-        .values()
-        .any(|w| w.is_focused().unwrap_or(false));
+    let ours_focused = app.webview_windows().values().any(|w| w.is_focused().unwrap_or(false));
     if !ours_focused {
         hide_panel(app);
     }
 }
 
 pub fn toggle_panel(app: &AppHandle) {
-    let visible = app
-        .get_webview_panel(PANEL)
-        .map(|p| p.is_visible())
-        .unwrap_or(false);
+    let visible = app.get_webview_panel(PANEL).map(|p| p.is_visible()).unwrap_or(false);
     if visible {
         hide_panel(app);
     } else {
@@ -278,10 +253,7 @@ pub fn hide_panel(app: &AppHandle) {
             && let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor())
         {
             let logical = size.to_logical::<f64>(scale);
-            app.state::<Arc<UiState>>().set(
-                "panel.size",
-                serde_json::json!([logical.width, logical.height]),
-            );
+            app.state::<Arc<UiState>>().set("panel.size", serde_json::json!([logical.width, logical.height]));
         }
         panel.hide();
         *app.state::<Arc<Tray>>().hidden_at.lock().unwrap() = Some(Instant::now());
@@ -290,19 +262,18 @@ pub fn hide_panel(app: &AppHandle) {
 }
 
 pub fn set_pinned(app: &AppHandle, pinned: bool) {
-    app.state::<Arc<Tray>>()
-        .pinned
-        .store(pinned, Ordering::Relaxed);
+    app.state::<Arc<Tray>>().pinned.store(pinned, Ordering::Relaxed);
 }
 
 /// Restores the remembered size and centers the panel under the icon, inside the screen.
 fn place_panel(app: &AppHandle, window: &tauri::WebviewWindow) {
     let tray = app.state::<Arc<Tray>>();
     // The icon's rect right after launch is wrong, so it's read at click time when possible
-    let rect = tray.last_rect.lock().unwrap().or_else(|| {
-        app.tray_by_id(TRAY_ID)
-            .and_then(|t: TrayIcon| t.rect().ok().flatten())
-    });
+    let rect = tray
+        .last_rect
+        .lock()
+        .unwrap()
+        .or_else(|| app.tray_by_id(TRAY_ID).and_then(|t: TrayIcon| t.rect().ok().flatten()));
     let Some(rect) = rect else { return };
     let scale = window.scale_factor().unwrap_or(2.0);
     let icon_pos = rect.position.to_physical::<f64>(scale);
@@ -326,8 +297,7 @@ fn place_panel(app: &AppHandle, window: &tauri::WebviewWindow) {
     let top = icon_pos.y + icon_size.height;
     if let Some(m) = &monitor {
         let area = m.work_area();
-        let max_h =
-            (area.size.height as f64 / scale) - (top - area.position.y as f64) / scale - MARGIN;
+        let max_h = (area.size.height as f64 / scale) - (top - area.position.y as f64) / scale - MARGIN;
         height = height.min(max_h).max(320.0);
         width = width.max(300.0);
     }
@@ -340,10 +310,7 @@ fn place_panel(app: &AppHandle, window: &tauri::WebviewWindow) {
         let right = (area.position.x + area.size.width as i32) as f64 - MARGIN * scale - phys_w;
         x = x.clamp(left, right.max(left));
     }
-    let _ = window.set_position(PhysicalPosition::new(
-        x.round() as i32,
-        (top + 4.0 * scale).round() as i32,
-    ));
+    let _ = window.set_position(PhysicalPosition::new(x.round() as i32, (top + 4.0 * scale).round() as i32));
 }
 
 pub fn set_activity(app: &AppHandle, activity: Option<Activity>) {
@@ -358,11 +325,7 @@ pub fn set_repo_conflict(app: &AppHandle, root: &std::path::Path, conflict: bool
         return;
     };
     let mut repos = tray.conflicted.lock().unwrap();
-    let changed = if conflict {
-        repos.insert(root.to_path_buf())
-    } else {
-        repos.remove(root)
-    };
+    let changed = if conflict { repos.insert(root.to_path_buf()) } else { repos.remove(root) };
     let any = !repos.is_empty();
     drop(repos);
     if changed {
@@ -403,11 +366,7 @@ fn spawn_blinker(app: AppHandle, tray: Arc<Tray>, frames: Arc<Frames>) {
             };
             match (activity, conflict, failure) {
                 (Some(activity), _, _) => {
-                    let image = if badge_on {
-                        frames.activity(activity)
-                    } else {
-                        &frames.idle
-                    };
+                    let image = if badge_on { frames.activity(activity) } else { &frames.idle };
                     let _ = icon.set_icon_with_as_template(Some(image.clone()), true);
                 }
                 (None, true, _) | (None, false, true) => {
@@ -431,9 +390,7 @@ fn spawn_blinker(app: AppHandle, tray: Arc<Tray>, frames: Arc<Frames>) {
 
 /// The status item's own appearance (the menu bar can be dark while the app is light).
 fn menu_bar_is_dark(icon: &TrayIcon) -> bool {
-    use objc2_app_kit::{
-        NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
-    };
+    use objc2_app_kit::{NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua};
     use objc2_foundation::NSArray;
     icon.with_inner_tray_icon(|inner| {
         let Some(item) = inner.ns_status_item() else {
@@ -444,8 +401,7 @@ fn menu_bar_is_dark(icon: &TrayIcon) -> bool {
             return false;
         };
         let appearance = button.effectiveAppearance();
-        let names =
-            unsafe { NSArray::from_slice(&[NSAppearanceNameAqua, NSAppearanceNameDarkAqua]) };
+        let names = unsafe { NSArray::from_slice(&[NSAppearanceNameAqua, NSAppearanceNameDarkAqua]) };
         let best = appearance.bestMatchFromAppearancesWithNames(&names);
         best.is_some_and(|name| unsafe { &*name == NSAppearanceNameDarkAqua })
     })

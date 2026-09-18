@@ -1456,6 +1456,7 @@ dependencies = [
 name = "gitside"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "gix",
  "jsonc-parser",
  "log",

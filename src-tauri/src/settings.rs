@@ -55,13 +55,7 @@ impl Settings {
 
     /// The user's value, else the schema default, else null.
     pub fn get(&self, key: &str) -> Value {
-        self.values
-            .read()
-            .unwrap()
-            .get(key)
-            .cloned()
-            .or_else(|| self.defaults.get(key).cloned())
-            .unwrap_or(Value::Null)
+        self.values.read().unwrap().get(key).cloned().or_else(|| self.defaults.get(key).cloned()).unwrap_or(Value::Null)
     }
 
     pub fn get_str(&self, key: &str) -> Option<String> {
@@ -76,11 +70,7 @@ impl Settings {
     pub fn set(&self, key: &str, value: Value) -> Result<()> {
         let path = self.settings_path();
         let text = fs::read_to_string(&path).unwrap_or_default();
-        let text = if text.trim().is_empty() {
-            "{}\n".to_owned()
-        } else {
-            text
-        };
+        let text = if text.trim().is_empty() { "{}\n".to_owned() } else { text };
         let root = CstRootNode::parse(&text, &ParseOptions::default())
             .map_err(|e| Error::Settings(format!("{}: {e}", path.display())))?;
         let object = root.object_value_or_set();
@@ -127,32 +117,21 @@ impl Settings {
     /// Watches the settings folder and emits change events for either file.
     pub fn watch(self: &Arc<Self>, app: AppHandle) -> Result<()> {
         let this = Arc::clone(self);
-        let mut debouncer = new_debouncer(
-            Duration::from_millis(150),
-            None,
-            move |result: DebounceEventResult| {
-                let Ok(events) = result else { return };
-                let touched = |name: &str| {
-                    events.iter().any(|e| {
-                        e.paths
-                            .iter()
-                            .any(|p| p.file_name().is_some_and(|f| f == name))
-                    })
-                };
-                if touched("settings.json") {
-                    let next = read_object(&this.settings_path());
-                    *this.values.write().unwrap() = next.clone();
-                    let _ = app.emit("settings://changed", next);
-                }
-                if touched("keybindings.json") {
-                    let _ = app.emit("keybindings://changed", this.keybindings());
-                }
-            },
-        )
+        let mut debouncer = new_debouncer(Duration::from_millis(150), None, move |result: DebounceEventResult| {
+            let Ok(events) = result else { return };
+            let touched =
+                |name: &str| events.iter().any(|e| e.paths.iter().any(|p| p.file_name().is_some_and(|f| f == name)));
+            if touched("settings.json") {
+                let next = read_object(&this.settings_path());
+                *this.values.write().unwrap() = next.clone();
+                let _ = app.emit("settings://changed", next);
+            }
+            if touched("keybindings.json") {
+                let _ = app.emit("keybindings://changed", this.keybindings());
+            }
+        })
         .map_err(|e| Error::Settings(e.to_string()))?;
-        debouncer
-            .watch(&self.dir, RecursiveMode::NonRecursive)
-            .map_err(|e| Error::Settings(e.to_string()))?;
+        debouncer.watch(&self.dir, RecursiveMode::NonRecursive).map_err(|e| Error::Settings(e.to_string()))?;
         *self._watcher.lock().unwrap() = Some(debouncer);
         Ok(())
     }
@@ -188,9 +167,7 @@ fn to_cst(value: &Value) -> CstInputValue {
         Value::Number(n) => CstInputValue::Number(n.to_string()),
         Value::String(s) => CstInputValue::String(s.clone()),
         Value::Array(items) => CstInputValue::Array(items.iter().map(to_cst).collect()),
-        Value::Object(map) => {
-            CstInputValue::Object(map.iter().map(|(k, v)| (k.clone(), to_cst(v))).collect())
-        }
+        Value::Object(map) => CstInputValue::Object(map.iter().map(|(k, v)| (k.clone(), to_cst(v))).collect()),
     }
 }
 
@@ -208,23 +185,15 @@ mod tests {
         .unwrap();
         let settings = Settings::load(dir.clone()).unwrap();
         assert_eq!(settings.get("git.detectSubmodulesLimit"), Value::from(10));
-        settings
-            .set("git.path", Value::from("/opt/homebrew/bin/git"))
-            .unwrap();
-        settings
-            .set("gitside.theme.mode", Value::from("dark"))
-            .unwrap();
+        settings.set("git.path", Value::from("/opt/homebrew/bin/git")).unwrap();
+        settings.set("gitside.theme.mode", Value::from("dark")).unwrap();
         let text = fs::read_to_string(dir.join("settings.json")).unwrap();
         assert!(text.contains("// mine"));
         assert!(text.contains("\"editor.fontSize\": 13"));
         assert!(text.contains("/opt/homebrew/bin/git"));
         assert!(text.contains("\"gitside.theme.mode\": \"dark\""));
         settings.set("git.path", Value::Null).unwrap();
-        assert!(
-            !fs::read_to_string(dir.join("settings.json"))
-                .unwrap()
-                .contains("git.path")
-        );
+        assert!(!fs::read_to_string(dir.join("settings.json")).unwrap().contains("git.path"));
         assert_eq!(settings.get("git.path"), Value::Null);
     }
 

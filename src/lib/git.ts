@@ -74,7 +74,33 @@ export interface CommitOptions {
   noEdit?: boolean
 }
 
+export type Side = { kind: 'empty' } | { kind: 'head' } | { kind: 'index' } | { kind: 'worktree' } | { kind: 'commit'; rev: string }
+
+export interface SideContent {
+  exists: boolean
+  size: number
+  text: string | null
+  dataUrl: string | null
+}
+
+export interface DiffResult {
+  kind: 'text' | 'binary' | 'image' | 'tooLarge'
+  left: SideContent
+  right: SideContent
+  hunks: { leftStart: number; leftCount: number; rightStart: number; rightCount: number }[]
+}
+
+export interface BlameResult {
+  ranges: { start: number; len: number; commit: string | null }[]
+  commits: Record<string, { id: string; author: string; email: string; time: number; summary: string }>
+}
+
 export const git = {
+  diff: (root: string, path: string, originalPath: string | null, left: Side, right: Side, maxBytes: number, ignoreTrimWhitespace: boolean) =>
+    invoke<DiffResult>('repo_diff', { root, path, originalPath, left, right, maxBytes, ignoreTrimWhitespace }),
+  file: (root: string, path: string, side: Side, maxBytes: number) => invoke<DiffResult>('repo_file', { root, path, side, maxBytes }),
+  blame: (root: string, path: string, rev: string, worktree: boolean) =>
+    invoke<BlameResult>('repo_blame', { root, path, rev, worktree }),
   status: (root: string) => invoke<RepoStatus>('repo_status', { root }),
   headMessage: (root: string) => invoke<string | null>('repo_head_message', { root }),
   refs: (root: string) => invoke<RefInfo[]>('repo_refs', { root }),

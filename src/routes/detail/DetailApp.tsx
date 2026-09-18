@@ -6,6 +6,7 @@ import { type ComponentType, useEffect, useState } from 'react'
 import { setContext } from '@/commands/context'
 import { registerHandler } from '@/commands/registry'
 import { Button } from '@/components/ui/button'
+import { useOpSync, useRepoChangeSync } from '@/features/scm/api'
 import { t, useLocale } from '@/i18n'
 import { ipc, useTauriEvent } from '@/lib/ipc'
 import { useUiState } from '@/lib/uiState'
@@ -39,6 +40,8 @@ function initialRoute() {
 
 export function DetailApp() {
   useLocale()
+  useRepoChangeSync()
+  useOpSync()
   const [tabs, setTabs, loaded] = useUiState<string[]>('detail.tabs', [])
   const [active, setActive] = useUiState<string | null>('detail.active', null)
   const [onTop, setOnTop] = useState(false)

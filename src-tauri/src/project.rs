@@ -41,10 +41,7 @@ impl UiState {
             .ok()
             .and_then(|t| serde_json::from_str::<Map<String, Value>>(&t).ok())
             .unwrap_or_default();
-        Arc::new(Self {
-            path,
-            values: RwLock::new(values),
-        })
+        Arc::new(Self { path, values: RwLock::new(values) })
     }
 
     pub fn get(&self, key: &str) -> Option<Value> {
@@ -138,49 +135,25 @@ struct Inner {
 }
 
 impl Projects {
-    pub fn new(
-        app: AppHandle,
-        settings: Arc<Settings>,
-        ui: Arc<UiState>,
-        queue: Arc<Queue>,
-    ) -> Arc<Self> {
-        Arc::new(Self {
-            app,
-            settings,
-            ui,
-            queue,
-            inner: Mutex::new(Inner::default()),
-        })
+    pub fn new(app: AppHandle, settings: Arc<Settings>, ui: Arc<UiState>, queue: Arc<Queue>) -> Arc<Self> {
+        Arc::new(Self { app, settings, ui, queue, inner: Mutex::new(Inner::default()) })
     }
 
     /// Reopens the tabs saved last time.
     pub fn restore(self: &Arc<Self>) {
-        let stored: Vec<StoredProject> = self
-            .ui
-            .get("projects")
-            .and_then(|v| serde_json::from_value(v).ok())
-            .unwrap_or_default();
-        let active = self
-            .ui
-            .get("activeProject")
-            .and_then(|v| serde_json::from_value::<PathBuf>(v).ok());
+        let stored: Vec<StoredProject> =
+            self.ui.get("projects").and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
+        let active = self.ui.get("activeProject").and_then(|v| serde_json::from_value::<PathBuf>(v).ok());
         for project in stored {
             self.insert(project);
         }
         let mut inner = self.inner.lock().unwrap();
-        inner.active = active
-            .filter(|a| inner.projects.contains_key(a))
-            .or_else(|| inner.order.first().cloned());
+        inner.active = active.filter(|a| inner.projects.contains_key(a)).or_else(|| inner.order.first().cloned());
     }
 
     pub fn list(&self) -> Vec<ProjectInfo> {
         let inner = self.inner.lock().unwrap();
-        inner
-            .order
-            .iter()
-            .filter_map(|id| inner.projects.get(id))
-            .map(|p| p.info.clone())
-            .collect()
+        inner.order.iter().filter_map(|id| inner.projects.get(id)).map(|p| p.info.clone()).collect()
     }
 
     pub fn active(&self) -> Option<PathBuf> {
@@ -188,21 +161,14 @@ impl Projects {
     }
 
     pub fn recent(&self) -> Vec<PathBuf> {
-        self.ui
-            .get("recentProjects")
-            .and_then(|v| serde_json::from_value(v).ok())
-            .unwrap_or_default()
+        self.ui.get("recentProjects").and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default()
     }
 
     /// Opens a folder as a new tab (or switches to it) and makes it active.
     pub fn open(self: &Arc<Self>, root: PathBuf) -> Result<ProjectInfo> {
-        let root =
-            fs::canonicalize(&root).map_err(|_| Error::NotFound(root.display().to_string()))?;
+        let root = fs::canonicalize(&root).map_err(|_| Error::NotFound(root.display().to_string()))?;
         if !self.inner.lock().unwrap().projects.contains_key(&root) {
-            self.insert(StoredProject {
-                root: root.clone(),
-                parent: None,
-            });
+            self.insert(StoredProject { root: root.clone(), parent: None });
         }
         self.activate(&root)?;
         let mut recent = self.recent();
@@ -238,10 +204,7 @@ impl Projects {
 
     pub fn activate(&self, id: &Path) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
-        let project = inner
-            .projects
-            .get_mut(id)
-            .ok_or_else(|| Error::NotFound(id.display().to_string()))?;
+        let project = inner.projects.get_mut(id).ok_or_else(|| Error::NotFound(id.display().to_string()))?;
         project.info.dirty = false;
         inner.active = Some(id.to_path_buf());
         drop(inner);
@@ -255,10 +218,7 @@ impl Projects {
         let new_root = fs::canonicalize(&new_root)?;
         let parent = {
             let mut inner = self.inner.lock().unwrap();
-            let old = inner
-                .projects
-                .remove(id)
-                .ok_or_else(|| Error::NotFound(id.display().to_string()))?;
+            let old = inner.projects.remove(id).ok_or_else(|| Error::NotFound(id.display().to_string()))?;
             for slot in inner.order.iter_mut() {
                 if slot == id {
                     *slot = new_root.clone();
@@ -269,13 +229,7 @@ impl Projects {
             }
             old.stored.parent
         };
-        self.insert_at(
-            StoredProject {
-                root: new_root.clone(),
-                parent,
-            },
-            false,
-        );
+        self.insert_at(StoredProject { root: new_root.clone(), parent }, false);
         self.save();
         self.emit_list();
         self.info(&new_root)
@@ -285,10 +239,7 @@ impl Projects {
     pub fn answer_parent(self: &Arc<Self>, id: &Path, accept: bool) -> Result<ProjectInfo> {
         let stored = {
             let inner = self.inner.lock().unwrap();
-            let project = inner
-                .projects
-                .get(id)
-                .ok_or_else(|| Error::NotFound(id.display().to_string()))?;
+            let project = inner.projects.get(id).ok_or_else(|| Error::NotFound(id.display().to_string()))?;
             let mut stored = project.stored.clone();
             stored.parent = Some(match (&project.info.parent_candidate, accept) {
                 (Some(path), true) => ParentAnswer::Accepted { path: path.clone() },
@@ -306,12 +257,7 @@ impl Projects {
     pub fn rescan(self: &Arc<Self>, id: &Path) -> Result<ProjectInfo> {
         let stored = {
             let inner = self.inner.lock().unwrap();
-            inner
-                .projects
-                .get(id)
-                .ok_or_else(|| Error::NotFound(id.display().to_string()))?
-                .stored
-                .clone()
+            inner.projects.get(id).ok_or_else(|| Error::NotFound(id.display().to_string()))?.stored.clone()
         };
         self.insert_at(stored, false);
         self.emit_list();
@@ -320,11 +266,7 @@ impl Projects {
 
     pub fn info(&self, id: &Path) -> Result<ProjectInfo> {
         let inner = self.inner.lock().unwrap();
-        inner
-            .projects
-            .get(id)
-            .map(|p| p.info.clone())
-            .ok_or_else(|| Error::NotFound(id.display().to_string()))
+        inner.projects.get(id).map(|p| p.info.clone()).ok_or_else(|| Error::NotFound(id.display().to_string()))
     }
 
     /// Finds the repository that owns `path` in any open project.
@@ -346,11 +288,7 @@ impl Projects {
     fn insert_at(self: &Arc<Self>, stored: StoredProject, append: bool) {
         let root = stored.root.clone();
         let missing = !root.is_dir();
-        let (repos, parent_candidate) = if missing {
-            (Vec::new(), None)
-        } else {
-            self.detect(&stored)
-        };
+        let (repos, parent_candidate) = if missing { (Vec::new(), None) } else { self.detect(&stored) };
         let info = ProjectInfo {
             id: root.clone(),
             name: root
@@ -367,24 +305,13 @@ impl Projects {
         if append && !inner.order.contains(&root) {
             inner.order.push(root.clone());
         }
-        inner.projects.insert(
-            root,
-            Project {
-                stored,
-                info,
-                _watcher: watcher,
-            },
-        );
+        inner.projects.insert(root, Project { stored, info, _watcher: watcher });
     }
 
     fn save(&self) {
         let inner = self.inner.lock().unwrap();
-        let stored: Vec<&StoredProject> = inner
-            .order
-            .iter()
-            .filter_map(|id| inner.projects.get(id))
-            .map(|p| &p.stored)
-            .collect();
+        let stored: Vec<&StoredProject> =
+            inner.order.iter().filter_map(|id| inner.projects.get(id)).map(|p| &p.stored).collect();
         let value = serde_json::to_value(stored).unwrap_or_default();
         drop(inner);
         self.ui.set("projects", value);
@@ -405,10 +332,7 @@ impl Projects {
             repos.push(repo_info(&repo, RepoKind::Root));
         } else if let Some(parent) = root.parent().and_then(discover_repo) {
             let parent_root = parent.workdir().map(Path::to_path_buf);
-            let setting = self
-                .settings
-                .get_str("git.openRepositoryInParentFolders")
-                .unwrap_or_else(|| "prompt".into());
+            let setting = self.settings.get_str("git.openRepositoryInParentFolders").unwrap_or_else(|| "prompt".into());
             match (&stored.parent, setting.as_str()) {
                 (Some(ParentAnswer::Accepted { .. }), _) | (None, "always") => {
                     repos.push(repo_info(&parent, RepoKind::Root))
@@ -421,20 +345,12 @@ impl Projects {
         let auto = self.settings.get("git.autoRepositoryDetection");
         let scan_subfolders = auto.as_bool().unwrap_or(true) || auto.as_str() == Some("subFolders");
         if scan_subfolders {
-            let depth = self
-                .settings
-                .get("git.repositoryScanMaxDepth")
-                .as_i64()
-                .unwrap_or(1);
+            let depth = self.settings.get("git.repositoryScanMaxDepth").as_i64().unwrap_or(1);
             let ignored: HashSet<String> = self
                 .settings
                 .get("git.repositoryScanIgnoredFolders")
                 .as_array()
-                .map(|a| {
-                    a.iter()
-                        .filter_map(|v| v.as_str().map(str::to_owned))
-                        .collect()
-                })
+                .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect())
                 .unwrap_or_default();
             // -1 means unlimited in VS Code; cap it so a home folder can't hang the app
             let depth = if depth < 0 { 8 } else { depth as usize };
@@ -448,17 +364,8 @@ impl Projects {
             });
         }
 
-        if self
-            .settings
-            .get("git.detectSubmodules")
-            .as_bool()
-            .unwrap_or(true)
-        {
-            let limit = self
-                .settings
-                .get("git.detectSubmodulesLimit")
-                .as_u64()
-                .unwrap_or(10) as usize;
+        if self.settings.get("git.detectSubmodules").as_bool().unwrap_or(true) {
+            let limit = self.settings.get("git.detectSubmodulesLimit").as_u64().unwrap_or(10) as usize;
             let parents: Vec<PathBuf> = repos.iter().map(|r| r.root.clone()).collect();
             for parent in parents {
                 let Some(repo) = open_repo(&parent) else {
@@ -481,27 +388,21 @@ impl Projects {
         (repos, parent_candidate)
     }
 
-    fn watch(
-        self: &Arc<Self>,
-        info: &ProjectInfo,
-    ) -> Option<Debouncer<notify::RecommendedWatcher, RecommendedCache>> {
+    fn watch(self: &Arc<Self>, info: &ProjectInfo) -> Option<Debouncer<notify::RecommendedWatcher, RecommendedCache>> {
         let this = Arc::downgrade(self);
         let project_id = info.id.clone();
-        let mut debouncer =
-            new_debouncer(WATCH_DEBOUNCE, None, move |result: DebounceEventResult| {
-                let (Some(this), Ok(events)) = (this.upgrade(), result) else {
-                    return;
-                };
-                let paths: Vec<PathBuf> = events.into_iter().flat_map(|e| e.event.paths).collect();
-                this.on_fs_events(&project_id, paths);
-            })
-            .ok()?;
+        let mut debouncer = new_debouncer(WATCH_DEBOUNCE, None, move |result: DebounceEventResult| {
+            let (Some(this), Ok(events)) = (this.upgrade(), result) else {
+                return;
+            };
+            let paths: Vec<PathBuf> = events.into_iter().flat_map(|e| e.event.paths).collect();
+            this.on_fs_events(&project_id, paths);
+        })
+        .ok()?;
         if info.missing {
             // Watch the nearest existing ancestor so the tab recovers when the folder returns
             let ancestor = info.id.ancestors().skip(1).find(|p| p.is_dir())?;
-            debouncer
-                .watch(ancestor, RecursiveMode::NonRecursive)
-                .ok()?;
+            debouncer.watch(ancestor, RecursiveMode::NonRecursive).ok()?;
             return Some(debouncer);
         }
         debouncer.watch(&info.id, RecursiveMode::Recursive).ok()?;
@@ -522,11 +423,7 @@ impl Projects {
             let Some(project) = inner.projects.get(project_id) else {
                 return;
             };
-            (
-                project.info.missing,
-                project.info.repos.clone(),
-                inner.active.as_deref() == Some(project_id),
-            )
+            (project.info.missing, project.info.repos.clone(), inner.active.as_deref() == Some(project_id))
         };
         if missing {
             if project_id.is_dir() {
@@ -542,10 +439,7 @@ impl Projects {
         let mut by_repo: HashMap<PathBuf, Vec<&Path>> = HashMap::new();
         for path in &paths {
             // A new or removed repository under the folder changes the repository list
-            if path
-                .file_name()
-                .is_some_and(|n| n == ".git" || n == ".gitmodules")
-            {
+            if path.file_name().is_some_and(|n| n == ".git" || n == ".gitmodules") {
                 rescan = true;
             }
             if let Some(repo) = owning_repo(&repos, path) {
@@ -555,10 +449,7 @@ impl Projects {
         let mut changed: HashSet<PathBuf> = by_repo
             .into_iter()
             .filter(|(root, paths)| {
-                repos
-                    .iter()
-                    .find(|r| &r.root == root)
-                    .is_some_and(|repo| any_relevant(repo, paths))
+                repos.iter().find(|r| &r.root == root).is_some_and(|repo| any_relevant(repo, paths))
             })
             .map(|(root, _)| root)
             .collect();
@@ -602,10 +493,7 @@ fn repo_info(repo: &gix::Repository, kind: RepoKind) -> RepoInfo {
     let root = repo.workdir().expect("non-bare").to_path_buf();
     let root = fs::canonicalize(&root).unwrap_or(root);
     RepoInfo {
-        name: root
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default(),
+        name: root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
         git_dir: repo.git_dir().to_path_buf(),
         common_dir: repo.common_dir().to_path_buf(),
         kind,
@@ -640,11 +528,7 @@ fn scan(dir: &Path, depth: usize, ignored: &HashSet<String>, found: &mut dyn FnM
 fn owning_repo<'a>(repos: &'a [RepoInfo], path: &Path) -> Option<&'a RepoInfo> {
     repos
         .iter()
-        .filter(|r| {
-            path.starts_with(&r.root)
-                || path.starts_with(&r.git_dir)
-                || path.starts_with(&r.common_dir)
-        })
+        .filter(|r| path.starts_with(&r.root) || path.starts_with(&r.git_dir) || path.starts_with(&r.common_dir))
         .max_by_key(|r| r.root.as_os_str().len())
 }
 
@@ -660,14 +544,9 @@ fn any_relevant(repo: &RepoInfo, paths: &[&Path]) -> bool {
             worktree_paths.push(*path);
             continue;
         }
-        let name = path
-            .file_name()
-            .map(|n| n.to_string_lossy())
-            .unwrap_or_default();
-        let noise = name.ends_with(".lock")
-            || path
-                .components()
-                .any(|c| c.as_os_str() == "objects" || c.as_os_str() == "logs");
+        let name = path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
+        let noise =
+            name.ends_with(".lock") || path.components().any(|c| c.as_os_str() == "objects" || c.as_os_str() == "logs");
         if !noise {
             return true;
         }
@@ -681,26 +560,17 @@ fn any_relevant(repo: &RepoInfo, paths: &[&Path]) -> bool {
     let Ok(index) = handle.index_or_empty() else {
         return true;
     };
-    let Ok(mut stack) = handle.excludes(
-        &index,
-        None,
-        gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped,
-    ) else {
+    let Ok(mut stack) =
+        handle.excludes(&index, None, gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped)
+    else {
         return true;
     };
     worktree_paths.into_iter().any(|path| {
         let Ok(rel) = path.strip_prefix(&repo.root) else {
             return false;
         };
-        let mode = if path.is_dir() {
-            gix::index::entry::Mode::DIR
-        } else {
-            gix::index::entry::Mode::FILE
-        };
-        !stack
-            .at_path(rel, Some(mode))
-            .map(|p| p.is_excluded())
-            .unwrap_or(false)
+        let mode = if path.is_dir() { gix::index::entry::Mode::DIR } else { gix::index::entry::Mode::FILE };
+        !stack.at_path(rel, Some(mode)).map(|p| p.is_excluded()).unwrap_or(false)
     })
 }
 

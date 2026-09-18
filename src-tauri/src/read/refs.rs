@@ -55,17 +55,11 @@ pub fn refs(repo: &gix::Repository) -> Result<Vec<RefInfo>> {
             name,
             short,
             kind,
-            time: commit
+            time: commit.as_ref().and_then(|c| c.time().ok()).map(|t| t.seconds),
+            subject: commit
                 .as_ref()
-                .and_then(|c| c.time().ok())
-                .map(|t| t.seconds),
-            subject: commit.as_ref().and_then(|c| c.message_raw().ok()).map(|m| {
-                m.lines()
-                    .next()
-                    .unwrap_or_default()
-                    .to_str_lossy()
-                    .into_owned()
-            }),
+                .and_then(|c| c.message_raw().ok())
+                .map(|m| m.lines().next().unwrap_or_default().to_str_lossy().into_owned()),
             commit: commit.map(|c| c.id.to_string()),
         });
     }

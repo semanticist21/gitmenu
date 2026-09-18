@@ -262,3 +262,21 @@
     --git-untracked: #73c991;
     --git-conflict: #e4676b;
 }
+
+/* VS Code's diffEditor.removedLineBackground / insertedLineBackground */
+:root {
+    --diff-removed: rgb(255 0 0 / 0.1);
+    --diff-removed-strong: rgb(255 0 0 / 0.24);
+    --diff-added: rgb(155 185 85 / 0.2);
+    --diff-added-strong: rgb(120 170 60 / 0.4);
+}
+.dark {
+    --diff-removed: rgb(255 0 0 / 0.14);
+    --diff-removed-strong: rgb(255 60 60 / 0.3);
+    --diff-added: rgb(155 185 85 / 0.16);
+    --diff-added-strong: rgb(155 185 85 / 0.34);
+}
+.diff-filler {
+    background-image: linear-gradient(-45deg, var(--border) 12.5%, transparent 12.5%, transparent 50%, var(--border) 50%, var(--border) 62.5%, transparent 62.5%, transparent 100%);
+    background-size: 8px 8px;
+}

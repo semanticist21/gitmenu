@@ -14,6 +14,8 @@ use crate::{
     queue::{OpKind, Output, Queue},
     read::{
         Repos,
+        blame::{self, Blame},
+        content::{self, DiffResult, Side},
         refs::{self, RefInfo, StashInfo},
         status::{self, RepoStatus},
     },
@@ -42,21 +44,85 @@ fn common_dir(projects: &Projects, repos: &Repos, root: &Path) -> Result<PathBuf
 }
 
 #[tauri::command]
-pub async fn repo_status(
-    app: tauri::AppHandle,
-    repos: State<'_, Arc<Repos>>,
-    root: PathBuf,
-) -> Result<RepoStatus> {
+pub async fn repo_status(app: tauri::AppHandle, repos: State<'_, Arc<Repos>>, root: PathBuf) -> Result<RepoStatus> {
     let status = read(&repos, root.clone(), status::status).await?;
     crate::tray::set_repo_conflict(&app, &root, !status.merge.is_empty());
     Ok(status)
 }
 
+/// Contents of both sides and their line hunks, for the diff tab.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
-pub async fn repo_head_message(
+pub async fn repo_diff(
     repos: State<'_, Arc<Repos>>,
     root: PathBuf,
-) -> Result<Option<String>> {
+    path: String,
+    original_path: Option<String>,
+    left: Side,
+    right: Side,
+    max_bytes: u64,
+    ignore_trim_whitespace: bool,
+) -> Result<DiffResult> {
+    read(&repos, root.clone(), move |repo| {
+        let left_path = original_path.as_deref().unwrap_or(&path);
+        let mut left_bytes = content::load(repo, &root, left_path, &left)?;
+        // A file added to the index since HEAD compares against HEAD's (missing) version
+        if left_bytes.is_none() && matches!(left, Side::Index) {
+            left_bytes = content::load(repo, &root, left_path, &Side::Head)?;
+        }
+        let right_bytes = content::load(repo, &root, &path, &right)?;
+        Ok(content::diff(
+            left_path,
+            &path,
+            left_bytes,
+            right_bytes,
+            &content::DiffOptions { max_bytes, ignore_trim_whitespace },
+        ))
+    })
+    .await
+}
+
+/// One file's text at a side (for "Open File (HEAD)" and "Open File at Revision").
+#[tauri::command]
+pub async fn repo_file(
+    repos: State<'_, Arc<Repos>>,
+    root: PathBuf,
+    path: String,
+    side: Side,
+    max_bytes: u64,
+) -> Result<DiffResult> {
+    read(&repos, root.clone(), move |repo| {
+        let bytes = content::load(repo, &root, &path, &side)?;
+        let mut result = content::diff(
+            &path,
+            &path,
+            None,
+            bytes,
+            &content::DiffOptions { max_bytes, ignore_trim_whitespace: false },
+        );
+        result.hunks.clear();
+        Ok(result)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn repo_blame(
+    repos: State<'_, Arc<Repos>>,
+    root: PathBuf,
+    path: String,
+    rev: String,
+    worktree: bool,
+) -> Result<Blame> {
+    read(&repos, root.clone(), move |repo| {
+        let text = if worktree { std::fs::read_to_string(root.join(&path)).ok() } else { None };
+        blame::blame(repo, &path, &rev, text.as_deref())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn repo_head_message(repos: State<'_, Arc<Repos>>, root: PathBuf) -> Result<Option<String>> {
     read(&repos, root, |repo| Ok(status::head_message(repo))).await
 }
 
@@ -72,18 +138,8 @@ pub async fn repo_stashes(repos: State<'_, Arc<Repos>>, root: PathBuf) -> Result
 
 /// A `git config` value as git resolves it (for `commit.template`, `pull.rebase`, …).
 #[tauri::command]
-pub async fn repo_config(
-    repos: State<'_, Arc<Repos>>,
-    root: PathBuf,
-    key: String,
-) -> Result<Option<String>> {
-    read(&repos, root, move |repo| {
-        Ok(repo
-            .config_snapshot()
-            .string(key.as_str())
-            .map(|v| v.to_string()))
-    })
-    .await
+pub async fn repo_config(repos: State<'_, Arc<Repos>>, root: PathBuf, key: String) -> Result<Option<String>> {
+    read(&repos, root, move |repo| Ok(repo.config_snapshot().string(key.as_str()).map(|v| v.to_string()))).await
 }
 
 macro_rules! target {
@@ -103,16 +159,7 @@ pub async fn git_stage(
     label: String,
 ) -> Result<Output> {
     let (common, root) = target!(projects, repos, root);
-    write::stage(
-        &queue,
-        Repo {
-            root: &root,
-            common_dir: &common,
-        },
-        &paths,
-        &label,
-    )
-    .await
+    write::stage(&queue, Repo { root: &root, common_dir: &common }, &paths, &label).await
 }
 
 #[tauri::command]
@@ -126,17 +173,7 @@ pub async fn git_unstage(
 ) -> Result<Output> {
     let (common, root) = target!(projects, repos, root);
     let unborn = repos.get(&root)?.head_id().is_err();
-    write::unstage(
-        &queue,
-        Repo {
-            root: &root,
-            common_dir: &common,
-        },
-        &paths,
-        unborn,
-        &label,
-    )
-    .await
+    write::unstage(&queue, Repo { root: &root, common_dir: &common }, &paths, unborn, &label).await
 }
 
 #[tauri::command]
@@ -150,17 +187,7 @@ pub async fn git_discard(
     label: String,
 ) -> Result<DiscardResult> {
     let (common, root) = target!(projects, repos, root);
-    write::discard(
-        &queue,
-        Repo {
-            root: &root,
-            common_dir: &common,
-        },
-        &tracked,
-        &untracked,
-        &label,
-    )
-    .await
+    write::discard(&queue, Repo { root: &root, common_dir: &common }, &tracked, &untracked, &label).await
 }
 
 #[tauri::command]
@@ -171,14 +198,7 @@ pub async fn git_recovery_point(
     root: PathBuf,
 ) -> Result<Option<String>> {
     let (common, root) = target!(projects, repos, root);
-    write::recovery_point(
-        &queue,
-        &Repo {
-            root: &root,
-            common_dir: &common,
-        },
-    )
-    .await
+    write::recovery_point(&queue, &Repo { root: &root, common_dir: &common }).await
 }
 
 #[tauri::command]
@@ -192,17 +212,7 @@ pub async fn git_commit(
     label: String,
 ) -> Result<Output> {
     let (common, root) = target!(projects, repos, root);
-    write::commit(
-        &queue,
-        Repo {
-            root: &root,
-            common_dir: &common,
-        },
-        &message,
-        &options,
-        &label,
-    )
-    .await
+    write::commit(&queue, Repo { root: &root, common_dir: &common }, &message, &options, &label).await
 }
 
 // The injected State handles count as arguments
@@ -219,18 +229,7 @@ pub async fn git_apply(
     label: String,
 ) -> Result<Output> {
     let (common, root) = target!(projects, repos, root);
-    write::apply_patch(
-        &queue,
-        Repo {
-            root: &root,
-            common_dir: &common,
-        },
-        &patch,
-        cached,
-        reverse,
-        &label,
-    )
-    .await
+    write::apply_patch(&queue, Repo { root: &root, common_dir: &common }, &patch, cached, reverse, &label).await
 }
 
 #[tauri::command]
@@ -244,17 +243,7 @@ pub async fn git_exec(
     args: Vec<String>,
 ) -> Result<Output> {
     let (common, root) = target!(projects, repos, root);
-    let result = write::exec(
-        &queue,
-        Repo {
-            root: &root,
-            common_dir: &common,
-        },
-        kind,
-        &label,
-        &args,
-    )
-    .await;
+    let result = write::exec(&queue, Repo { root: &root, common_dir: &common }, kind, &label, &args).await;
     // Remote, branch and config changes are cached in the open handle
     if args.first().is_some_and(|a| a == "remote" || a == "config") {
         repos.forget(&root);
@@ -269,32 +258,12 @@ pub fn git_ignore(root: PathBuf, paths: Vec<String>) -> Result<()> {
 
 /// `git clone <url>` into `parent`; returns the new repository's folder.
 #[tauri::command]
-pub async fn git_clone(
-    queue: State<'_, Arc<Queue>>,
-    parent: PathBuf,
-    url: String,
-    label: String,
-) -> Result<PathBuf> {
-    let name = url
-        .trim_end_matches('/')
-        .rsplit(['/', ':'])
-        .next()
-        .unwrap_or("repository")
-        .trim_end_matches(".git")
-        .to_owned();
+pub async fn git_clone(queue: State<'_, Arc<Queue>>, parent: PathBuf, url: String, label: String) -> Result<PathBuf> {
+    let name =
+        url.trim_end_matches('/').rsplit(['/', ':']).next().unwrap_or("repository").trim_end_matches(".git").to_owned();
     let dest = parent.join(&name);
-    let target = crate::queue::Target {
-        worktree: &parent,
-        common_dir: &dest,
-    };
-    queue
-        .run(
-            target,
-            OpKind::Fetch,
-            &label,
-            &["clone", "--progress", &url, &name],
-        )
-        .await?;
+    let target = crate::queue::Target { worktree: &parent, common_dir: &dest };
+    queue.run(target, OpKind::Fetch, &label, &["clone", "--progress", &url, &name]).await?;
     Ok(dest)
 }
 
@@ -325,7 +294,5 @@ pub fn trash_paths(paths: Vec<PathBuf>) -> Result<()> {
 pub fn read_text_file(path: PathBuf, max_bytes: Option<usize>) -> Result<Value> {
     let bytes = std::fs::read(&path)?;
     let cut = max_bytes.map_or(bytes.len(), |m| m.min(bytes.len()));
-    Ok(Value::String(
-        String::from_utf8_lossy(&bytes[..cut]).into_owned(),
-    ))
+    Ok(Value::String(String::from_utf8_lossy(&bytes[..cut]).into_owned()))
 }

@@ -28,13 +28,7 @@ pub fn settings_get(settings: State<Arc<Settings>>) -> Map<String, Value> {
 }
 
 #[tauri::command]
-pub fn settings_set(
-    app: AppHandle,
-    settings: State<Arc<Settings>>,
-    env: Env,
-    key: String,
-    value: Value,
-) -> Result<()> {
+pub fn settings_set(app: AppHandle, settings: State<Arc<Settings>>, env: Env, key: String, value: Value) -> Result<()> {
     settings.set(&key, value)?;
     if key == "git.path" {
         env.refresh_git(&app, &settings);
@@ -101,20 +95,12 @@ pub fn project_reorder(projects: State<Arc<Projects>>, order: Vec<PathBuf>) {
 }
 
 #[tauri::command]
-pub fn project_relocate(
-    projects: State<Arc<Projects>>,
-    id: PathBuf,
-    path: PathBuf,
-) -> Result<ProjectInfo> {
+pub fn project_relocate(projects: State<Arc<Projects>>, id: PathBuf, path: PathBuf) -> Result<ProjectInfo> {
     projects.inner().relocate(&id, path)
 }
 
 #[tauri::command]
-pub fn project_answer_parent(
-    projects: State<Arc<Projects>>,
-    id: PathBuf,
-    accept: bool,
-) -> Result<ProjectInfo> {
+pub fn project_answer_parent(projects: State<Arc<Projects>>, id: PathBuf, accept: bool) -> Result<ProjectInfo> {
     projects.inner().answer_parent(&id, accept)
 }
 
@@ -124,17 +110,7 @@ pub async fn project_init_repo(
     queue: State<'_, Arc<Queue>>,
     id: PathBuf,
 ) -> Result<ProjectInfo> {
-    queue
-        .run(
-            Target {
-                worktree: &id,
-                common_dir: &id.join(".git"),
-            },
-            OpKind::Other,
-            "git init",
-            &["init"],
-        )
-        .await?;
+    queue.run(Target { worktree: &id, common_dir: &id.join(".git") }, OpKind::Other, "git init", &["init"]).await?;
     projects.inner().rescan(&id)
 }
 
@@ -239,9 +215,7 @@ pub fn op_cancel(queue: State<Arc<Queue>>, id: u64) {
 
 #[tauri::command]
 pub async fn open_in_terminal(settings: State<'_, Arc<Settings>>, path: PathBuf) -> Result<()> {
-    let app_name = settings
-        .get_str("gitside.terminal.app")
-        .unwrap_or_else(|| "Terminal".into());
+    let app_name = settings.get_str("gitside.terminal.app").unwrap_or_else(|| "Terminal".into());
     run_open(&["-a", &app_name], &path).await
 }
 
@@ -257,40 +231,22 @@ pub async fn open_path(path: PathBuf) -> Result<()> {
 }
 
 async fn run_open(flags: &[&str], path: &PathBuf) -> Result<()> {
-    let output = tokio::process::Command::new("/usr/bin/open")
-        .args(flags)
-        .arg(path)
-        .output()
-        .await?;
+    let output = tokio::process::Command::new("/usr/bin/open").args(flags).arg(path).output().await?;
     if output.status.success() {
         Ok(())
     } else {
-        Err(Error::Other(
-            String::from_utf8_lossy(&output.stderr).trim().to_owned(),
-        ))
+        Err(Error::Other(String::from_utf8_lossy(&output.stderr).trim().to_owned()))
     }
 }
 
 /// Terminal apps installed on this Mac, for the setting's picker.
 #[tauri::command]
 pub fn terminal_apps() -> Vec<String> {
-    const KNOWN: [&str; 9] = [
-        "Terminal",
-        "iTerm",
-        "Ghostty",
-        "Warp",
-        "WezTerm",
-        "kitty",
-        "Alacritty",
-        "Hyper",
-        "Tabby",
-    ];
-    let dirs = [
-        PathBuf::from("/Applications"),
-        PathBuf::from("/System/Applications/Utilities"),
-    ]
-    .into_iter()
-    .chain(std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Applications")));
+    const KNOWN: [&str; 9] =
+        ["Terminal", "iTerm", "Ghostty", "Warp", "WezTerm", "kitty", "Alacritty", "Hyper", "Tabby"];
+    let dirs = [PathBuf::from("/Applications"), PathBuf::from("/System/Applications/Utilities")]
+        .into_iter()
+        .chain(std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Applications")));
     let dirs: Vec<PathBuf> = dirs.collect();
     KNOWN
         .iter()

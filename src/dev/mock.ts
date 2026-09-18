@@ -76,6 +76,35 @@ export function installMocks() {
           ]
         case 'repo_stashes':
           return [{ index: 0, commit: 'd4e5f6a7', message: 'On main: experiment', time: 1_700_000_000 }]
+        case 'repo_diff':
+        case 'repo_file': {
+          const left = 'import { createRoot } from \'react-dom/client\'\nimport App from \'./App\'\n\nconst root = document.getElementById(\'root\')\ncreateRoot(root!).render(<App />)\n\nexport function helper(a: number) {\n  return a * 2\n}\n'
+          const right = 'import { StrictMode } from \'react\'\nimport { createRoot } from \'react-dom/client\'\nimport App from \'./App\'\n\nconst root = document.getElementById(\'root\')\ncreateRoot(root!).render(\n  <StrictMode>\n    <App />\n  </StrictMode>,\n)\n\nexport function helper(a: number) {\n  return a * 3\n}\n'
+          if (cmd === 'repo_file') return { kind: 'text', left: { exists: false, size: 0, text: null, dataUrl: null }, right: { exists: true, size: right.length, text: right, dataUrl: null }, hunks: [] }
+          return {
+            kind: 'text',
+            left: { exists: true, size: left.length, text: left, dataUrl: null },
+            right: { exists: true, size: right.length, text: right, dataUrl: null },
+            hunks: [
+              { leftStart: 0, leftCount: 0, rightStart: 0, rightCount: 1 },
+              { leftStart: 4, leftCount: 1, rightStart: 5, rightCount: 5 },
+              { leftStart: 7, leftCount: 1, rightStart: 12, rightCount: 1 },
+            ],
+          }
+        }
+        case 'repo_blame':
+          return {
+            ranges: [
+              { start: 0, len: 1, commit: null },
+              { start: 1, len: 4, commit: 'a1' },
+              { start: 5, len: 5, commit: null },
+              { start: 10, len: 4, commit: 'b2' },
+            ],
+            commits: {
+              a1: { id: 'a1b2c3d4e5', author: 'Ada Lovelace', email: 'ada@x', time: 1_700_000_000, summary: 'feat: render app' },
+              b2: { id: 'b2c3d4e5f6', author: 'Grace Hopper', email: 'grace@x', time: 1_750_000_000, summary: 'refactor: helper' },
+            },
+          }
         case 'ai_availability':
           return 'available'
         case 'ai_commit_message':

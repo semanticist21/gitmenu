@@ -107,11 +107,7 @@ impl GitEnv {
             if git.is_none() {
                 let _ = app.emit("git://missing", ());
             }
-            this.state.send_replace(Some(Arc::new(Resolved {
-                vars,
-                git,
-                git_version,
-            })));
+            this.state.send_replace(Some(Arc::new(Resolved { vars, git, git_version })));
             let _ = app.emit("env://ready", this.status());
         });
     }
@@ -125,11 +121,7 @@ impl GitEnv {
         if git.is_none() {
             let _ = app.emit("git://missing", ());
         }
-        self.state.send_replace(Some(Arc::new(Resolved {
-            vars: current.vars.clone(),
-            git,
-            git_version,
-        })));
+        self.state.send_replace(Some(Arc::new(Resolved { vars: current.vars.clone(), git, git_version })));
         let _ = app.emit("env://ready", self.status());
     }
 
@@ -140,11 +132,7 @@ impl GitEnv {
                 git: r.git.as_ref().map(|p| p.display().to_string()),
                 git_version: r.git_version.clone(),
             },
-            None => EnvStatus {
-                ready: false,
-                git: None,
-                git_version: None,
-            },
+            None => EnvStatus { ready: false, git: None, git_version: None },
         }
     }
 
@@ -202,11 +190,7 @@ impl GitEnv {
             tauri::async_runtime::spawn(async move {
                 let (read, mut write) = stream.into_split();
                 let mut line = String::new();
-                if TokioBufReader::new(read)
-                    .read_line(&mut line)
-                    .await
-                    .is_err()
-                {
+                if TokioBufReader::new(read).read_line(&mut line).await.is_err() {
                     return;
                 }
                 let Ok(request) = serde_json::from_str::<PromptRequest>(&line) else {
@@ -277,10 +261,7 @@ fn login_shell_env() -> std::result::Result<HashMap<String, String>, String> {
             Ok(Some(_)) => break,
             Ok(None) if started.elapsed() > SHELL_TIMEOUT => {
                 let _ = child.kill();
-                return Err(format!(
-                    "{shell} did not finish within {}s",
-                    SHELL_TIMEOUT.as_secs()
-                ));
+                return Err(format!("{shell} did not finish within {}s", SHELL_TIMEOUT.as_secs()));
             }
             Ok(None) => std::thread::sleep(Duration::from_millis(20)),
             Err(e) => return Err(e.to_string()),
@@ -306,23 +287,14 @@ fn login_shell_env() -> std::result::Result<HashMap<String, String>, String> {
 fn fallback_env() -> HashMap<String, String> {
     let mut vars: HashMap<String, String> = std::env::vars().collect();
     let path = vars.get("PATH").cloned().unwrap_or_default();
-    vars.insert(
-        "PATH".into(),
-        format!("/opt/homebrew/bin:/usr/local/bin:{path}:/usr/bin:/bin"),
-    );
+    vars.insert("PATH".into(), format!("/opt/homebrew/bin:/usr/local/bin:{path}:/usr/bin:/bin"));
     vars
 }
 
-fn find_git(
-    vars: &HashMap<String, String>,
-    configured: Option<&str>,
-) -> (Option<PathBuf>, Option<String>) {
+fn find_git(vars: &HashMap<String, String>, configured: Option<&str>) -> (Option<PathBuf>, Option<String>) {
     let candidates: Vec<PathBuf> = match configured.filter(|s| !s.is_empty()) {
         Some(path) => vec![PathBuf::from(path)],
-        None => vars
-            .get("PATH")
-            .map(|p| p.split(':').map(|d| Path::new(d).join("git")).collect())
-            .unwrap_or_default(),
+        None => vars.get("PATH").map(|p| p.split(':').map(|d| Path::new(d).join("git")).collect()).unwrap_or_default(),
     };
     for candidate in candidates {
         if !candidate.is_file() {
@@ -332,10 +304,7 @@ fn find_git(
         if candidate == Path::new("/usr/bin/git") && !command_line_tools_installed() {
             continue;
         }
-        let output = StdCommand::new(&candidate)
-            .arg("--version")
-            .stdin(Stdio::null())
-            .output();
+        let output = StdCommand::new(&candidate).arg("--version").stdin(Stdio::null()).output();
         if let Ok(output) = output
             && output.status.success()
         {
@@ -363,9 +332,7 @@ pub fn run_helper() -> Option<i32> {
     let request = match args.as_slice() {
         [flag, path] if flag == "--editor" => PromptRequest::Editor { path: path.clone() },
         [] => return Some(1),
-        prompt => PromptRequest::Askpass {
-            prompt: prompt.join(" "),
-        },
+        prompt => PromptRequest::Askpass { prompt: prompt.join(" ") },
     };
     let answer = (|| -> std::io::Result<Option<String>> {
         let mut stream = UnixStream::connect(socket)?;
@@ -373,10 +340,7 @@ pub fn run_helper() -> Option<i32> {
         let mut line = String::new();
         BufReader::new(stream).read_line(&mut line)?;
         let reply: serde_json::Value = serde_json::from_str(&line)?;
-        Ok(reply
-            .get("value")
-            .and_then(|v| v.as_str())
-            .map(str::to_owned))
+        Ok(reply.get("value").and_then(|v| v.as_str()).map(str::to_owned))
     })();
     match (answer, request) {
         (Ok(Some(_)), PromptRequest::Editor { .. }) => Some(0),
@@ -394,24 +358,10 @@ mod tests {
 
     #[test]
     fn classifies_prompts() {
-        assert_eq!(
-            classify_prompt("Username for 'https://github.com': "),
-            "text"
-        );
-        assert_eq!(
-            classify_prompt("Password for 'https://me@github.com': "),
-            "secret"
-        );
-        assert_eq!(
-            classify_prompt("Enter passphrase for key '/Users/me/.ssh/id_ed25519': "),
-            "secret"
-        );
-        assert_eq!(
-            classify_prompt(
-                "Are you sure you want to continue connecting (yes/no/[fingerprint])? "
-            ),
-            "confirm"
-        );
+        assert_eq!(classify_prompt("Username for 'https://github.com': "), "text");
+        assert_eq!(classify_prompt("Password for 'https://me@github.com': "), "secret");
+        assert_eq!(classify_prompt("Enter passphrase for key '/Users/me/.ssh/id_ed25519': "), "secret");
+        assert_eq!(classify_prompt("Are you sure you want to continue connecting (yes/no/[fingerprint])? "), "confirm");
     }
 
     #[test]

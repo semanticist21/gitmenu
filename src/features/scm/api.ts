@@ -19,6 +19,14 @@ export function useRepoChangeSync() {
   })
 }
 
+/** Re-reads a repository when a queued git command in it finishes (for windows without the ops bar). */
+export function useOpSync() {
+  const client = useQueryClient()
+  useTauriEvent<{ repo: string }>('op://finished', (op) => {
+    void client.invalidateQueries({ queryKey: ['repo', op.repo] })
+  })
+}
+
 export function allChanges(status: RepoStatus | undefined) {
   if (!status) return []
   return [...status.merge, ...status.index, ...status.workingTree, ...status.untracked]

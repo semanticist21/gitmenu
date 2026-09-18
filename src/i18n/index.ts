@@ -20,6 +20,8 @@ let locale: Locale = 'en'
 let app: Record<AppKey, string> = en
 let vscode: VscodeStrings = { package: {}, bundle: {} }
 let vscodeEnglish: VscodeStrings = { package: {}, bundle: {} }
+let gitlens: Record<string, string> = {}
+const gitlensLoaders = import.meta.glob<Record<string, string>>('./gitlens/*.json', { import: 'default' })
 const listeners = new Set<() => void>()
 
 export function systemLocale(): Locale {
@@ -39,6 +41,8 @@ export async function setLocale(setting: string) {
   }
   app = next === 'en' ? en : { ...en, ...(await appLoaders[`./app/${next}.ts`]()).default }
   vscode = next === 'en' ? vscodeEnglish : await vscodeLoaders[`./vscode/${next}.json`]()
+  const gitlensLoader = gitlensLoaders[`./gitlens/${next}.json`]
+  gitlens = next !== 'en' && gitlensLoader ? await gitlensLoader() : {}
   locale = next
   document.documentElement.lang = next
   listeners.forEach((fn) => fn())
@@ -63,6 +67,11 @@ export function vs(key: string, ...args: unknown[]): string {
  */
 export function vsb(english: string, ...args: unknown[]): string {
   return format(vscode.bundle[english] ?? english.replace(/\/\{Locked=.*$/s, ''), args)
+}
+
+/** A GitLens label by its English text (GitLens ships English only; src/i18n/gitlens/ holds ours). */
+export function gl(english: string, ...args: unknown[]): string {
+  return format(gitlens[english] ?? english, args)
 }
 
 /** Strips VS Code's markdown command links (`[Label](command:…)`) down to plain lines. */

@@ -2,6 +2,8 @@
 //! kept; each request takes a thread-local copy. A handle is reopened when the repository's
 //! config file changes (remotes, upstreams and settings are read from it at open time).
 
+pub mod blame;
+pub mod content;
 pub mod refs;
 pub mod status;
 
@@ -24,13 +26,8 @@ pub struct Repos {
 }
 
 fn config_mtime(repo: &gix::ThreadSafeRepository) -> Option<SystemTime> {
-    let common = repo
-        .common_dir
-        .clone()
-        .unwrap_or_else(|| repo.git_dir().to_path_buf());
-    std::fs::metadata(common.join("config"))
-        .and_then(|m| m.modified())
-        .ok()
+    let common = repo.common_dir.clone().unwrap_or_else(|| repo.git_dir().to_path_buf());
+    std::fs::metadata(common.join("config")).and_then(|m| m.modified()).ok()
 }
 
 impl Repos {
@@ -40,14 +37,11 @@ impl Repos {
         {
             return Ok(Self::local(repo));
         }
-        let repo = gix::ThreadSafeRepository::open(root)
-            .map_err(|e| Error::Repo(format!("{}: {e}", root.display())))?;
+        let repo =
+            gix::ThreadSafeRepository::open(root).map_err(|e| Error::Repo(format!("{}: {e}", root.display())))?;
         let local = Self::local(&repo);
         let mtime = config_mtime(&repo);
-        self.open
-            .lock()
-            .unwrap()
-            .insert(root.to_path_buf(), (repo, mtime));
+        self.open.lock().unwrap().insert(root.to_path_buf(), (repo, mtime));
         Ok(local)
     }
 

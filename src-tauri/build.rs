@@ -15,13 +15,7 @@ fn build_foundation_models_bridge() {
         _ => "arm64-apple-macosx13.0",
     };
     let status = Command::new("xcrun")
-        .args([
-            "swiftc",
-            "-emit-library",
-            "-static",
-            "-parse-as-library",
-            "-O",
-        ])
+        .args(["swiftc", "-emit-library", "-static", "-parse-as-library", "-O"])
         .args(["-target", target, "-module-name", "GitsideFM", "-o"])
         .arg(out.join("libgitside_fm.a"))
         .arg("src/ai/bridge.swift")
@@ -31,12 +25,7 @@ fn build_foundation_models_bridge() {
 
     let sdk = xcrun(&["--show-sdk-path"]);
     let swiftc = PathBuf::from(xcrun(&["--find", "swiftc"]));
-    let toolchain_lib = swiftc
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("lib/swift/macosx");
+    let toolchain_lib = swiftc.parent().unwrap().parent().unwrap().join("lib/swift/macosx");
     println!("cargo:rustc-link-search=native={}", out.display());
     println!("cargo:rustc-link-lib=static=gitside_fm");
     println!("cargo:rustc-link-search=native={sdk}/usr/lib/swift");

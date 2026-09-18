@@ -20,10 +20,7 @@ pub struct Repo<'a> {
 
 impl<'a> Repo<'a> {
     fn target(&self) -> Target<'a> {
-        Target {
-            worktree: self.root,
-            common_dir: self.common_dir,
-        }
+        Target { worktree: self.root, common_dir: self.common_dir }
     }
 }
 
@@ -49,53 +46,20 @@ pub async fn stage(queue: &Queue, repo: Repo<'_>, paths: &[String], label: &str)
         .await
 }
 
-pub async fn unstage(
-    queue: &Queue,
-    repo: Repo<'_>,
-    paths: &[String],
-    unborn: bool,
-    label: &str,
-) -> Result<Output> {
+pub async fn unstage(queue: &Queue, repo: Repo<'_>, paths: &[String], unborn: bool, label: &str) -> Result<Output> {
     // Before the first commit there is no HEAD to restore from; drop the entries instead
     let args: &[&str] = if unborn {
-        &[
-            "rm",
-            "--cached",
-            "-r",
-            "-q",
-            "--pathspec-from-file=-",
-            "--pathspec-file-nul",
-        ]
+        &["rm", "--cached", "-r", "-q", "--pathspec-from-file=-", "--pathspec-file-nul"]
     } else {
-        &[
-            "restore",
-            "--staged",
-            "--pathspec-from-file=-",
-            "--pathspec-file-nul",
-        ]
+        &["restore", "--staged", "--pathspec-from-file=-", "--pathspec-file-nul"]
     };
-    queue
-        .run_with_stdin(
-            repo.target(),
-            OpKind::Stage,
-            label,
-            args,
-            Some(pathspec_stdin(paths)),
-        )
-        .await
+    queue.run_with_stdin(repo.target(), OpKind::Stage, label, args, Some(pathspec_stdin(paths))).await
 }
 
 /// Captures tracked changes (index and worktree) as a dangling stash commit.
 /// Returns `None` when there is nothing to capture.
 pub async fn recovery_point(queue: &Queue, repo: &Repo<'_>) -> Result<Option<String>> {
-    let out = queue
-        .run(
-            repo.target(),
-            OpKind::Other,
-            "git stash create",
-            &["stash", "create"],
-        )
-        .await?;
+    let out = queue.run(repo.target(), OpKind::Other, "git stash create", &["stash", "create"]).await?;
     let id = out.stdout.trim();
     Ok((!id.is_empty()).then(|| id.to_owned()))
 }
@@ -118,24 +82,14 @@ pub async fn discard(
     untracked: &[String],
     label: &str,
 ) -> Result<DiscardResult> {
-    let recovery = if tracked.is_empty() {
-        None
-    } else {
-        recovery_point(queue, &repo).await?
-    };
+    let recovery = if tracked.is_empty() { None } else { recovery_point(queue, &repo).await? };
     if !tracked.is_empty() {
         queue
             .run_with_stdin(
                 repo.target(),
                 OpKind::Other,
                 label,
-                &[
-                    "checkout",
-                    "-q",
-                    "--pathspec-from-file=-",
-                    "--pathspec-file-nul",
-                    "--",
-                ],
+                &["checkout", "-q", "--pathspec-from-file=-", "--pathspec-file-nul", "--"],
                 Some(pathspec_stdin(tracked)),
             )
             .await?;
@@ -206,9 +160,7 @@ pub async fn commit(
     if options.allow_empty {
         args.push("--allow-empty");
     }
-    queue
-        .run_with_stdin(repo.target(), OpKind::Commit, label, &args, stdin)
-        .await
+    queue.run_with_stdin(repo.target(), OpKind::Commit, label, &args, stdin).await
 }
 
 /// Appends repository-relative paths to the root `.gitignore` (VS Code's "Add to .gitignore").
@@ -216,10 +168,7 @@ pub fn append_gitignore(root: &Path, paths: &[String]) -> Result<()> {
     use std::io::Write;
     let file = root.join(".gitignore");
     let existing = std::fs::read_to_string(&file).unwrap_or_default();
-    let mut out = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&file)?;
+    let mut out = std::fs::OpenOptions::new().create(true).append(true).open(&file)?;
     if !existing.is_empty() && !existing.ends_with('\n') {
         writeln!(out)?;
     }
@@ -246,25 +195,11 @@ pub async fn apply_patch(
         args.push("-R");
     }
     args.push("-");
-    queue
-        .run_with_stdin(
-            repo.target(),
-            OpKind::Stage,
-            label,
-            &args,
-            Some(patch.as_bytes().to_vec()),
-        )
-        .await
+    queue.run_with_stdin(repo.target(), OpKind::Stage, label, &args, Some(patch.as_bytes().to_vec())).await
 }
 
 /// Any other git command, classified for the queue and the menu bar badge.
-pub async fn exec(
-    queue: &Queue,
-    repo: Repo<'_>,
-    kind: OpKind,
-    label: &str,
-    args: &[String],
-) -> Result<Output> {
+pub async fn exec(queue: &Queue, repo: Repo<'_>, kind: OpKind, label: &str, args: &[String]) -> Result<Output> {
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
     queue.run(repo.target(), kind, label, &args).await
 }

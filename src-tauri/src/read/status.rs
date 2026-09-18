@@ -116,12 +116,7 @@ pub fn status(repo: &gix::Repository) -> Result<RepoStatus> {
                         status: StatusCode::IndexDeleted,
                         submodule: false,
                     },
-                    ChangeRef::Modification {
-                        location,
-                        previous_entry_mode,
-                        entry_mode,
-                        ..
-                    } => FileChange {
+                    ChangeRef::Modification { location, previous_entry_mode, entry_mode, .. } => FileChange {
                         path: path(location.as_ref()),
                         original_path: None,
                         status: if previous_entry_mode.to_tree_entry_mode().map(|m| m.kind())
@@ -133,19 +128,10 @@ pub fn status(repo: &gix::Repository) -> Result<RepoStatus> {
                         },
                         submodule: entry_mode.is_submodule(),
                     },
-                    ChangeRef::Rewrite {
-                        source_location,
-                        location,
-                        copy,
-                        ..
-                    } => FileChange {
+                    ChangeRef::Rewrite { source_location, location, copy, .. } => FileChange {
                         path: path(location.as_ref()),
                         original_path: Some(path(source_location.as_ref())),
-                        status: if copy {
-                            StatusCode::IndexCopied
-                        } else {
-                            StatusCode::IndexRenamed
-                        },
+                        status: if copy { StatusCode::IndexCopied } else { StatusCode::IndexRenamed },
                         submodule: false,
                     },
                 };
@@ -177,11 +163,7 @@ pub fn status(repo: &gix::Repository) -> Result<RepoStatus> {
                 ApplyMailbox | ApplyMailboxRebase => "applyMailbox",
             }
         }),
-        remotes: repo
-            .remote_names()
-            .iter()
-            .map(|n| n.to_str_lossy().into_owned())
-            .collect(),
+        remotes: repo.remote_names().iter().map(|n| n.to_str_lossy().into_owned()).collect(),
         head,
         upstream,
         merge,
@@ -200,9 +182,7 @@ fn worktree_change(
     use gix::status::index_worktree::Item;
     use gix_status_types::*;
     match item {
-        Item::Modification {
-            rela_path, status, ..
-        } => {
+        Item::Modification { rela_path, status, .. } => {
             let path = path(rela_path.as_ref());
             match status {
                 EntryStatus::Conflict { summary, .. } => merge.push(FileChange {
@@ -226,12 +206,7 @@ fn worktree_change(
                         Change::Modification { .. } => (StatusCode::Modified, false),
                         Change::SubmoduleModification(_) => (StatusCode::Modified, true),
                     };
-                    working_tree.push(FileChange {
-                        path,
-                        original_path: None,
-                        status,
-                        submodule,
-                    });
+                    working_tree.push(FileChange { path, original_path: None, status, submodule });
                 }
                 EntryStatus::IntentToAdd => working_tree.push(FileChange {
                     path,
@@ -252,12 +227,7 @@ fn worktree_change(
                 });
             }
         }
-        Item::Rewrite {
-            source,
-            dirwalk_entry,
-            copy,
-            ..
-        } => {
+        Item::Rewrite { source, dirwalk_entry, copy, .. } => {
             // An untracked file matched a deleted one; git (without -M on the worktree) shows
             // these as a deletion plus an untracked file, and so does VS Code
             let _ = copy;
@@ -283,29 +253,17 @@ mod gix_status_types {
 
 pub fn head(repo: &gix::Repository) -> Head {
     let Ok(head) = repo.head() else {
-        return Head {
-            branch: None,
-            commit: None,
-            detached: false,
-        };
+        return Head { branch: None, commit: None, detached: false };
     };
-    let branch = head
-        .referent_name()
-        .map(|n| n.shorten().to_str_lossy().into_owned());
+    let branch = head.referent_name().map(|n| n.shorten().to_str_lossy().into_owned());
     let commit = head.id().map(|id| id.to_string());
-    Head {
-        detached: head.is_detached(),
-        branch,
-        commit,
-    }
+    Head { detached: head.is_detached(), branch, commit }
 }
 
 fn upstream(repo: &gix::Repository, head: &Head) -> Option<Upstream> {
     let branch = head.branch.as_ref()?;
     let full: gix::refs::FullName = format!("refs/heads/{branch}").try_into().ok()?;
-    let tracking = repo
-        .branch_remote_tracking_ref_name(full.as_ref(), Direction::Fetch)?
-        .ok()?;
+    let tracking = repo.branch_remote_tracking_ref_name(full.as_ref(), Direction::Fetch)?.ok()?;
     let remote = repo
         .branch_remote_name(branch.as_str(), Direction::Fetch)
         .map(|n| n.as_bstr().to_str_lossy().into_owned())
@@ -315,20 +273,12 @@ fn upstream(repo: &gix::Repository, head: &Head) -> Option<Upstream> {
     let (ahead, behind) = match repo.find_reference(tracking.as_ref()) {
         Ok(mut reference) => {
             let upstream_id = reference.peel_to_id().ok()?.detach();
-            (
-                count_only_in(repo, local_id, upstream_id),
-                count_only_in(repo, upstream_id, local_id),
-            )
+            (count_only_in(repo, local_id, upstream_id), count_only_in(repo, upstream_id, local_id))
         }
         // Configured but never fetched: nothing to compare with yet
         Err(_) => (0, 0),
     };
-    Some(Upstream {
-        name,
-        remote,
-        ahead,
-        behind,
-    })
+    Some(Upstream { name, remote, ahead, behind })
 }
 
 /// Commits reachable from `tip` but not from `other` (`git rev-list --count other..tip`).
@@ -336,11 +286,7 @@ fn count_only_in(repo: &gix::Repository, tip: gix::ObjectId, other: gix::ObjectI
     if tip == other {
         return 0;
     }
-    repo.rev_walk([tip])
-        .with_hidden([other])
-        .all()
-        .map(|walk| walk.filter(|info| info.is_ok()).count())
-        .unwrap_or(0)
+    repo.rev_walk([tip]).with_hidden([other]).all().map(|walk| walk.filter(|info| info.is_ok()).count()).unwrap_or(0)
 }
 
 /// The HEAD commit's full message, for amending.
@@ -359,14 +305,7 @@ mod tests {
     fn git(dir: &Path, args: &[&str]) {
         let status = Command::new("git")
             .current_dir(dir)
-            .args([
-                "-c",
-                "user.name=t",
-                "-c",
-                "user.email=t@t",
-                "-c",
-                "init.defaultBranch=main",
-            ])
+            .args(["-c", "user.name=t", "-c", "user.email=t@t", "-c", "init.defaultBranch=main"])
             .args(args)
             .status()
             .unwrap();
@@ -374,8 +313,7 @@ mod tests {
     }
 
     fn fixture(name: &str) -> std::path::PathBuf {
-        let dir =
-            std::env::temp_dir().join(format!("gitside-status-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gitside-status-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         git(&dir, &["init", "-q"]);
@@ -423,10 +361,7 @@ mod tests {
         git(&dir, &["checkout", "-q", "main"]);
         std::fs::write(dir.join("f.txt"), "main\n").unwrap();
         git(&dir, &["commit", "-qam", "main"]);
-        let _ = Command::new("git")
-            .current_dir(&dir)
-            .args(["merge", "other"])
-            .output();
+        let _ = Command::new("git").current_dir(&dir).args(["merge", "other"]).output();
 
         let repo = gix::open(&dir).unwrap();
         let s = status(&repo).unwrap();
@@ -442,18 +377,9 @@ mod tests {
         std::fs::write(remote.join("f.txt"), "1\n").unwrap();
         git(&remote, &["add", "."]);
         git(&remote, &["commit", "-qm", "1"]);
-        let clone =
-            std::env::temp_dir().join(format!("gitside-status-clone-{}", std::process::id()));
+        let clone = std::env::temp_dir().join(format!("gitside-status-clone-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&clone);
-        git(
-            &remote,
-            &[
-                "clone",
-                "-q",
-                remote.to_str().unwrap(),
-                clone.to_str().unwrap(),
-            ],
-        );
+        git(&remote, &["clone", "-q", remote.to_str().unwrap(), clone.to_str().unwrap()]);
         std::fs::write(remote.join("f.txt"), "2\n").unwrap();
         git(&remote, &["commit", "-qam", "2"]);
         git(&clone, &["fetch", "-q"]);
