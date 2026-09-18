@@ -1,0 +1,101 @@
+/* Color presets (`gitside.theme.preset`). The base palettes swap the neutral scale the
+ * coss theme is built on; the accent presets change the primary color and focus ring. */
+html[data-preset="stone"] {
+  --color-neutral-50: var(--color-stone-50);
+  --color-neutral-100: var(--color-stone-100);
+  --color-neutral-200: var(--color-stone-200);
+  --color-neutral-300: var(--color-stone-300);
+  --color-neutral-400: var(--color-stone-400);
+  --color-neutral-500: var(--color-stone-500);
+  --color-neutral-600: var(--color-stone-600);
+  --color-neutral-700: var(--color-stone-700);
+  --color-neutral-800: var(--color-stone-800);
+  --color-neutral-900: var(--color-stone-900);
+  --color-neutral-950: var(--color-stone-950);
+}
+html[data-preset="zinc"] {
+  --color-neutral-50: var(--color-zinc-50);
+  --color-neutral-100: var(--color-zinc-100);
+  --color-neutral-200: var(--color-zinc-200);
+  --color-neutral-300: var(--color-zinc-300);
+  --color-neutral-400: var(--color-zinc-400);
+  --color-neutral-500: var(--color-zinc-500);
+  --color-neutral-600: var(--color-zinc-600);
+  --color-neutral-700: var(--color-zinc-700);
+  --color-neutral-800: var(--color-zinc-800);
+  --color-neutral-900: var(--color-zinc-900);
+  --color-neutral-950: var(--color-zinc-950);
+}
+html[data-preset="slate"] {
+  --color-neutral-50: var(--color-slate-50);
+  --color-neutral-100: var(--color-slate-100);
+  --color-neutral-200: var(--color-slate-200);
+  --color-neutral-300: var(--color-slate-300);
+  --color-neutral-400: var(--color-slate-400);
+  --color-neutral-500: var(--color-slate-500);
+  --color-neutral-600: var(--color-slate-600);
+  --color-neutral-700: var(--color-slate-700);
+  --color-neutral-800: var(--color-slate-800);
+  --color-neutral-900: var(--color-slate-900);
+  --color-neutral-950: var(--color-slate-950);
+}
+html[data-preset="blue"] {
+  --primary: var(--color-blue-600);
+  --primary-foreground: var(--color-white);
+  --ring: var(--color-blue-400);
+  --sidebar-primary: var(--color-blue-600);
+}
+html.dark[data-preset="blue"] {
+  --primary: var(--color-blue-500);
+  --primary-foreground: var(--color-white);
+  --ring: var(--color-blue-600);
+  --sidebar-primary: var(--color-blue-500);
+}
+html[data-preset="green"] {
+  --primary: var(--color-green-600);
+  --primary-foreground: var(--color-white);
+  --ring: var(--color-green-400);
+  --sidebar-primary: var(--color-green-600);
+}
+html.dark[data-preset="green"] {
+  --primary: var(--color-green-500);
+  --primary-foreground: var(--color-white);
+  --ring: var(--color-green-600);
+  --sidebar-primary: var(--color-green-500);
+}
+html[data-preset="orange"] {
+  --primary: var(--color-orange-600);
+  --primary-foreground: var(--color-white);
+  --ring: var(--color-orange-400);
+  --sidebar-primary: var(--color-orange-600);
+}
+html.dark[data-preset="orange"] {
+  --primary: var(--color-orange-500);
+  --primary-foreground: var(--color-white);
+  --ring: var(--color-orange-600);
+  --sidebar-primary: var(--color-orange-500);
+}
+html[data-preset="rose"] {
+  --primary: var(--color-rose-600);
+  --primary-foreground: var(--color-white);
+  --ring: var(--color-rose-400);
+  --sidebar-primary: var(--color-rose-600);
+}
+html.dark[data-preset="rose"] {
+  --primary: var(--color-rose-500);
+  --primary-foreground: var(--color-white);
+  --ring: var(--color-rose-600);
+  --sidebar-primary: var(--color-rose-500);
+}
+html[data-preset="violet"] {
+  --primary: var(--color-violet-600);
+  --primary-foreground: var(--color-white);
+  --ring: var(--color-violet-400);
+  --sidebar-primary: var(--color-violet-600);
+}
+html.dark[data-preset="violet"] {
+  --primary: var(--color-violet-500);
+  --primary-foreground: var(--color-white);
+  --ring: var(--color-violet-600);
+  --sidebar-primary: var(--color-violet-500);
+}

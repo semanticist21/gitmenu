@@ -1,0 +1,436 @@
+//! Menu bar icon and the panel it opens.
+//!
+//! The icon is a fixed commit-graph mark. While git work runs, a badge for that work
+//! blinks in its bottom-right corner; conflicts and failures show a steady red badge.
+//! The blink thread parks when nothing runs, so the idle app uses no CPU.
+//!
+//! The panel is an NSPanel (non-activating, joins full-screen spaces) so it opens over
+//! full-screen apps without taking focus from the user's editor. Every NSPanel call runs
+//! on the main thread; calling it elsewhere deadlocks.
+
+use std::{
+    sync::{
+        Arc, Condvar, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::{Duration, Instant},
+};
+
+use serde::Serialize;
+use tauri::{
+    AppHandle, Emitter, Manager, PhysicalPosition, Rect,
+    image::Image,
+    tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
+};
+use tauri_nspanel::{
+    CollectionBehavior, ManagerExt, PanelLevel, StyleMask, WebviewWindowExt, tauri_panel,
+};
+
+use crate::project::UiState;
+
+pub const PANEL: &str = "panel";
+pub const DETAIL: &str = "detail";
+const TRAY_ID: &str = "main";
+const BLINK: Duration = Duration::from_millis(500);
+const REOPEN_GUARD: Duration = Duration::from_millis(300);
+const BLUR_GRACE: Duration = Duration::from_millis(80);
+const MARGIN: f64 = 6.0;
+
+tauri_panel! {
+    panel!(GitsidePanel {
+        config: {
+            can_become_key_window: true,
+            is_floating_panel: true
+        }
+    })
+
+    panel_event!(GitsidePanelEvents {
+        window_did_resign_key(notification: &NSNotification) -> ()
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Activity {
+    Push,
+    Pull,
+    Fetch,
+    Commit,
+}
+
+struct Frames {
+    idle: Image<'static>,
+    push: Image<'static>,
+    pull: Image<'static>,
+    fetch: Image<'static>,
+    commit: Image<'static>,
+    conflict_light: Image<'static>,
+    conflict_dark: Image<'static>,
+    failure_light: Image<'static>,
+    failure_dark: Image<'static>,
+}
+
+macro_rules! frame {
+    ($name:literal) => {
+        Image::from_bytes(include_bytes!(concat!("../icons/tray/", $name, "@2x.png")))
+            .expect("tray icon png")
+    };
+}
+
+impl Frames {
+    fn load() -> Self {
+        Self {
+            idle: frame!("idle"),
+            push: frame!("push"),
+            pull: frame!("pull"),
+            fetch: frame!("fetch"),
+            commit: frame!("commit"),
+            conflict_light: frame!("conflict-light"),
+            conflict_dark: frame!("conflict-dark"),
+            failure_light: frame!("failure-light"),
+            failure_dark: frame!("failure-dark"),
+        }
+    }
+
+    fn activity(&self, activity: Activity) -> &Image<'static> {
+        match activity {
+            Activity::Push => &self.push,
+            Activity::Pull => &self.pull,
+            Activity::Fetch => &self.fetch,
+            Activity::Commit => &self.commit,
+        }
+    }
+}
+
+#[derive(Default)]
+struct IconState {
+    activity: Option<Activity>,
+    conflict: bool,
+    failure: bool,
+    /// Bumped on every change so the blink thread redraws at once
+    generation: u64,
+}
+
+pub struct Tray {
+    state: Mutex<IconState>,
+    wake: Condvar,
+    pinned: AtomicBool,
+    hidden_at: Mutex<Option<Instant>>,
+    last_rect: Mutex<Option<Rect>>,
+}
+
+impl Tray {
+    fn update(&self, f: impl FnOnce(&mut IconState)) {
+        let mut state = self.state.lock().unwrap();
+        f(&mut state);
+        state.generation += 1;
+        self.wake.notify_all();
+    }
+}
+
+pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let tray_state = Arc::new(Tray {
+        state: Mutex::new(IconState::default()),
+        wake: Condvar::new(),
+        pinned: AtomicBool::new(false),
+        hidden_at: Mutex::new(None),
+        last_rect: Mutex::new(None),
+    });
+    app.manage(Arc::clone(&tray_state));
+    let frames = Arc::new(Frames::load());
+
+    TrayIconBuilder::with_id(TRAY_ID)
+        .icon(frames.idle.clone())
+        .icon_as_template(true)
+        .tooltip("gitside")
+        .show_menu_on_left_click(false)
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                rect,
+                ..
+            } = event
+            {
+                let app = tray.app_handle();
+                let state = app.state::<Arc<Tray>>();
+                *state.last_rect.lock().unwrap() = Some(rect);
+                // A click that lands right after the panel hid itself on blur is the same
+                // click that caused the blur; don't reopen
+                let just_hidden = state
+                    .hidden_at
+                    .lock()
+                    .unwrap()
+                    .is_some_and(|t| t.elapsed() < REOPEN_GUARD);
+                if just_hidden {
+                    return;
+                }
+                toggle_panel(app);
+            }
+        })
+        .build(app)?;
+
+    setup_panel(app)?;
+    spawn_blinker(app.clone(), tray_state, frames);
+    Ok(())
+}
+
+fn setup_panel(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let window = app
+        .get_webview_window(PANEL)
+        .expect("panel window in tauri.conf.json");
+    let panel = window
+        .to_panel::<GitsidePanel>()
+        .map_err(|e| e.to_string())?;
+    panel.set_level(PanelLevel::Floating.value());
+    panel.set_style_mask(StyleMask::empty().nonactivating_panel().resizable().into());
+    panel.set_collection_behavior(
+        CollectionBehavior::new()
+            .full_screen_auxiliary()
+            .can_join_all_spaces()
+            .into(),
+    );
+    panel.set_has_shadow(true);
+    panel.set_corner_radius(10.0);
+
+    let handler = GitsidePanelEvents::new();
+    let handle = app.clone();
+    handler.window_did_resign_key(move |_| {
+        let app = handle.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(BLUR_GRACE);
+            let app2 = app.clone();
+            let _ = app.run_on_main_thread(move || hide_if_unfocused(&app2));
+        });
+    });
+    panel.set_event_handler(Some(handler.as_ref()));
+    // The handler must outlive the panel's weak delegate reference
+    std::mem::forget(handler);
+    Ok(())
+}
+
+/// Hides the panel after it lost key status, unless pinned or another of our windows took focus.
+fn hide_if_unfocused(app: &AppHandle) {
+    let tray = app.state::<Arc<Tray>>();
+    if tray.pinned.load(Ordering::Relaxed) {
+        return;
+    }
+    let ours_focused = app
+        .webview_windows()
+        .values()
+        .any(|w| w.is_focused().unwrap_or(false));
+    if !ours_focused {
+        hide_panel(app);
+    }
+}
+
+pub fn toggle_panel(app: &AppHandle) {
+    let visible = app
+        .get_webview_panel(PANEL)
+        .map(|p| p.is_visible())
+        .unwrap_or(false);
+    if visible {
+        hide_panel(app);
+    } else {
+        show_panel(app);
+    }
+}
+
+/// Shows the panel under the menu bar icon. Safe to call from any thread.
+pub fn show_panel(app: &AppHandle) {
+    let app2 = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let app = app2;
+        let Ok(panel) = app.get_webview_panel(PANEL) else {
+            return;
+        };
+        if panel.is_visible() {
+            panel.show_and_make_key();
+            return;
+        }
+        if let Some(window) = panel.to_window() {
+            place_panel(&app, &window);
+        }
+        panel.show_and_make_key();
+        let _ = app.emit("panel://shown", ());
+        let tray = app.state::<Arc<Tray>>();
+        // Opening the panel acknowledges a failure; the panel shows what went wrong
+        tray.update(|s| s.failure = false);
+    });
+}
+
+pub fn hide_panel(app: &AppHandle) {
+    let app2 = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let app = app2;
+        let Ok(panel) = app.get_webview_panel(PANEL) else {
+            return;
+        };
+        if !panel.is_visible() {
+            return;
+        }
+        if let Some(window) = panel.to_window()
+            && let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor())
+        {
+            let logical = size.to_logical::<f64>(scale);
+            app.state::<Arc<UiState>>().set(
+                "panel.size",
+                serde_json::json!([logical.width, logical.height]),
+            );
+        }
+        panel.hide();
+        *app.state::<Arc<Tray>>().hidden_at.lock().unwrap() = Some(Instant::now());
+        let _ = app.emit("panel://hidden", ());
+    });
+}
+
+pub fn set_pinned(app: &AppHandle, pinned: bool) {
+    app.state::<Arc<Tray>>()
+        .pinned
+        .store(pinned, Ordering::Relaxed);
+}
+
+/// Restores the remembered size and centers the panel under the icon, inside the screen.
+fn place_panel(app: &AppHandle, window: &tauri::WebviewWindow) {
+    let tray = app.state::<Arc<Tray>>();
+    // The icon's rect right after launch is wrong, so it's read at click time when possible
+    let rect = tray.last_rect.lock().unwrap().or_else(|| {
+        app.tray_by_id(TRAY_ID)
+            .and_then(|t: TrayIcon| t.rect().ok().flatten())
+    });
+    let Some(rect) = rect else { return };
+    let scale = window.scale_factor().unwrap_or(2.0);
+    let icon_pos = rect.position.to_physical::<f64>(scale);
+    let icon_size = rect.size.to_physical::<f64>(scale);
+    let monitor = window
+        .available_monitors()
+        .ok()
+        .and_then(|monitors| {
+            monitors.into_iter().find(|m| {
+                let (p, s) = (m.position(), m.size());
+                icon_pos.x >= p.x as f64 && icon_pos.x < (p.x + s.width as i32) as f64
+            })
+        })
+        .or_else(|| window.current_monitor().ok().flatten());
+
+    let (mut width, mut height) = app
+        .state::<Arc<UiState>>()
+        .get("panel.size")
+        .and_then(|v| Some((v.get(0)?.as_f64()?, v.get(1)?.as_f64()?)))
+        .unwrap_or((360.0, 640.0));
+    let top = icon_pos.y + icon_size.height;
+    if let Some(m) = &monitor {
+        let area = m.work_area();
+        let max_h =
+            (area.size.height as f64 / scale) - (top - area.position.y as f64) / scale - MARGIN;
+        height = height.min(max_h).max(320.0);
+        width = width.max(300.0);
+    }
+    let _ = window.set_size(tauri::LogicalSize::new(width, height));
+    let phys_w = width * scale;
+    let mut x = icon_pos.x + icon_size.width / 2.0 - phys_w / 2.0;
+    if let Some(m) = &monitor {
+        let area = m.work_area();
+        let left = area.position.x as f64 + MARGIN * scale;
+        let right = (area.position.x + area.size.width as i32) as f64 - MARGIN * scale - phys_w;
+        x = x.clamp(left, right.max(left));
+    }
+    let _ = window.set_position(PhysicalPosition::new(
+        x.round() as i32,
+        (top + 4.0 * scale).round() as i32,
+    ));
+}
+
+pub fn set_activity(app: &AppHandle, activity: Option<Activity>) {
+    if let Some(tray) = app.try_state::<Arc<Tray>>() {
+        tray.update(|s| s.activity = activity);
+    }
+}
+
+pub fn set_conflict(app: &AppHandle, conflict: bool) {
+    if let Some(tray) = app.try_state::<Arc<Tray>>() {
+        tray.update(|s| s.conflict = conflict);
+    }
+}
+
+pub fn set_failure(app: &AppHandle, failure: bool) {
+    if let Some(tray) = app.try_state::<Arc<Tray>>() {
+        tray.update(|s| s.failure = failure);
+    }
+}
+
+/// Redraws the icon on every state change and blinks the badge while work runs.
+fn spawn_blinker(app: AppHandle, tray: Arc<Tray>, frames: Arc<Frames>) {
+    std::thread::spawn(move || {
+        let mut shown_generation = u64::MAX;
+        let mut badge_on = true;
+        loop {
+            let (activity, conflict, failure) = {
+                let mut state = tray.state.lock().unwrap();
+                // Park until something changes; while work runs, wake every blink tick
+                while state.generation == shown_generation && state.activity.is_none() {
+                    state = tray.wake.wait(state).unwrap();
+                }
+                if state.generation != shown_generation {
+                    badge_on = true;
+                } else {
+                    let (next, _) = tray.wake.wait_timeout(state, BLINK).unwrap();
+                    state = next;
+                    badge_on = !badge_on;
+                }
+                shown_generation = state.generation;
+                (state.activity, state.conflict, state.failure)
+            };
+            let Some(icon) = app.tray_by_id(TRAY_ID) else {
+                continue;
+            };
+            match (activity, conflict, failure) {
+                (Some(activity), _, _) => {
+                    let image = if badge_on {
+                        frames.activity(activity)
+                    } else {
+                        &frames.idle
+                    };
+                    let _ = icon.set_icon_with_as_template(Some(image.clone()), true);
+                }
+                (None, true, _) | (None, false, true) => {
+                    let dark = menu_bar_is_dark(&icon);
+                    let image = match (conflict, dark) {
+                        (true, true) => &frames.conflict_dark,
+                        (true, false) => &frames.conflict_light,
+                        (false, true) => &frames.failure_dark,
+                        (false, false) => &frames.failure_light,
+                    };
+                    // Red can't be a template image; the body is drawn for the menu bar's appearance
+                    let _ = icon.set_icon_with_as_template(Some(image.clone()), false);
+                }
+                (None, false, false) => {
+                    let _ = icon.set_icon_with_as_template(Some(frames.idle.clone()), true);
+                }
+            }
+        }
+    });
+}
+
+/// The status item's own appearance (the menu bar can be dark while the app is light).
+fn menu_bar_is_dark(icon: &TrayIcon) -> bool {
+    use objc2_app_kit::{
+        NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
+    };
+    use objc2_foundation::NSArray;
+    icon.with_inner_tray_icon(|inner| {
+        let Some(item) = inner.ns_status_item() else {
+            return false;
+        };
+        let mtm = objc2::MainThreadMarker::new().expect("tray callbacks run on the main thread");
+        let Some(button) = item.button(mtm) else {
+            return false;
+        };
+        let appearance = button.effectiveAppearance();
+        let names =
+            unsafe { NSArray::from_slice(&[NSAppearanceNameAqua, NSAppearanceNameDarkAqua]) };
+        let best = appearance.bestMatchFromAppearancesWithNames(&names);
+        best.is_some_and(|name| unsafe { &*name == NSAppearanceNameDarkAqua })
+    })
+    .unwrap_or(false)
+}

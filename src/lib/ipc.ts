@@ -1,0 +1,104 @@
+// Typed wrappers over the Rust commands in src-tauri/src/commands.rs.
+import { invoke } from '@tauri-apps/api/core'
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { useEffect, useRef } from 'react'
+
+export interface IpcError {
+  kind: string
+  message: string
+  stderr: string | null
+}
+
+export function isIpcError(value: unknown): value is IpcError {
+  return typeof value === 'object' && value !== null && 'kind' in value && 'message' in value
+}
+
+export function errorMessage(value: unknown): string {
+  if (isIpcError(value)) return value.message
+  if (value instanceof Error) return value.message
+  return String(value)
+}
+
+export type RepoKind = 'root' | 'submodule' | 'nested'
+
+export interface RepoInfo {
+  root: string
+  gitDir: string
+  commonDir: string
+  kind: RepoKind
+  name: string
+}
+
+export interface ProjectInfo {
+  id: string
+  name: string
+  missing: boolean
+  dirty: boolean
+  repos: RepoInfo[]
+  parentCandidate: string | null
+}
+
+export interface EnvStatus {
+  ready: boolean
+  git: string | null
+  gitVersion: string | null
+}
+
+export type LoginItem = 'enabled' | 'disabled' | 'requiresApproval' | 'unavailable'
+
+export const ipc = {
+  envStatus: () => invoke<EnvStatus>('env_status'),
+  settingsGet: () => invoke<Record<string, unknown>>('settings_get'),
+  settingsSet: (key: string, value: unknown) => invoke<void>('settings_set', { key, value }),
+  settingsFilePaths: () => invoke<[string, string]>('settings_file_paths'),
+  keybindingsGet: () => invoke<unknown[]>('keybindings_get'),
+  keybindingsSet: (bindings: unknown[]) => invoke<void>('keybindings_set', { bindings }),
+  uiStateGet: <T>(key: string) => invoke<T | null>('ui_state_get', { key }),
+  uiStateSet: (key: string, value: unknown) => invoke<void>('ui_state_set', { key, value }),
+  projectsList: () => invoke<[ProjectInfo[], string | null]>('projects_list'),
+  projectsRecent: () => invoke<string[]>('projects_recent'),
+  projectOpen: (path: string) => invoke<ProjectInfo>('project_open', { path }),
+  projectClose: (id: string) => invoke<void>('project_close', { id }),
+  projectActivate: (id: string) => invoke<void>('project_activate', { id }),
+  projectReorder: (order: string[]) => invoke<void>('project_reorder', { order }),
+  projectRelocate: (id: string, path: string) => invoke<ProjectInfo>('project_relocate', { id, path }),
+  projectAnswerParent: (id: string, accept: boolean) => invoke<ProjectInfo>('project_answer_parent', { id, accept }),
+  projectInitRepo: (id: string) => invoke<ProjectInfo>('project_init_repo', { id }),
+  pickFolder: (title?: string) => invoke<string | null>('pick_folder', { title }),
+  panelHide: () => invoke<void>('panel_hide'),
+  panelSetPinned: (pinned: boolean) => invoke<void>('panel_set_pinned', { pinned }),
+  detailOpen: (route: string) => invoke<void>('detail_open', { route }),
+  detailSetAlwaysOnTop: (value: boolean) => invoke<void>('detail_set_always_on_top', { value }),
+  promptRespond: (id: number, value: string | null) => invoke<void>('prompt_respond', { id, value }),
+  promptReadFile: (path: string) => invoke<string>('prompt_read_file', { path }),
+  promptWriteFile: (id: number, path: string, content: string | null) =>
+    invoke<void>('prompt_write_file', { id, path, content }),
+  opCancel: (id: number) => invoke<void>('op_cancel', { id }),
+  openInTerminal: (path: string) => invoke<void>('open_in_terminal', { path }),
+  revealInFinder: (path: string) => invoke<void>('reveal_in_finder', { path }),
+  openPath: (path: string) => invoke<void>('open_path', { path }),
+  terminalApps: () => invoke<string[]>('terminal_apps'),
+  appQuit: () => invoke<void>('app_quit'),
+  loginItemStatus: () => invoke<LoginItem>('login_item_status'),
+  loginItemSet: (enabled: boolean) => invoke<LoginItem>('login_item_set', { enabled }),
+}
+
+/** Subscribes to a Rust event for the component's lifetime; the handler may change freely. */
+export function useTauriEvent<T>(name: string, handler: (payload: T) => void) {
+  const ref = useRef(handler)
+  useEffect(() => {
+    ref.current = handler
+  })
+  useEffect(() => {
+    let unlisten: UnlistenFn | undefined
+    let disposed = false
+    listen<T>(name, (event) => ref.current(event.payload)).then((fn) => {
+      if (disposed) fn()
+      else unlisten = fn
+    })
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
+  }, [name])
+}

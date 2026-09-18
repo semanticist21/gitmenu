@@ -1,52 +1,151 @@
-use tauri::{
-    ActivationPolicy, Manager, WindowEvent,
-    image::Image,
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-};
-use tauri_plugin_positioner::{Position, WindowExt};
+mod commands;
+mod env;
+mod error;
+mod project;
+mod queue;
+mod settings;
+mod tray;
+mod update;
 
-const PANEL: &str = "panel";
+use std::sync::Arc;
+
+use tauri::{ActivationPolicy, AppHandle, Listener, Manager};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+
+pub use env::run_helper;
+
+use crate::{env::GitEnv, project::Projects, queue::Queue, settings::Settings};
 
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_positioner::init())
-        .setup(|app| {
-            app.set_activation_policy(ActivationPolicy::Accessory);
-            let icon = Image::from_bytes(include_bytes!("../icons/tray/idle@2x.png"))?;
-            TrayIconBuilder::with_id("main")
-                .icon(icon)
-                .icon_as_template(true)
-                .show_menu_on_left_click(false)
-                .on_tray_icon_event(|tray, event| {
-                    tauri_plugin_positioner::on_tray_event(tray.app_handle(), &event);
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        let Some(panel) = tray.app_handle().get_webview_window(PANEL) else {
-                            return;
-                        };
-                        if panel.is_visible().unwrap_or(false) {
-                            let _ = panel.hide();
-                        } else {
-                            let _ = panel.move_window(Position::TrayBottomCenter);
-                            let _ = panel.show();
-                            let _ = panel.set_focus();
-                        }
+        .plugin(tauri_plugin_nspanel_init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                // The panel is sized and placed under the menu bar icon by tray.rs
+                .with_denylist(&[tray::PANEL])
+                .build(),
+        )
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, _shortcut, event| {
+                    if event.state == ShortcutState::Pressed {
+                        tray::toggle_panel(app);
                     }
                 })
-                .build(app)?;
+                .build(),
+        )
+        .setup(|app| {
+            app.set_activation_policy(ActivationPolicy::Accessory);
+            let handle = app.handle().clone();
+            let dir = project::app_support_dir(&handle);
+            let settings = Settings::load(dir.clone())?;
+            settings.watch(handle.clone())?;
+            let ui = project::UiState::load(&dir);
+            app.manage(Arc::clone(&settings));
+            app.manage(Arc::clone(&ui));
+
+            let env = GitEnv::new();
+            env.start(handle.clone(), Arc::clone(&settings));
+            tauri::async_runtime::spawn({
+                let (env, handle) = (Arc::clone(&env), handle.clone());
+                async move {
+                    if let Err(e) = env.serve_prompts(handle).await {
+                        log::error!("prompt socket stopped: {e}");
+                    }
+                }
+            });
+            app.manage(Arc::clone(&env));
+
+            let queue = Queue::new(Arc::clone(&env), handle.clone());
+            app.manage(Arc::clone(&queue));
+            let projects = Projects::new(
+                handle.clone(),
+                Arc::clone(&settings),
+                Arc::clone(&ui),
+                queue,
+            );
+            projects.restore();
+            app.manage(Arc::clone(&projects));
+
+            tray::setup(&handle)?;
+            register_global_shortcut(&handle, &settings);
+            handle.listen("settings://changed", {
+                let handle = handle.clone();
+                move |_| {
+                    let settings = handle.state::<Arc<Settings>>();
+                    register_global_shortcut(&handle, &settings);
+                    handle
+                        .state::<Arc<GitEnv>>()
+                        .refresh_git(&handle, &settings);
+                }
+            });
+
+            // First launch: nothing to show from the menu bar yet, so open the panel
+            if projects.list().is_empty() && ui.get("launched").is_none() {
+                ui.set("launched", serde_json::Value::Bool(true));
+                tray::show_panel(&handle);
+            }
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if window.label() == PANEL
-                && let WindowEvent::Focused(false) = event
-            {
-                let _ = window.hide();
+        .invoke_handler(tauri::generate_handler![
+            commands::env_status,
+            commands::settings_get,
+            commands::settings_set,
+            commands::settings_file_paths,
+            commands::keybindings_get,
+            commands::keybindings_set,
+            commands::ui_state_get,
+            commands::ui_state_set,
+            commands::projects_list,
+            commands::projects_recent,
+            commands::project_open,
+            commands::project_close,
+            commands::project_activate,
+            commands::project_reorder,
+            commands::project_relocate,
+            commands::project_answer_parent,
+            commands::project_init_repo,
+            commands::pick_folder,
+            commands::panel_hide,
+            commands::panel_set_pinned,
+            commands::detail_open,
+            commands::detail_set_always_on_top,
+            commands::prompt_respond,
+            commands::prompt_read_file,
+            commands::prompt_write_file,
+            commands::op_cancel,
+            commands::open_in_terminal,
+            commands::reveal_in_finder,
+            commands::open_path,
+            commands::terminal_apps,
+            commands::app_quit,
+            commands::login_item_status,
+            commands::login_item_set,
+        ])
+        .build(tauri::generate_context!())
+        .expect("error while building gitside")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                app.state::<Arc<GitEnv>>().cleanup();
             }
-        })
-        .run(tauri::generate_context!())
-        .expect("error while running gitside");
+        });
+}
+
+fn tauri_plugin_nspanel_init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri_nspanel::init()
+}
+
+/// Binds the one global shortcut (panel open/close) from `gitside.panel.globalShortcut`.
+pub(crate) fn register_global_shortcut(app: &AppHandle, settings: &Settings) {
+    let shortcuts = app.global_shortcut();
+    let _ = shortcuts.unregister_all();
+    if let Some(accelerator) = settings
+        .get_str("gitside.panel.globalShortcut")
+        .filter(|s| !s.is_empty())
+        && let Err(e) = shortcuts.register(accelerator.as_str())
+    {
+        log::warn!("global shortcut {accelerator} not registered: {e}");
+    }
 }

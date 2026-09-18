@@ -1,0 +1,19 @@
+{
+  "git.path": { "type": ["string", "null"], "default": null },
+  "git.autoRepositoryDetection": { "type": ["boolean", "string"], "enum": [true, false, "subFolders", "openEditors"], "default": true },
+  "git.repositoryScanMaxDepth": { "type": "number", "default": 1 },
+  "git.repositoryScanIgnoredFolders": { "type": "array", "default": ["node_modules"] },
+  "git.detectSubmodules": { "type": "boolean", "default": true },
+  "git.detectSubmodulesLimit": { "type": "number", "default": 10 },
+  "git.openRepositoryInParentFolders": { "type": "string", "enum": ["always", "never", "prompt"], "default": "prompt" },
+  "git.untrackedChanges": { "type": "string", "enum": ["mixed", "separate", "hidden"], "default": "mixed" },
+  "git.autofetch": { "type": ["boolean", "string"], "enum": [true, false, "all"], "default": false },
+  "git.autofetchPeriod": { "type": "number", "default": 180 },
+  "gitside.language": { "type": "string", "enum": ["auto", "en", "ko", "ja", "zh-cn", "zh-tw", "de", "fr", "es", "pt-br", "ru"], "default": "auto" },
+  "gitside.theme.mode": { "type": "string", "enum": ["system", "light", "dark"], "default": "system" },
+  "gitside.theme.preset": { "type": "string", "enum": ["neutral", "stone", "zinc", "slate", "blue", "green", "orange", "rose", "violet"], "default": "neutral" },
+  "gitside.terminal.app": { "type": "string", "default": "Terminal" },
+  "gitside.panel.globalShortcut": { "type": ["string", "null"], "default": null },
+  "gitside.crashReports.enabled": { "type": "boolean", "default": false },
+  "gitside.avatars.enabled": { "type": "boolean", "default": true }
+}

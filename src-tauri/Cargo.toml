@@ -32,6 +32,11 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 log = "0.4"
+jsonc-parser = { version = "0.33", features = ["serde", "serde_json", "cst", "preserve_order"] }
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSString", "NSThread"] }
+objc2-app-kit = { version = "0.3", features = ["NSStatusItem", "NSStatusBarButton", "NSButton", "NSControl", "NSView", "NSResponder", "NSAppearance", "NSApplication", "NSRunningApplication", "NSWorkspace"] }
+objc2-service-management = { version = "0.3", features = ["SMAppService"] }
 
 [profile.release]
 codegen-units = 1
