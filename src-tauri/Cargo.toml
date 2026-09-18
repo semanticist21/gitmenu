@@ -1,0 +1,40 @@
+[package]
+name = "gitside"
+version = "0.1.0"
+description = "Menu bar git panel"
+authors = ["Kobbokkom"]
+license = "MIT"
+repository = "https://github.com/Kobbokkom/gitside"
+edition = "2024"
+rust-version = "1.90"
+
+[lib]
+name = "gitside_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6", features = [] }
+
+[dependencies]
+tauri = { version = "2.11", features = ["tray-icon", "image-png", "macos-private-api"] }
+tauri-plugin-positioner = { version = "2.3", features = ["tray-icon"] }
+tauri-plugin-global-shortcut = "2.3"
+tauri-plugin-window-state = "2.4"
+tauri-plugin-opener = "2.5"
+tauri-plugin-dialog = "2.7"
+# Not published on crates.io; pinned to the v2.1 branch head (see SPEC.md)
+tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", rev = "c9ec2130422200f0863b23dfdad02b133a529b07" }
+gix = { version = "0.87.1", default-features = false, features = ["status", "blame", "revision", "parallel", "max-performance-safe", "sha1"] }
+notify = "8.2"
+notify-debouncer-full = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "process", "time", "net", "io-util", "fs"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+log = "0.4"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
