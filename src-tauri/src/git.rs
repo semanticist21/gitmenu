@@ -214,6 +214,21 @@ pub async fn repo_compare(
 }
 
 #[tauri::command]
+pub async fn repo_branches(repos: State<'_, Arc<Repos>>, root: PathBuf) -> Result<Vec<refs::BranchInfo>> {
+    read(&repos, root, refs::branches).await
+}
+
+#[tauri::command]
+pub async fn repo_worktrees(repos: State<'_, Arc<Repos>>, root: PathBuf) -> Result<Vec<refs::WorktreeInfo>> {
+    read(&repos, root, refs::worktrees).await
+}
+
+#[tauri::command]
+pub async fn repo_contributors(repos: State<'_, Arc<Repos>>, root: PathBuf) -> Result<Vec<refs::Contributor>> {
+    read(&repos, root, refs::contributors).await
+}
+
+#[tauri::command]
 pub async fn repo_remotes(repos: State<'_, Arc<Repos>>, root: PathBuf) -> Result<Vec<RemoteInfo>> {
     read(&repos, root, refs::remotes).await
 }

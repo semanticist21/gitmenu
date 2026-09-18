@@ -61,6 +61,8 @@ pub struct Upstream {
     pub remote: String,
     pub ahead: usize,
     pub behind: usize,
+    /// The tracking branch doesn't exist (never fetched, or deleted on the remote)
+    pub gone: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -261,24 +263,27 @@ pub fn head(repo: &gix::Repository) -> Head {
 }
 
 fn upstream(repo: &gix::Repository, head: &Head) -> Option<Upstream> {
-    let branch = head.branch.as_ref()?;
+    branch_upstream(repo, head.branch.as_ref()?, repo.head_id().ok()?.detach())
+}
+
+/// The upstream of local branch `branch` (short name) whose tip is `local_id`.
+pub fn branch_upstream(repo: &gix::Repository, branch: &str, local_id: gix::ObjectId) -> Option<Upstream> {
     let full: gix::refs::FullName = format!("refs/heads/{branch}").try_into().ok()?;
     let tracking = repo.branch_remote_tracking_ref_name(full.as_ref(), Direction::Fetch)?.ok()?;
     let remote = repo
-        .branch_remote_name(branch.as_str(), Direction::Fetch)
+        .branch_remote_name(branch, Direction::Fetch)
         .map(|n| n.as_bstr().to_str_lossy().into_owned())
         .unwrap_or_default();
     let name = tracking.shorten().to_str_lossy().into_owned();
-    let local_id = repo.head_id().ok()?.detach();
-    let (ahead, behind) = match repo.find_reference(tracking.as_ref()) {
+    let (ahead, behind, gone) = match repo.find_reference(tracking.as_ref()) {
         Ok(mut reference) => {
             let upstream_id = reference.peel_to_id().ok()?.detach();
-            (count_only_in(repo, local_id, upstream_id), count_only_in(repo, upstream_id, local_id))
+            (count_only_in(repo, local_id, upstream_id), count_only_in(repo, upstream_id, local_id), false)
         }
-        // Configured but never fetched: nothing to compare with yet
-        Err(_) => (0, 0),
+        // Configured but never fetched, or deleted on the remote: nothing to compare with
+        Err(_) => (0, 0, true),
     };
-    Some(Upstream { name, remote, ahead, behind })
+    Some(Upstream { name, remote, ahead, behind, gone })
 }
 
 /// Commits reachable from `tip` but not from `other` (`git rev-list --count other..tip`).

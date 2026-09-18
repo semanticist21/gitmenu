@@ -19,7 +19,7 @@ const projects = [
 
 const status = {
   head: { branch: 'main', commit: '8f3c2a1d9e0b7c6a5f4e3d2c1b0a9f8e7d6c5b4a', detached: false },
-  upstream: { name: 'origin/main', remote: 'origin', ahead: 2, behind: 1 },
+  upstream: { name: 'origin/main', remote: 'origin', ahead: 2, behind: 1, gone: false },
   operation: null,
   merge: [],
   index: [
@@ -59,7 +59,7 @@ function commits(count: number) {
   })
 }
 
-const ui: Record<string, unknown> = { loginItemAsked: true, 'views.layout': { visible: ['scm', 'commits', 'fileHistory', 'searchCompare'], collapsed: [], weights: { scm: 2, commits: 3, fileHistory: 1, searchCompare: 1 } }, 'fileHistory.target': { root, path: 'src/main.tsx' }, [`searchCompare.${root}`]: [{ id: 'compare:main..feature/login', kind: 'compare', base: 'main', head: 'feature/login' }] }
+const ui: Record<string, unknown> = { loginItemAsked: true, 'views.layout': new URLSearchParams(window.location.search).get('views') ? { visible: new URLSearchParams(window.location.search).get('views')!.split(','), collapsed: [], weights: {} } : { visible: ['scm', 'commits', 'fileHistory', 'searchCompare'], collapsed: [], weights: { scm: 2, commits: 3, fileHistory: 1, searchCompare: 1 } }, 'fileHistory.target': { root, path: 'src/main.tsx' }, [`searchCompare.${root}`]: [{ id: 'compare:main..feature/login', kind: 'compare', base: 'main', head: 'feature/login' }] }
 const settings: Record<string, unknown> = {}
 
 export function installMocks() {
@@ -150,6 +150,19 @@ export function installMocks() {
           }
         case 'repo_compare':
           return { base: 'aaa', head: 'bbb', mergeBase: 'ccc', ahead: 3, behind: 1, files: [{ path: 'src/main.tsx', originalPath: null, status: 'modified' }] }
+        case 'repo_branches':
+          return [
+            { name: 'refs/heads/main', short: 'main', kind: 'branch', commit: status.head.commit, time: 1_700_000_000, subject: 'feat: add queue', current: true, upstream: status.upstream },
+            { name: 'refs/heads/feature/login', short: 'feature/login', kind: 'branch', commit: 'a1b2c3d4', time: 1_690_000_000, subject: 'wip', current: false, upstream: null },
+            { name: 'refs/heads/feature/tray', short: 'feature/tray', kind: 'branch', commit: 'a1b2c3d5', time: 1_689_000_000, subject: 'tray icon', current: false, upstream: { name: 'origin/feature/tray', remote: 'origin', ahead: 0, behind: 0, gone: true } },
+          ]
+        case 'repo_worktrees':
+          return [
+            { path: root, branch: 'main', commit: status.head.commit, main: true, current: true, locked: false, missing: false },
+            { path: '/Users/me/code/demo-login', branch: 'feature/login', commit: 'a1b2c3d4', main: false, current: false, locked: true, missing: false },
+          ]
+        case 'repo_contributors':
+          return authors.map(([name, email], i) => ({ name, email, commits: 40 - i * 13, latest: 'abc', latestTime: Math.floor(Date.now() / 1000) - i * 90000 }))
         case 'repo_remotes':
           return [{ name: 'origin', fetchUrl: 'git@github.com:me/demo.git', pushUrl: 'git@github.com:me/demo.git' }]
         case 'avatars_resolve':

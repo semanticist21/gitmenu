@@ -28,9 +28,18 @@ export interface FileChange {
   submodule: boolean
 }
 
+export interface Upstream {
+  name: string
+  remote: string
+  ahead: number
+  behind: number
+  /** The tracking branch doesn't exist (never fetched, or deleted on the remote) */
+  gone: boolean
+}
+
 export interface RepoStatus {
   head: { branch: string | null; commit: string | null; detached: boolean }
-  upstream: { name: string; remote: string; ahead: number; behind: number } | null
+  upstream: Upstream | null
   operation: 'merge' | 'rebase' | 'cherryPick' | 'revert' | 'bisect' | 'applyMailbox' | null
   merge: FileChange[]
   index: FileChange[]
@@ -165,7 +174,33 @@ export interface RemoteInfo {
   pushUrl: string | null
 }
 
+export interface BranchInfo extends RefInfo {
+  current: boolean
+  upstream: Upstream | null
+}
+
+export interface WorktreeInfo {
+  path: string
+  branch: string | null
+  commit: string | null
+  main: boolean
+  current: boolean
+  locked: boolean
+  missing: boolean
+}
+
+export interface Contributor {
+  name: string
+  email: string
+  commits: number
+  latest: string
+  latestTime: number
+}
+
 export const git = {
+  branches: (root: string) => invoke<BranchInfo[]>('repo_branches', { root }),
+  worktrees: (root: string) => invoke<WorktreeInfo[]>('repo_worktrees', { root }),
+  contributors: (root: string) => invoke<Contributor[]>('repo_contributors', { root }),
   log: (root: string, query: LogQuery) => invoke<LogPage>('repo_log', { root, query: { skip: 0, ...query } }),
   lineHistory: (root: string, path: string, start: number, end: number, rev: string | null, skip: number, limit: number) =>
     invoke<LogPage>('repo_line_history', { root, path, start, end, rev, skip, limit }),

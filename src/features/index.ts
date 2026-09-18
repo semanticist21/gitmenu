@@ -13,6 +13,9 @@ import { FileHistoryView } from './history/FileHistoryView'
 import { registerHistoryHandlers } from './history/handlers'
 import { LineHistoryView } from './history/LineHistoryView'
 import { SearchCompareView } from './history/SearchCompareView'
+import { refsContribution, registerRefTitleHandlers } from './refs/contribution'
+import { registerRefHandlers } from './refs/handlers'
+import { BranchesView, ContributorsView, RemotesView, StashesView, TagsView, WorktreesView } from './refs/views'
 import { ScmView } from './scm/components/ScmView'
 import { scmContribution } from './scm/contribution'
 import { commitAndThen, registerScmHandlers } from './scm/handlers'
@@ -49,6 +52,16 @@ registerView('commits', CommitsView)
 registerView('fileHistory', FileHistoryView)
 registerView('lineHistory', LineHistoryView)
 registerView('searchCompare', SearchCompareView)
+
+contribute(refsContribution)
+registerRefHandlers()
+registerRefTitleHandlers()
+registerView('branches', BranchesView)
+registerView('remotes', RemotesView)
+registerView('tags', TagsView)
+registerView('stashes', StashesView)
+registerView('worktrees', WorktreesView)
+registerView('contributors', ContributorsView)
 
 registerDetailTab('diff', { label: diffLabel, component: DiffTab })
 registerDetailTab('file', { label: fileLabel, component: FileTab })

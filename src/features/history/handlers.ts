@@ -21,7 +21,7 @@ import { type FileTarget, SHOW_FILE_EVENT } from './state'
 const isCommitArg = (arg: unknown): arg is CommitArg => typeof arg === 'object' && arg !== null && 'commit' in arg
 const isFileArg = (arg: unknown): arg is FileArg => typeof arg === 'object' && arg !== null && 'file' in arg && 'sha' in arg
 
-async function revealView(id: string) {
+export async function revealView(id: string) {
   const client = scmQueryClient()
   const layout = (await readUiState<ViewLayout>(client, 'views.layout')) ?? DEFAULT_LAYOUT
   const shown = toggleView(layout, id, true)
@@ -30,7 +30,7 @@ async function revealView(id: string) {
 
 // ——— Search & Compare ———
 
-async function addResult(root: string, item: SearchCompareItem) {
+export async function addResult(root: string, item: SearchCompareItem) {
   const client = scmQueryClient()
   const key = `searchCompare.${root}`
   const items = (await readUiState<SearchCompareItem[]>(client, key)) ?? []
@@ -68,7 +68,7 @@ let selectedForCompare: { root: string; ref: string } | null = null
 
 // ——— remotes ———
 
-async function pickProvider(root: string): Promise<Provider | undefined> {
+export async function pickProvider(root: string): Promise<Provider | undefined> {
   const [remotes, status] = await Promise.all([git.remotes(root), git.status(root)])
   const settings = setting<RemoteSetting[] | null>('gitside.remotes') ?? []
   const withProvider = remotes
@@ -103,7 +103,7 @@ async function remoteUrl(arg: unknown, target: 'commit' | 'file'): Promise<strin
   return undefined
 }
 
-async function copy(text: string) {
+export async function copy(text: string) {
   await ipc.clipboardWrite(text)
 }
 

@@ -3,18 +3,32 @@
 // Keyboard: ↑↓ move, ←→ collapse/expand, Enter opens, ⇧F10 opens the context menu.
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ChevronRightIcon, LoaderIcon } from 'lucide-react'
+import { ChevronRightIcon, EllipsisIcon, LoaderIcon } from 'lucide-react'
 import { type KeyboardEvent, type ReactNode, useRef, useState } from 'react'
 import { InlineActions } from '@/commands/InlineActions'
 import { MenuItems } from '@/commands/MenuItems'
 import { ContextMenu, ContextMenuPopup, ContextMenuTrigger } from '@/components/ui/context-menu'
-import { useLocale } from '@/i18n'
+import { gl, useLocale } from '@/i18n'
 import { cn } from '@/lib/utils'
+import { useSetting } from '@/settings/settings'
 
 export interface AsyncChildren<T = unknown> {
   queryKey: unknown[]
-  queryFn: () => Promise<T>
+  /** `limit` is the page size so far, for paged children (see `more`) */
+  queryFn: (limit: number) => Promise<T>
   build: (data: T) => TreeNode[]
+  /** Paged children: whether more follow; adds "Load more" that grows the page */
+  more?: (data: T) => boolean
+}
+
+/** The "Load more" row of a paged list (GitLens's `pageItemLimit`). */
+export function loadMore(id: string, loading: boolean, onLoad: () => void): TreeNode {
+  return {
+    id,
+    label: loading ? gl('Loading...') : gl('Load more'),
+    icon: <EllipsisIcon className="text-muted-foreground" />,
+    open: loading ? undefined : onLoad,
+  }
 }
 
 export interface TreeNode {
@@ -63,13 +77,16 @@ export function ViewTree({ viewId, nodes, label }: { viewId: string; nodes: Tree
   const client = useQueryClient()
   const [toggled, setToggled] = useState<Map<string, boolean>>(new Map())
   const [focusIndex, setFocusIndex] = useState(0)
+  const [limits, setLimits] = useState<Map<string, number>>(new Map())
+  const shown = useRef(new Map<string, unknown>())
+  const pageSize = useSetting<number>('gitside.views.pageItemLimit')
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const isExpanded = (node: TreeNode) => toggled.get(node.id) ?? node.expanded ?? false
 
   // Flatten with whatever children are cached; the queries below fill in the rest
   const rows: Row[] = []
-  const pending: AsyncChildren[] = []
+  const pending: { queryKey: unknown[]; queryFn: () => Promise<unknown> }[] = []
   const walk = (list: TreeNode[], depth: number) => {
     for (const node of list) {
       const expandable = Boolean(node.children || node.loadChildren)
@@ -78,15 +95,27 @@ export function ViewTree({ viewId, nodes, label }: { viewId: string; nodes: Tree
       if (!expanded) continue
       if (node.children) walk(node.children, depth + 1)
       else if (node.loadChildren) {
-        pending.push(node.loadChildren)
-        const data = client.getQueryData(node.loadChildren.queryKey)
-        if (data === undefined) rows.push({ node: { id: `${node.id}:loading`, label: '' }, depth: depth + 1, expandable: false, expanded: false, loading: true })
-        else walk(node.loadChildren.build(data), depth + 1)
+        const source = node.loadChildren
+        const limit = limits.get(node.id) ?? pageSize
+        const queryKey = source.more ? [...source.queryKey, limit] : source.queryKey
+        pending.push({ queryKey, queryFn: () => source.queryFn(limit) })
+        // While a bigger page loads, keep showing the smaller one
+        const data = client.getQueryData(queryKey) ?? (source.more ? shown.current.get(node.id) : undefined)
+        if (data === undefined) {
+          rows.push({ node: { id: `${node.id}:loading`, label: '' }, depth: depth + 1, expandable: false, expanded: false, loading: true })
+          continue
+        }
+        if (source.more) shown.current.set(node.id, data)
+        walk(source.build(data), depth + 1)
+        if (source.more?.(data)) {
+          const loading = client.getQueryData(queryKey) === undefined
+          walk([loadMore(`${node.id}/more`, loading, () => setLimits(new Map(limits).set(node.id, limit + pageSize)))], depth + 1)
+        }
       }
     }
   }
   walk(nodes, 0)
-  useQueries({ queries: pending.map((p) => ({ queryKey: p.queryKey, queryFn: p.queryFn, staleTime: Infinity })) })
+  useQueries({ queries: pending.map((p) => ({ ...p, staleTime: Infinity })) })
 
   const virtualizer = useVirtualizer({
     count: rows.length,
