@@ -7,6 +7,8 @@ import { ChangesTab, changesLabel } from './diff/ChangesTab'
 import { diffContribution } from './diff/contribution'
 import { DiffTab, diffLabel } from './diff/DiffTab'
 import { FileTab, fileLabel } from './diff/FileTab'
+import { graphContribution, registerGraphHandlers } from './graph/contribution'
+import { GraphTab, graphLabel } from './graph/GraphTab'
 import { CommitsView } from './history/CommitsView'
 import { historyContribution } from './history/contribution'
 import { FileHistoryView } from './history/FileHistoryView'
@@ -62,6 +64,10 @@ registerView('tags', TagsView)
 registerView('stashes', StashesView)
 registerView('worktrees', WorktreesView)
 registerView('contributors', ContributorsView)
+
+contribute(graphContribution)
+registerGraphHandlers()
+registerDetailTab('graph', { label: graphLabel, component: GraphTab })
 
 registerDetailTab('diff', { label: diffLabel, component: DiffTab })
 registerDetailTab('file', { label: fileLabel, component: FileTab })

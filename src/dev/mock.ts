@@ -163,6 +163,22 @@ export function installMocks() {
           ]
         case 'repo_contributors':
           return authors.map(([name, email], i) => ({ name, email, commits: 40 - i * 13, latest: 'abc', latestTime: Math.floor(Date.now() / 1000) - i * 90000 }))
+        case 'repo_graph': {
+          const q = a.query as { skip: number; limit: number }
+          const base = commits(60)
+          const shape: [number, number[], number[], number[], boolean, { name: string; kind: string }[]][] = [
+            [0, [], [0, 1], [], false, [{ name: 'main', kind: 'head' }, { name: 'origin/main', kind: 'remote' }]],
+            [0, [], [0], [1], true, []],
+            [1, [], [1], [0], true, [{ name: 'feature/tray', kind: 'branch' }]],
+            [1, [], [0], [0], true, []],
+            [0, [], [0], [], true, [{ name: 'v1.0.0', kind: 'tag' }]],
+          ]
+          const rows = base.map((c, i) => {
+            const [lane, into, out, pass, continues, refs] = shape[i] ?? [0, [], i === 59 ? [] : [0], [], true, []]
+            return { ...c, parents: out.length === 2 ? [c.parents[0], 'x'] : c.parents, lane, into, out, pass, continues, refs, stash: false, current: i !== 2 && i !== 3 }
+          })
+          return { rows: rows.slice(q.skip, q.skip + q.limit), more: q.skip + q.limit < rows.length, total: rows.length, lanes: 2 }
+        }
         case 'repo_remotes':
           return [{ name: 'origin', fetchUrl: 'git@github.com:me/demo.git', pushUrl: 'git@github.com:me/demo.git' }]
         case 'avatars_resolve':

@@ -197,7 +197,40 @@ export interface Contributor {
   latestTime: number
 }
 
+export interface GraphQuery {
+  scope: 'all' | 'current'
+  remotes: boolean
+  tags: boolean
+  stashes: boolean
+  skip: number
+  limit: number
+}
+
+export interface GraphRef {
+  name: string
+  kind: 'head' | 'branch' | 'remote' | 'tag' | 'stash'
+}
+
+export interface GraphRow extends CommitInfo {
+  lane: number
+  into: number[]
+  out: number[]
+  pass: number[]
+  continues: boolean
+  refs: GraphRef[]
+  stash: boolean
+  current: boolean
+}
+
+export interface GraphPage {
+  rows: GraphRow[]
+  more: boolean
+  total: number
+  lanes: number
+}
+
 export const git = {
+  graph: (root: string, query: GraphQuery) => invoke<GraphPage>('repo_graph', { root, query }),
   branches: (root: string) => invoke<BranchInfo[]>('repo_branches', { root }),
   worktrees: (root: string) => invoke<WorktreeInfo[]>('repo_worktrees', { root }),
   contributors: (root: string) => invoke<Contributor[]>('repo_contributors', { root }),

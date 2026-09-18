@@ -411,3 +411,16 @@ pub fn read_text_file(path: PathBuf, max_bytes: Option<usize>) -> Result<Value> 
     let cut = max_bytes.map_or(bytes.len(), |m| m.min(bytes.len()));
     Ok(Value::String(String::from_utf8_lossy(&bytes[..cut]).into_owned()))
 }
+
+/// A page of the commit graph for the Graph tab.
+#[tauri::command]
+pub async fn repo_graph(
+    repos: State<'_, Arc<Repos>>,
+    graphs: State<'_, Arc<crate::read::graph::GraphCache>>,
+    root: PathBuf,
+    query: crate::read::graph::GraphQuery,
+) -> Result<crate::read::graph::GraphPage> {
+    let graphs = Arc::clone(&graphs);
+    let at = root.clone();
+    read(&repos, root, move |repo| graphs.page(repo, &at, &query)).await
+}

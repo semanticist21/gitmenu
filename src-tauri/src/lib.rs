@@ -64,6 +64,7 @@ pub fn run() {
             app.manage(Arc::clone(&env));
 
             app.manage(Arc::new(read::Repos::default()));
+            app.manage(Arc::new(read::graph::GraphCache::default()));
             let cache = app.path().app_cache_dir().unwrap_or_else(|_| std::env::temp_dir().join("gitside"));
             app.manage(Arc::new(avatar::Avatars::new(&cache)));
             let queue = Queue::new(Arc::clone(&env), handle.clone());
@@ -139,6 +140,7 @@ pub fn run() {
             git::repo_branches,
             git::repo_worktrees,
             git::repo_contributors,
+            git::repo_graph,
             git::avatars_resolve,
             git::repo_refs,
             git::repo_stashes,
