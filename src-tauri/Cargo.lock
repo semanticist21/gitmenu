@@ -1468,6 +1468,7 @@ dependencies = [
  "objc2-service-management",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-nspanel",
@@ -1476,6 +1477,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-positioner",
  "tauri-plugin-window-state",
+ "tempfile",
  "thiserror 2.0.20",
  "tokio",
 ]

@@ -1,4 +1,5 @@
 mod ai;
+mod avatar;
 mod commands;
 mod env;
 mod error;
@@ -63,6 +64,8 @@ pub fn run() {
             app.manage(Arc::clone(&env));
 
             app.manage(Arc::new(read::Repos::default()));
+            let cache = app.path().app_cache_dir().unwrap_or_else(|_| std::env::temp_dir().join("gitside"));
+            app.manage(Arc::new(avatar::Avatars::new(&cache)));
             let queue = Queue::new(Arc::clone(&env), handle.clone());
             app.manage(Arc::clone(&queue));
             let projects = Projects::new(handle.clone(), Arc::clone(&settings), Arc::clone(&ui), queue);
@@ -106,6 +109,8 @@ pub fn run() {
             commands::project_answer_parent,
             commands::project_init_repo,
             commands::pick_folder,
+            commands::pick_file,
+            commands::clipboard_write,
             commands::panel_hide,
             commands::panel_set_pinned,
             commands::detail_open,
@@ -126,6 +131,12 @@ pub fn run() {
             git::repo_diff,
             git::repo_file,
             git::repo_blame,
+            git::repo_log,
+            git::repo_line_history,
+            git::repo_commit,
+            git::repo_compare,
+            git::repo_remotes,
+            git::avatars_resolve,
             git::repo_refs,
             git::repo_stashes,
             git::repo_config,

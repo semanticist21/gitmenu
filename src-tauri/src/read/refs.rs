@@ -68,6 +68,29 @@ pub fn refs(repo: &gix::Repository) -> Result<Vec<RefInfo>> {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RemoteInfo {
+    pub name: String,
+    pub fetch_url: Option<String>,
+    pub push_url: Option<String>,
+}
+
+/// Configured remotes with their URLs (for remote links and the Remotes view).
+pub fn remotes(repo: &gix::Repository) -> Result<Vec<RemoteInfo>> {
+    let mut out = Vec::new();
+    for name in repo.remote_names() {
+        let Ok(remote) = repo.find_remote(name.as_bstr()) else { continue };
+        let url = |direction| remote.url(direction).map(|u| u.to_bstring().to_str_lossy().into_owned());
+        out.push(RemoteInfo {
+            name: name.to_str_lossy().into_owned(),
+            fetch_url: url(gix::remote::Direction::Fetch),
+            push_url: url(gix::remote::Direction::Push),
+        });
+    }
+    Ok(out)
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StashInfo {
     /// 0 for `stash@{0}`
     pub index: usize,

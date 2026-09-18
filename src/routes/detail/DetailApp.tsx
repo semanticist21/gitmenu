@@ -1,11 +1,13 @@
 // The detail window: one window, tabs for diffs, Graph, Settings and Keyboard Shortcuts.
 // Opening something already open switches to its tab. Tabs survive closing the window.
+import { emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { PinIcon, PinOffIcon, XIcon } from 'lucide-react'
 import { type ComponentType, useEffect, useState } from 'react'
 import { setContext } from '@/commands/context'
 import { registerHandler } from '@/commands/registry'
 import { Button } from '@/components/ui/button'
+import { ACTIVE_FILE_EVENT } from '@/features/history/state'
 import { useOpSync, useRepoChangeSync } from '@/features/scm/api'
 import { t, useLocale } from '@/i18n'
 import { ipc, useTauriEvent } from '@/lib/ipc'
@@ -79,6 +81,13 @@ export function DetailApp() {
 
   const current = active ? parse(active) : null
   const Current = current ? kinds.get(current.kind)?.component : undefined
+
+  // The panel's File History follows the file of the active tab
+  const activeRoot = current?.params.get('repo')
+  const activePath = current && (current.kind === 'diff' || current.kind === 'file') ? current.params.get('path') : null
+  useEffect(() => {
+    if (activeRoot && activePath) void emit(ACTIVE_FILE_EVENT, { root: activeRoot, path: activePath })
+  }, [activeRoot, activePath])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">

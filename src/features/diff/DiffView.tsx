@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { t, useLocale, vsb } from '@/i18n'
 import type { BlameResult, DiffResult } from '@/lib/git'
+import { relativeTime } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useSetting } from '@/settings/settings'
 import type { TokenLine } from '@/workers/shiki.worker'
@@ -30,21 +31,6 @@ interface Props {
   focusHunk?: number
   /** One file, no comparison (file at a revision): hides the left gutter */
   single?: boolean
-}
-
-function relativeTime(seconds: number, locale: string) {
-  const diff = seconds - Date.now() / 1000
-  const units: [Intl.RelativeTimeFormatUnit, number][] = [
-    ['year', 31_536_000],
-    ['month', 2_592_000],
-    ['week', 604_800],
-    ['day', 86_400],
-    ['hour', 3_600],
-    ['minute', 60],
-  ]
-  const format = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
-  for (const [unit, size] of units) if (Math.abs(diff) >= size) return format.format(Math.round(diff / size), unit)
-  return format.format(0, 'minute')
 }
 
 function Code({ text, tokens, limit }: { text: string | undefined; tokens: TokenLine | undefined; limit: number }) {

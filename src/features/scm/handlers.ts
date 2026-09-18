@@ -20,7 +20,7 @@ import {
 
 // ——— helpers ———
 
-function setting<T>(key: string): T {
+export function setting<T>(key: string): T {
   const values = scmQueryClient().getQueryData<Record<string, unknown>>(settingsQuery.queryKey) ?? {}
   return (key in values ? values[key] : settingDefault(key)) as T
 }
@@ -33,14 +33,14 @@ async function freshStatus(root: string): Promise<RepoStatus> {
   return scmQueryClient().fetchQuery({ ...statusQuery(root), staleTime: 0 })
 }
 
-function refresh(root: string) {
+export function refresh(root: string) {
   void scmQueryClient().invalidateQueries({ queryKey: ['repo', root] })
 }
 
 // Errors from queued git commands are shown by the ops bar; everything else is shown here
 const REPORTED = new Set(['git', 'indexLocked', 'cancelled', 'gitMissing'])
 
-async function guard<T>(fn: () => Promise<T>): Promise<T | undefined> {
+export async function guard<T>(fn: () => Promise<T>): Promise<T | undefined> {
   try {
     return await fn()
   } catch (error) {
@@ -52,7 +52,7 @@ async function guard<T>(fn: () => Promise<T>): Promise<T | undefined> {
 }
 
 /** A modal yes/no in VS Code's style; `neverAgainSetting` adds "Don't Show Again". */
-async function confirm(message: string, ok: string, options: { detail?: string; neverAgainSetting?: string; destructive?: boolean } = {}) {
+export async function confirm(message: string, ok: string, options: { detail?: string; neverAgainSetting?: string; destructive?: boolean } = {}) {
   const buttons = [{ label: ok, value: 'ok', variant: options.destructive ? ('destructive' as const) : undefined }]
   if (options.neverAgainSetting) buttons.push({ label: vsb("OK, Don't Show Again"), value: 'never', variant: undefined })
   const answer = await showMessage({ message, detail: options.detail, buttons })
@@ -85,14 +85,14 @@ function basename(path: string) {
   return path.split('/').pop() ?? path
 }
 
-async function exec(root: string, kind: OpKind, label: string, args: string[]) {
+export async function exec(root: string, kind: OpKind, label: string, args: string[]) {
   const out = await git.exec(root, kind, label, args)
   refresh(root)
   return out
 }
 
 /** Offers an undo for a recovery point made before a destructive change. */
-function offerUndo(root: string, recovery: string | null, title: string) {
+export function offerUndo(root: string, recovery: string | null, title: string) {
   if (!recovery) return
   toastManager.add({
     type: 'success',
@@ -145,7 +145,7 @@ async function pickRemote(root: string, placeholder: string): Promise<string | u
   )
 }
 
-async function branchName(title: string, value = ''): Promise<string | undefined> {
+export async function branchName(title: string, value = ''): Promise<string | undefined> {
   const prefix = setting<string>('git.branchPrefix')
   const whitespace = setting<string>('git.branchWhitespaceChar')
   const regex = setting<string>('git.branchValidationRegex')

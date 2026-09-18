@@ -1,0 +1,97 @@
+// Author avatars. Rows ask as they render (only visible rows mount), requests in the same
+// frame go to Rust in one call, and a failed image (Gravatar's 404) falls back to initials.
+import { useEffect, useState } from 'react'
+import { git } from '@/lib/git'
+import { cn } from '@/lib/utils'
+import { useSetting } from '@/settings/settings'
+
+const resolved = new Map<string, string>()
+const waiting = new Map<string, Set<(url: string) => void>>()
+const pending = new Map<string, { root: string; email: string; sha: string | null }>()
+let scheduled = false
+
+function flush() {
+  scheduled = false
+  const byRoot = new Map<string, { email: string; sha: string | null }[]>()
+  for (const { root, email, sha } of pending.values()) {
+    byRoot.set(root, [...(byRoot.get(root) ?? []), { email, sha }])
+  }
+  pending.clear()
+  for (const [root, requests] of byRoot) {
+    git
+      .avatars(root, requests)
+      .then((urls) => {
+        for (const [email, url] of Object.entries(urls)) {
+          resolved.set(email, url)
+          for (const notify of waiting.get(email) ?? []) notify(url)
+          waiting.delete(email)
+        }
+      })
+      .catch(() => {})
+  }
+}
+
+function request(root: string, email: string, sha: string | null, notify: (url: string) => void) {
+  const set = waiting.get(email) ?? new Set()
+  set.add(notify)
+  waiting.set(email, set)
+  if (!pending.has(email)) pending.set(email, { root, email, sha })
+  if (!scheduled) {
+    scheduled = true
+    requestAnimationFrame(flush)
+  }
+  return () => {
+    set.delete(notify)
+  }
+}
+
+const failed = new Set<string>()
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] ?? '?').slice(0, 2)
+  return letters.toUpperCase()
+}
+
+function hue(text: string) {
+  let h = 0
+  for (const c of text) h = (h * 31 + c.charCodeAt(0)) % 360
+  return h
+}
+
+export function Avatar({ root, name, email, sha, className }: { root: string; name: string; email: string; sha?: string | null; className?: string }) {
+  const enabled = useSetting<boolean>('gitside.avatars.enabled')
+  const [url, setUrl] = useState(() => resolved.get(email))
+  const [broken, setBroken] = useState(() => failed.has(email))
+
+  useEffect(() => {
+    if (!enabled || url || !email) return
+    return request(root, email, sha ?? null, setUrl)
+  }, [enabled, url, root, email, sha])
+
+  const size = cn('size-4 shrink-0 rounded-full', className)
+  if (enabled && url && !broken) {
+    return (
+      <img
+        src={url}
+        alt=""
+        className={cn(size, 'bg-muted')}
+        loading="lazy"
+        draggable={false}
+        onError={() => {
+          failed.add(email)
+          setBroken(true)
+        }}
+      />
+    )
+  }
+  return (
+    <span
+      aria-hidden
+      className={cn(size, 'inline-flex items-center justify-center text-[7px] font-semibold text-white')}
+      style={{ backgroundColor: `hsl(${hue(email || name)} 45% 50%)` }}
+    >
+      {initials(name)}
+    </span>
+  )
+}

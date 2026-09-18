@@ -16,7 +16,8 @@ use crate::{
         Repos,
         blame::{self, Blame},
         content::{self, DiffResult, Side},
-        refs::{self, RefInfo, StashInfo},
+        log::{self, CommitDetails, Comparison, LogPage, LogQuery},
+        refs::{self, RefInfo, RemoteInfo, StashInfo},
         status::{self, RepoStatus},
     },
     write::{self, CommitOptions, DiscardResult, Repo},
@@ -134,6 +135,105 @@ pub async fn repo_refs(repos: State<'_, Arc<Repos>>, root: PathBuf) -> Result<Ve
 #[tauri::command]
 pub async fn repo_stashes(repos: State<'_, Arc<Repos>>, root: PathBuf) -> Result<Vec<StashInfo>> {
     read(&repos, root, refs::stashes).await
+}
+
+/// Runs a read-only git command that gix can't do (`log -L`, `log -G`) and returns stdout.
+async fn cli_read(env: &crate::env::GitEnv, root: &Path, args: &[String]) -> Result<String> {
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    let output = env.git(root, &args).await?.output().await?;
+    if !output.status.success() {
+        return Err(Error::Git {
+            message: format!("git {} failed", args.first().copied().unwrap_or_default()),
+            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            code: output.status.code(),
+        });
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+fn page(mut commits: Vec<log::CommitInfo>, limit: usize) -> LogPage {
+    let more = commits.len() > limit;
+    commits.truncate(limit);
+    LogPage { commits, more }
+}
+
+/// A page of commits (Commits view, File History, search results, comparisons).
+#[tauri::command]
+pub async fn repo_log(
+    env: State<'_, Arc<crate::env::GitEnv>>,
+    repos: State<'_, Arc<Repos>>,
+    root: PathBuf,
+    query: LogQuery,
+) -> Result<LogPage> {
+    if query.search.as_ref().is_some_and(|s| !s.changes.is_empty()) {
+        let out = cli_read(&env, &root, &log::cli_search_args(&query)).await?;
+        return Ok(page(log::parse_cli(&out), query.limit));
+    }
+    read(&repos, root, move |repo| log::log(repo, &query)).await
+}
+
+/// Commits that changed lines `start..=end` (1-based) of `path` (`git log -L`).
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
+pub async fn repo_line_history(
+    env: State<'_, Arc<crate::env::GitEnv>>,
+    root: PathBuf,
+    path: String,
+    start: u32,
+    end: u32,
+    rev: Option<String>,
+    skip: usize,
+    limit: usize,
+) -> Result<LogPage> {
+    let args = vec![
+        "log".to_owned(),
+        log::CLI_FORMAT.to_owned(),
+        "--no-patch".to_owned(),
+        format!("-L{start},{end}:{path}"),
+        format!("--skip={skip}"),
+        format!("--max-count={}", limit + 1),
+        rev.unwrap_or_else(|| "HEAD".into()),
+    ];
+    let out = cli_read(&env, &root, &args).await?;
+    Ok(page(log::parse_cli(&out), limit))
+}
+
+#[tauri::command]
+pub async fn repo_commit(repos: State<'_, Arc<Repos>>, root: PathBuf, rev: String) -> Result<CommitDetails> {
+    read(&repos, root, move |repo| log::commit_details(repo, &rev)).await
+}
+
+#[tauri::command]
+pub async fn repo_compare(
+    repos: State<'_, Arc<Repos>>,
+    root: PathBuf,
+    base: String,
+    head: String,
+) -> Result<Comparison> {
+    read(&repos, root, move |repo| log::compare(repo, &base, &head)).await
+}
+
+#[tauri::command]
+pub async fn repo_remotes(repos: State<'_, Arc<Repos>>, root: PathBuf) -> Result<Vec<RemoteInfo>> {
+    read(&repos, root, refs::remotes).await
+}
+
+#[tauri::command]
+pub async fn avatars_resolve(
+    env: State<'_, Arc<crate::env::GitEnv>>,
+    avatars: State<'_, Arc<crate::avatar::Avatars>>,
+    repos: State<'_, Arc<Repos>>,
+    root: PathBuf,
+    requests: Vec<crate::avatar::AvatarRequest>,
+) -> Result<std::collections::HashMap<String, String>> {
+    let remotes = read(&repos, root.clone(), refs::remotes).await.unwrap_or_default();
+    // `origin` first, then any other GitHub remote
+    let github = remotes
+        .iter()
+        .filter(|r| r.name == "origin")
+        .chain(remotes.iter())
+        .find_map(|r| r.fetch_url.as_deref().and_then(crate::avatar::github_repo));
+    Ok(avatars.resolve(&env, &root, github, requests).await)
 }
 
 /// A `git config` value as git resolves it (for `commit.template`, `pull.rebase`, …).

@@ -44,6 +44,8 @@ export function repoFrom(arg: unknown): string | null {
   if (typeof arg === 'string') return arg
   if (isSelection(arg)) return arg.root
   if (Array.isArray(arg) && isSelection(arg[0])) return arg[0].root
+  // View rows pass `{ root, … }`
+  if (typeof arg === 'object' && arg !== null && typeof (arg as { root?: unknown }).root === 'string') return (arg as { root: string }).root
   return activeRepo
 }
 

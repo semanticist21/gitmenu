@@ -4,6 +4,7 @@
 
 pub mod blame;
 pub mod content;
+pub mod log;
 pub mod refs;
 pub mod status;
 

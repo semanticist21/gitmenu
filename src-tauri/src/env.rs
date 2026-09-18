@@ -179,6 +179,22 @@ impl GitEnv {
         Ok(cmd)
     }
 
+    /// Another CLI (such as `gh`) with the user's login shell environment, found on its PATH.
+    pub async fn command(&self, program: &str, cwd: &Path) -> Result<tokio::process::Command> {
+        let resolved = self.ready().await?;
+        let mut cmd = tokio::process::Command::new(program);
+        cmd.current_dir(cwd)
+            .env_clear()
+            .envs(&resolved.vars)
+            .env("GH_PROMPT_DISABLED", "1")
+            .env("NO_COLOR", "1")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+        Ok(cmd)
+    }
+
     /// Serves helper connections: one JSON line in, one JSON line out.
     pub async fn serve_prompts(self: Arc<Self>, app: AppHandle) -> Result<()> {
         let _ = std::fs::remove_file(&self.socket);

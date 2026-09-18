@@ -7,6 +7,12 @@ import { ChangesTab, changesLabel } from './diff/ChangesTab'
 import { diffContribution } from './diff/contribution'
 import { DiffTab, diffLabel } from './diff/DiffTab'
 import { FileTab, fileLabel } from './diff/FileTab'
+import { CommitsView } from './history/CommitsView'
+import { historyContribution } from './history/contribution'
+import { FileHistoryView } from './history/FileHistoryView'
+import { registerHistoryHandlers } from './history/handlers'
+import { LineHistoryView } from './history/LineHistoryView'
+import { SearchCompareView } from './history/SearchCompareView'
 import { ScmView } from './scm/components/ScmView'
 import { scmContribution } from './scm/contribution'
 import { commitAndThen, registerScmHandlers } from './scm/handlers'
@@ -36,6 +42,13 @@ registerAiHandlers()
 registerHandler('gitside.commitAndPush', (arg?: unknown) => commitAndThen(arg, 'push'))
 registerHandler('gitside.commitAndSync', (arg?: unknown) => commitAndThen(arg, 'sync'))
 registerView('scm', ScmView)
+
+contribute(historyContribution)
+registerHistoryHandlers()
+registerView('commits', CommitsView)
+registerView('fileHistory', FileHistoryView)
+registerView('lineHistory', LineHistoryView)
+registerView('searchCompare', SearchCompareView)
 
 registerDetailTab('diff', { label: diffLabel, component: DiffTab })
 registerDetailTab('file', { label: fileLabel, component: FileTab })

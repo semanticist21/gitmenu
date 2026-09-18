@@ -35,7 +35,31 @@ const status = {
   remotes: ['origin'],
 }
 
-const ui: Record<string, unknown> = { loginItemAsked: true }
+const authors = [
+  ['Ada Lovelace', 'ada@example.com'],
+  ['Grace Hopper', '1234+grace@users.noreply.github.com'],
+  ['Linus Torvalds', 'linus@example.com'],
+]
+const subjects = ['feat: add queue', 'fix: retry index.lock', 'refactor: split read module', 'docs: explain askpass', 'chore: bump gix', 'feat(ui): commits view']
+
+function commits(count: number) {
+  return Array.from({ length: count }, (_, i) => {
+    const [name, email] = authors[i % authors.length]
+    const time = Math.floor(Date.now() / 1000) - i * 5400 - 300
+    return {
+      id: (i + 1).toString(16).padStart(8, '0').repeat(5),
+      parents: [(i + 2).toString(16).padStart(8, '0').repeat(5)],
+      author: { name, email, time },
+      committer: { name, email, time },
+      subject: subjects[i % subjects.length],
+      path: null,
+      status: null,
+      originalPath: null,
+    }
+  })
+}
+
+const ui: Record<string, unknown> = { loginItemAsked: true, 'views.layout': { visible: ['scm', 'commits', 'fileHistory', 'searchCompare'], collapsed: [], weights: { scm: 2, commits: 3, fileHistory: 1, searchCompare: 1 } }, 'fileHistory.target': { root, path: 'src/main.tsx' }, [`searchCompare.${root}`]: [{ id: 'compare:main..feature/login', kind: 'compare', base: 'main', head: 'feature/login' }] }
 const settings: Record<string, unknown> = {}
 
 export function installMocks() {
@@ -105,6 +129,31 @@ export function installMocks() {
               b2: { id: 'b2c3d4e5f6', author: 'Grace Hopper', email: 'grace@x', time: 1_750_000_000, summary: 'refactor: helper' },
             },
           }
+        case 'repo_log':
+        case 'repo_line_history': {
+          const q = (a.query ?? a) as { skip?: number; limit: number; revs?: string[]; path?: string }
+          const all = commits(q.revs?.[0] === 'origin/main' ? 1 : q.revs?.[0] === 'HEAD' && (a.query as { hide?: string[] })?.hide?.length ? 2 : 45)
+          const page = all.slice(q.skip ?? 0, (q.skip ?? 0) + q.limit)
+          return { commits: q.path ? page.map((c) => ({ ...c, path: q.path, status: 'modified' })) : page, more: (q.skip ?? 0) + q.limit < all.length }
+        }
+        case 'repo_commit':
+          return {
+            ...commits(1)[0],
+            id: a.rev,
+            message: 'feat: add queue\n\nRuns writes one at a time per worktree.',
+            files: [
+              { path: 'src-tauri/src/queue.rs', originalPath: null, status: 'modified' },
+              { path: 'src/lib/ops.ts', originalPath: null, status: 'added' },
+              { path: 'src/lib/old-ops.ts', originalPath: null, status: 'deleted' },
+              { path: 'docs/queue.md', originalPath: 'docs/ops.md', status: 'renamed' },
+            ],
+          }
+        case 'repo_compare':
+          return { base: 'aaa', head: 'bbb', mergeBase: 'ccc', ahead: 3, behind: 1, files: [{ path: 'src/main.tsx', originalPath: null, status: 'modified' }] }
+        case 'repo_remotes':
+          return [{ name: 'origin', fetchUrl: 'git@github.com:me/demo.git', pushUrl: 'git@github.com:me/demo.git' }]
+        case 'avatars_resolve':
+          return {}
         case 'ai_availability':
           return 'available'
         case 'ai_commit_message':

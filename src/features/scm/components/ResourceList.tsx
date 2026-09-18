@@ -4,9 +4,9 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ChevronRightIcon } from 'lucide-react'
 import { type KeyboardEvent, useMemo, useRef, useState } from 'react'
+import { InlineActions } from '@/commands/InlineActions'
 import { MenuItems } from '@/commands/MenuItems'
-import { executeCommand, resolveMenu, title } from '@/commands/registry'
-import { Button } from '@/components/ui/button'
+import { executeCommand } from '@/commands/registry'
 import { ContextMenu, ContextMenuPopup, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { useLocale } from '@/i18n'
 import type { FileChange } from '@/lib/git'
@@ -33,38 +33,6 @@ function key(group: GroupId, change: FileChange) {
 function splitPath(path: string) {
   const i = path.lastIndexOf('/')
   return i === -1 ? { name: path, dir: '' } : { name: path.slice(i + 1), dir: path.slice(0, i) }
-}
-
-function InlineActions({ menu, context, args }: { menu: string; context: Record<string, unknown>; args: unknown[] }) {
-  const items = resolveMenu(menu, context)
-    .filter((g) => g.group === 'inline')
-    .flatMap((g) => g.items)
-  return (
-    <div className="flex shrink-0 items-center opacity-0 group-hover/row:opacity-100 group-focus/row:opacity-100 group-data-[selected=true]/row:opacity-100">
-      {items.map((item) => {
-        const Icon = item.command?.icon
-        if (!item.command || !Icon) return null
-        const label = title(item.command.title)
-        return (
-          <Button
-            key={item.id}
-            size="icon-xs"
-            variant="ghost"
-            tabIndex={-1}
-            aria-label={label}
-            title={label}
-            disabled={!item.enabled}
-            onClick={(e) => {
-              e.stopPropagation()
-              void executeCommand(item.command!.command, ...args)
-            }}
-          >
-            <Icon />
-          </Button>
-        )
-      })}
-    </div>
-  )
 }
 
 export function ResourceList({ root, groups }: { root: string; groups: Group[] }) {
