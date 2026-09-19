@@ -327,8 +327,21 @@ pub async fn commit_message(env: &Arc<GitEnv>, settings: &Settings, root: &Path)
     let instructions = instructions(&custom);
 
     tauri::async_runtime::spawn_blocking(move || {
+        // In the user's language when it isn't English; the English subject if translation fails
+        let localized = |subject: String| {
+            if language.eq_ignore_ascii_case("english") {
+                subject
+            } else {
+                translate(&subject, &language).unwrap_or(subject)
+            }
+        };
+        if let Some(subject) = version_bump(&diff) {
+            return Ok(localized(subject));
+        }
         let window = context_size();
-        // Room for the instructions, the file list and a one-line answer
+        // At most a quarter of the window lists files; the rest holds the instructions, the change
+        // and a one-line answer
+        let files = clip_files(&files, window / 4);
         let budget = window.saturating_sub(tokens(&instructions) + tokens(&files) + 200);
         let change = if tokens(&diff) <= budget { diff } else { summarize_files(&diff, budget)? };
         let prompt = prompt(&files, &change);
@@ -340,10 +353,7 @@ pub async fn commit_message(env: &Arc<GitEnv>, settings: &Settings, root: &Path)
             };
             let raw = generate(&instructions, &prompt).map_err(map_error)?;
             if let Some(subject) = validate(&raw, &paths) {
-                if language.eq_ignore_ascii_case("english") {
-                    return Ok(subject);
-                }
-                return translate(&subject, &language).map_err(map_error);
+                return Ok(localized(subject));
             }
         }
         Err(Error::Other("ai:format".into()))
@@ -357,16 +367,63 @@ fn prompt(files: &str, change: &str) -> String {
     format!("Changed files:\n{}\n\n{}\n\nWrite the subject line.", files.trim(), change.trim())
 }
 
-/// One line per file, then those lines become the change description.
+/// The changed-file list within `budget` tokens (estimated), then how many more there are
+fn clip_files(files: &str, budget: usize) -> String {
+    let lines: Vec<&str> = files.lines().filter(|l| !l.trim().is_empty()).collect();
+    let mut used = 0;
+    for (i, line) in lines.iter().enumerate() {
+        used += line.len().div_ceil(3) + 1;
+        if used > budget {
+            return format!("{}\n… and {} more files", lines[..i].join("\n"), lines.len() - i);
+        }
+    }
+    lines.join("\n")
+}
+
+/// `chore: bump version to X` when the change only edits the version field of manifests
+/// (package.json, Cargo.toml, tauri.conf.json): the model calls that a feature
+fn version_bump(diff: &str) -> Option<String> {
+    let mut version = None;
+    for line in diff.lines() {
+        if line.starts_with("+++") || line.starts_with("---") {
+            continue;
+        }
+        let Some(body) = line.strip_prefix('+').or_else(|| line.strip_prefix('-')) else { continue };
+        let value = version_value(body.trim())?;
+        if line.starts_with('+') {
+            version = Some(value);
+        }
+    }
+    version.map(|v| format!("chore: bump version to {v}"))
+}
+
+/// The value of a `"version": "1.2.0",` (JSON) or `version = "1.2.0"` (TOML) line
+fn version_value(line: &str) -> Option<String> {
+    let rest = match line.strip_prefix("\"version\"") {
+        Some(rest) => rest.trim_start().strip_prefix(':')?,
+        None => line.strip_prefix("version")?.trim_start().strip_prefix('=')?,
+    };
+    let value = rest.trim().trim_end_matches(',').trim().strip_prefix('"')?.strip_suffix('"')?;
+    let valid = !value.is_empty() && value.chars().all(|c| c.is_ascii_alphanumeric() || ".-+".contains(c));
+    valid.then(|| value.to_owned())
+}
+
+/// One line per file, then those lines become the change description. The first files get a
+/// sentence from the model each; the rest are listed by name.
 fn summarize_files(diff: &str, budget: usize) -> Result<String> {
+    const SUMMARIZED: usize = 12;
     let summary_instructions =
         "Describe what this diff of one file changes, in one short English sentence. Output only the sentence.";
     let per_file = budget.saturating_sub(tokens(summary_instructions) + 100);
     let mut lines = Vec::new();
-    for file in split_files(diff) {
+    for (i, file) in split_files(diff).into_iter().enumerate() {
         let header = file.lines().next().unwrap_or_default().trim_start_matches("diff --git ");
-        let sentence = generate(summary_instructions, clip(file, per_file)).map_err(map_error)?;
-        lines.push(format!("- {header}: {}", sentence.trim()));
+        if i >= SUMMARIZED || per_file < 100 {
+            lines.push(format!("- {header}"));
+        } else {
+            let sentence = generate(summary_instructions, clip(file, per_file)).map_err(map_error)?;
+            lines.push(format!("- {header}: {}", sentence.trim()));
+        }
         if tokens(&lines.join("\n")) > budget {
             lines.pop();
             lines.push("- (more files changed)".into());
@@ -424,6 +481,28 @@ mod tests {
     }
 
     #[test]
+    fn a_version_only_change_is_a_version_bump() {
+        // The user's report: package.json with only its version changed
+        let diff = "diff --git a/package.json b/package.json\nindex 1..2 100644\n--- a/package.json\n+++ b/package.json\n@@ -1,4 +1,4 @@\n {\n   \"name\": \"hannote\",\n-  \"version\": \"0.3.1\",\n+  \"version\": \"0.3.2\",\n   \"private\": true,\n";
+        assert_eq!(version_bump(diff).as_deref(), Some("chore: bump version to 0.3.2"));
+        let cargo =
+            "--- a/Cargo.toml\n+++ b/Cargo.toml\n@@ -2 +2 @@\n-version = \"0.1.0\"\n+version = \"0.2.0-beta.1\"\n";
+        assert_eq!(version_bump(cargo).as_deref(), Some("chore: bump version to 0.2.0-beta.1"));
+        let mixed = format!("{diff}diff --git a/src/a.ts b/src/a.ts\n+export const a = 1\n");
+        assert_eq!(version_bump(&mixed), None);
+        assert_eq!(version_bump("+  \"description\": \"x\",\n"), None);
+    }
+
+    #[test]
+    fn long_file_lists_are_cut_with_a_count() {
+        let files = (0..100).map(|i| format!("M\tsrc/file{i}.ts")).collect::<Vec<_>>().join("\n");
+        let clipped = clip_files(&files, 40);
+        assert!(clipped.ends_with("more files"), "{clipped}");
+        assert!(clipped.len() < 200);
+        assert_eq!(clip_files("M\ta\nA\tb", 100), "M\ta\nA\tb");
+    }
+
+    #[test]
     fn splits_diff_per_file() {
         let diff = "diff --git a/a b/a\n+1\ndiff --git a/b b/b\n+2\n";
         assert_eq!(split_files(diff).len(), 2);
@@ -455,6 +534,7 @@ mod tests {
                 "diff --git a/src/components/Avatar.tsx b/src/components/Avatar.tsx\nnew file mode 100644\n--- /dev/null\n+++ b/src/components/Avatar.tsx\n@@ -0,0 +1,6 @@\n+export function Avatar({ email }: { email: string }) {\n+  const url = useAvatar(email)\n+  return <img src={url} className=\"size-4 rounded-full\" alt=\"\" />\n+}\ndiff --git a/src/features/history/nodes.tsx b/src/features/history/nodes.tsx\n@@ -40,6 +40,7 @@\n+      <Avatar email={commit.email} />\n       <span>{commit.message}</span>\n",
             ),
         ];
+        println!("version bump, Korean: {:?}", translate("chore: bump version to 0.3.2", "Korean").ok());
         let instructions = instructions("");
         for (files, diff) in cases {
             let paths: Vec<String> =
