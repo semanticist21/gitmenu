@@ -205,11 +205,18 @@ impl Projects {
     pub fn activate(&self, id: &Path) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
         let project = inner.projects.get_mut(id).ok_or_else(|| Error::NotFound(id.display().to_string()))?;
-        project.info.dirty = false;
+        let was_dirty = std::mem::take(&mut project.info.dirty);
+        let roots: Vec<PathBuf> = project.info.repos.iter().map(|r| r.root.clone()).collect();
         inner.active = Some(id.to_path_buf());
         drop(inner);
         self.ui.set("activeProject", serde_json::to_value(id)?);
         self.emit_list();
+        // Changes while the tab was inactive only set the dot; the views re-read now
+        if was_dirty {
+            for root in roots {
+                let _ = self.app.emit("repo://changed", root);
+            }
+        }
         Ok(())
     }
 
@@ -329,13 +336,13 @@ impl Projects {
         let mut parent_candidate = None;
 
         if let Some(repo) = open_repo(root) {
-            repos.push(repo_info(&repo, RepoKind::Root));
+            repos.extend(repo_info(&repo, RepoKind::Root));
         } else if let Some(parent) = root.parent().and_then(discover_repo) {
             let parent_root = parent.workdir().map(Path::to_path_buf);
             let setting = self.settings.get_str("git.openRepositoryInParentFolders").unwrap_or_else(|| "prompt".into());
             match (&stored.parent, setting.as_str()) {
                 (Some(ParentAnswer::Accepted { .. }), _) | (None, "always") => {
-                    repos.push(repo_info(&parent, RepoKind::Root))
+                    repos.extend(repo_info(&parent, RepoKind::Root))
                 }
                 (Some(ParentAnswer::Declined), _) | (None, "never") => {}
                 (None, _) => parent_candidate = parent_root,
@@ -359,7 +366,7 @@ impl Projects {
                     return;
                 }
                 if let Some(repo) = open_repo(path) {
-                    repos.push(repo_info(&repo, RepoKind::Nested));
+                    repos.extend(repo_info(&repo, RepoKind::Nested));
                 }
             });
         }
@@ -378,7 +385,7 @@ impl Projects {
                     let Ok(Some(sub)) = submodule.open() else {
                         continue;
                     };
-                    let info = repo_info(&sub, RepoKind::Submodule);
+                    let Some(info) = repo_info(&sub, RepoKind::Submodule) else { continue };
                     if !repos.iter().any(|r| r.root == info.root) {
                         repos.push(info);
                     }
@@ -489,16 +496,17 @@ fn discover_repo(path: &Path) -> Option<gix::Repository> {
     gix::discover(path).ok().filter(|r| r.workdir().is_some())
 }
 
-fn repo_info(repo: &gix::Repository, kind: RepoKind) -> RepoInfo {
-    let root = repo.workdir().expect("non-bare").to_path_buf();
+fn repo_info(repo: &gix::Repository, kind: RepoKind) -> Option<RepoInfo> {
+    // A bare repository (a gitdir-only submodule) has nothing to show
+    let root = repo.workdir()?.to_path_buf();
     let root = fs::canonicalize(&root).unwrap_or(root);
-    RepoInfo {
+    Some(RepoInfo {
         name: root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
         git_dir: repo.git_dir().to_path_buf(),
         common_dir: repo.common_dir().to_path_buf(),
         kind,
         root,
-    }
+    })
 }
 
 fn scan(dir: &Path, depth: usize, ignored: &HashSet<String>, found: &mut dyn FnMut(&Path)) {

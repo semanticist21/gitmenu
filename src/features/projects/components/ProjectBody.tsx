@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { plainVs, t, useLocale, vs, vsb } from '@/i18n'
 import { errorMessage, ipc, type ProjectInfo, type RepoInfo } from '@/lib/ipc'
-import { setSetting } from '@/settings/settings'
+import { setSetting, settingDefault } from '@/settings/settings'
 import { toastManager } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
@@ -111,7 +111,7 @@ export function NoRepository({ project }: { project: ProjectInfo }) {
   return (
     <div className="flex flex-col gap-3 p-3 text-[13px]">
       <p className="text-muted-foreground">{message}</p>
-      <Button className="self-start" onClick={() => void run(() => ipc.projectInitRepo(project.id))}>
+      <Button className="self-start" onClick={() => void run(() => ipc.projectInitRepo(project.id, vs('command.init'), settingDefault('git.defaultBranchName') as string))}>
         {vs('command.init')}
       </Button>
     </div>

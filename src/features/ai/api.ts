@@ -1,11 +1,10 @@
 // AI commit messages with Apple's on-device Foundation Models (src-tauri/src/ai).
-import { invoke } from '@tauri-apps/api/core'
 import { registerHandler } from '@/commands/registry'
 import { toastManager } from '@/components/ui/toast'
 import { getCommitInput, repoFrom, setCommitInput } from '@/features/scm/state'
 import { t } from '@/i18n'
 import type { AppKey } from '@/i18n/app/en'
-import { errorMessage } from '@/lib/ipc'
+import { errorMessage, ipc } from '@/lib/ipc'
 
 type Availability = 'available' | 'deviceNotEligible' | 'appleIntelligenceNotEnabled' | 'modelNotReady' | 'unsupportedOs' | 'unknown'
 
@@ -27,7 +26,7 @@ const ERRORS: Record<string, AppKey> = {
 }
 
 export async function availability(): Promise<{ available: boolean; reason?: string }> {
-  const state = await invoke<Availability>('ai_availability')
+  const state = (await ipc.aiAvailability()) as Availability
   return state === 'available' ? { available: true } : { available: false, reason: t(REASONS[state]) }
 }
 
@@ -40,7 +39,7 @@ export function registerAiHandlers() {
     running = true
     const id = toastManager.add({ type: 'loading', title: t('ai.generating'), timeout: 0 })
     try {
-      const message = await invoke<string>('ai_commit_message', { root })
+      const message = await ipc.aiCommitMessage(root)
       // Keep what the user already typed below the suggestion
       const current = getCommitInput(root).trim()
       setCommitInput(root, current ? `${message}\n\n${current}` : message)

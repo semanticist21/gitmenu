@@ -1,6 +1,7 @@
 // Shows a render error instead of a blank window, with a way to reload.
-import { invoke } from '@tauri-apps/api/core'
 import { Component, type ReactNode } from 'react'
+import { t } from '@/i18n'
+import { ipc } from '@/lib/ipc'
 
 export class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null }
@@ -12,21 +13,21 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
   componentDidCatch(error: Error) {
     console.error('[gitmenu] render error', error)
     // Sent only when crash reports are on; Rust strips paths first
-    void invoke('crash_report', { message: `${error.message}\n${error.stack ?? ''}` }).catch(() => {})
+    void ipc.crashReport(`${error.message}\n${error.stack ?? ''}`).catch((e: unknown) => console.warn('[gitmenu] crash report failed', e))
   }
 
   render() {
     if (!this.state.error) return this.props.children
     return (
       <div role="alert" className="flex h-screen flex-col gap-2 overflow-auto p-4 text-[13px]">
-        <p className="font-medium">Something went wrong.</p>
+        <p className="font-medium">{t('error.render')}</p>
         <pre className="whitespace-pre-wrap break-words text-muted-foreground text-xs">
           {this.state.error.message}
           {'\n'}
           {this.state.error.stack}
         </pre>
         <button type="button" className="self-start underline" onClick={() => window.location.reload()}>
-          Reload
+          {t('error.reload')}
         </button>
       </div>
     )

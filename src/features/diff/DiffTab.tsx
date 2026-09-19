@@ -166,6 +166,10 @@ export function DiffTab({ params }: DetailTabProps) {
   useEffect(() => {
     setContext('gitmenuDiffCanStage', canStage)
     setContext('gitmenuDiffCanUnstage', canUnstage)
+    return () => {
+      setContext('gitmenuDiffCanStage', false)
+      setContext('gitmenuDiffCanUnstage', false)
+    }
   }, [canStage, canUnstage])
 
   const refresh = useCallback(() => {

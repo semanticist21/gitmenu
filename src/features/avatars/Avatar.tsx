@@ -21,13 +21,21 @@ function flush() {
     git
       .avatars(root, requests)
       .then((urls) => {
+        if (resolved.size > 1000) resolved.clear()
         for (const [email, url] of Object.entries(urls)) {
           resolved.set(email, url)
           for (const notify of waiting.get(email) ?? []) notify(url)
           waiting.delete(email)
         }
       })
-      .catch(() => {})
+      .catch((e: unknown) => {
+        console.warn('[gitmenu] avatars failed', e)
+        for (const { email } of requests) {
+          failed.add(email)
+          for (const notify of waiting.get(email) ?? []) notify('')
+          waiting.delete(email)
+        }
+      })
   }
 }
 

@@ -173,8 +173,9 @@ async function stage(args: unknown[]) {
       // VS Code asks before staging files that still contain conflict markers
       const withMarkers: FileChange[] = []
       for (const change of changes) {
-        const text = await readText(`${selection.root}/${change.path}`)
-        if (text && hasConflictMarkers(text)) withMarkers.push(change)
+        // Unreadable counts as conflicted: the check must not fail open
+        const text = await readText(selection.root, change.path)
+        if (text === null || hasConflictMarkers(text)) withMarkers.push(change)
       }
       if (withMarkers.length > 0) {
         const message =
@@ -189,11 +190,11 @@ async function stage(args: unknown[]) {
   }
 }
 
-async function readText(path: string): Promise<string | null> {
+async function readText(root: string, path: string): Promise<string | null> {
   try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    return await invoke<string>('read_text_file', { path, maxBytes: 2_000_000 })
-  } catch {
+    return await git.readTextFile(root, path, 2_000_000)
+  } catch (error) {
+    console.warn('[gitmenu] could not read', path, error)
     return null
   }
 }
@@ -216,7 +217,7 @@ async function discard(root: string, changes: FileChange[], all: boolean) {
     message = untracked.length ? t('scm.trashQuestion', name) : vsb("Are you sure you want to discard changes in '{0}'?", name)
     ok = untracked.length ? vsb('Move to Trash') : vsb('Discard File')
   } else {
-    message = vsb("Are you sure you want to discard ALL changes in {0} files?\n\nThis is IRREVERSIBLE!\nYour current working set will be FOREVER LOST if you proceed.", changes.length).split('\n')[0]
+    message = vsb("Are you sure you want to discard ALL changes in {0} files?\n\nThis is IRREVERSIBLE!\nYour current working set will be FOREVER LOST if you proceed.", changes.length)
     ok = tracked.length && !untracked.length ? vsb('Discard All {0} Tracked Files', tracked.length) : vsb('Discard All {0} Files', changes.length)
   }
   const detail = untracked.length && setting<boolean>('git.discardUntrackedChangesToTrash') ? t('scm.trashDetail') : t('scm.recoveryDetail')
@@ -332,8 +333,7 @@ async function commit(arg: unknown, request: CommitRequest): Promise<boolean> {
       stageAll = true
     } else if (setting<boolean>('git.suggestSmartCommit')) {
       const answer = await showMessage({
-        message: vsb('There are no staged changes to commit.\n\nWould you like to stage all your changes and commit them directly?').split('\n')[0],
-        detail: vsb('There are no staged changes to commit.\n\nWould you like to stage all your changes and commit them directly?').split('\n\n')[1],
+        message: vsb('There are no staged changes to commit.\n\nWould you like to stage all your changes and commit them directly?'),
         buttons: [
           { label: vsb('Yes'), value: 'yes' },
           { label: vsb('Always'), value: 'always' },
@@ -398,7 +398,7 @@ async function undoCommit(arg: unknown) {
     return
   }
   const message = await git.headMessage(root)
-  const parents = (await git.exec(root, 'other', 'git rev-list', ['rev-list', '--parents', '-n', '1', 'HEAD'])).stdout.trim().split(' ')
+  const parents = (await git.exec(root, 'other', vs('command.undoCommit'), ['rev-list', '--parents', '-n', '1', 'HEAD'])).stdout.trim().split(' ')
   if (parents.length > 2 && !(await confirm(vsb('The last commit was a merge commit. Are you sure you want to undo it?'), vsb('Undo merge commit')))) return
   // The first commit has no parent: move HEAD back to "unborn" by deleting the branch ref
   if (parents.length === 1) await exec(root, 'other', vs('command.undoCommit'), ['update-ref', '-d', 'HEAD'])
@@ -624,12 +624,12 @@ async function pickStash(root: string, placeholder: string): Promise<number | un
 }
 
 async function stashApply(root: string, pop: boolean, latest: boolean) {
-  const index = latest ? 0 : await pickStash(root, pop ? vsb('Pick a stash to pop') : vsb('Pick a stash to apply'))
-  if (index === undefined) return
   if (latest && (await git.stashes(root)).length === 0) {
     toastManager.add({ type: 'info', title: vsb('There are no stashes in the repository.') })
     return
   }
+  const index = latest ? 0 : await pickStash(root, pop ? vsb('Pick a stash to pop') : vsb('Pick a stash to apply'))
+  if (index === undefined) return
   await exec(root, 'other', vs(pop ? 'command.stashPop' : 'command.stashApply'), ['stash', pop ? 'pop' : 'apply', '--index', `stash@{${index}}`])
 }
 
@@ -680,7 +680,7 @@ async function deleteRemoteTag(root: string) {
     .map((l) => l.split('\t')[1]?.replace('refs/tags/', ''))
     .filter(Boolean) as string[]
   if (tags.length === 0) {
-    toastManager.add({ type: 'info', title: vsb('$(info) Remote "{0}" has no tags.', remote).replace('$(info) ', '') })
+    toastManager.add({ type: 'info', title: vsb('$(info) Remote "{0}" has no tags.', remote).replace(/^\$\([a-z-]+\) /, '') })
     return
   }
   const tag = await showQuickPick(tags.map((tag) => ({ label: tag, value: tag })), { placeholder: vsb('Select a remote tag to delete') })
@@ -729,11 +729,11 @@ async function createWorktree(root: string) {
 async function deleteWorktree(root: string) {
   if (!(await confirm(t('scm.deleteWorktree', basename(root)), vs('command.deleteWorktree2'), { destructive: true }))) return
   try {
-    await git.exec(root, 'other', vs('command.deleteWorktree2'), ['worktree', 'remove', root])
+    await exec(root, 'other', vs('command.deleteWorktree2'), ['worktree', 'remove', root])
   } catch (error) {
     if (isIpcError(error) && /modified or untracked/.test(error.stderr ?? '')) {
       if (await confirm(vsb('The worktree contains modified or untracked files. Do you want to force delete?'), vsb('Force Delete'), { destructive: true }))
-        await git.exec(root, 'other', vs('command.deleteWorktree2'), ['worktree', 'remove', '--force', root])
+        await exec(root, 'other', vs('command.deleteWorktree2'), ['worktree', 'remove', '--force', root])
     } else throw error
   }
 }
@@ -751,7 +751,7 @@ async function init() {
   const folder = await ipc.pickFolder(vsb('Pick workspace folder to initialize git repo in'))
   if (!folder) return
   const project = await ipc.projectOpen(folder)
-  if (project.repos.length === 0) await ipc.projectInitRepo(project.id)
+  if (project.repos.length === 0) await ipc.projectInitRepo(project.id, vs('command.init'), setting<string>('git.defaultBranchName') || null)
 }
 
 async function continueOperation(root: string) {
@@ -764,16 +764,16 @@ async function continueOperation(root: string) {
   if (op === 'merge') await exec(root, 'commit', vsb('Continuing Merge...'), ['commit', '--no-edit'])
   else if (op === 'rebase') await exec(root, 'commit', vsb('Continuing Rebase...'), ['rebase', '--continue'])
   else if (op === 'cherryPick') await exec(root, 'commit', vs('command.cherryPick'), ['cherry-pick', '--continue'])
-  else if (op === 'revert') await exec(root, 'commit', 'git revert --continue', ['revert', '--continue'])
+  else if (op === 'revert') await exec(root, 'commit', t('scm.continueRevert'), ['revert', '--continue'])
 }
 
 async function abortOperation(root: string) {
   const status = await freshStatus(root)
   const op = status.operation
-  if (op === 'merge') await exec(root, 'other', 'git merge --abort', ['merge', '--abort'])
+  if (op === 'merge') await exec(root, 'other', vs('command.mergeAbort'), ['merge', '--abort'])
   else if (op === 'rebase') await exec(root, 'other', vs('command.rebaseAbort'), ['rebase', '--abort'])
-  else if (op === 'cherryPick') await exec(root, 'other', 'git cherry-pick --abort', ['cherry-pick', '--abort'])
-  else if (op === 'revert') await exec(root, 'other', 'git revert --abort', ['revert', '--abort'])
+  else if (op === 'cherryPick') await exec(root, 'other', vs('command.cherryPickAbort'), ['cherry-pick', '--abort'])
+  else if (op === 'revert') await exec(root, 'other', t('scm.abortRevert'), ['revert', '--abort'])
 }
 
 /** The action button's "Commit & Push" / "Commit & Sync". */

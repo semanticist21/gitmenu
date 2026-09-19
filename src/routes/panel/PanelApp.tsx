@@ -1,5 +1,5 @@
 // The menu bar panel: project tabs, then the active project's repositories and views.
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { useEffect, useRef, useState } from 'react'
 import { setContext } from '@/commands/context'
@@ -77,15 +77,24 @@ function useFolderDrop() {
 
 function EnvBanner() {
   useLocale()
+  const client = useQueryClient()
   const status = useQuery({ queryKey: ['envStatus'], queryFn: ipc.envStatus })
-  const [shellFailed, setShellFailed] = useState(false)
-  useTauriEvent<EnvStatus>('env://ready', () => void status.refetch())
-  useTauriEvent<string>('env://failed', () => setShellFailed(true))
-  const gitMissing = status.data?.ready && !status.data.git
-  if (!gitMissing && !shellFailed) return null
+  // The payload is the new status: no refetch round-trip, and no missed event can leave a
+  // stale answer because the panel also re-reads it every time it opens
+  useTauriEvent<EnvStatus>('env://ready', (next) => client.setQueryData(['envStatus'], next))
+  useTauriEvent('panel://shown', () => void client.invalidateQueries({ queryKey: ['envStatus'] }))
+  const data = status.data
+  if (!data?.ready) return null
+  const gitMissing = !data.git
+  if (!gitMissing && !data.shellFailed) return null
   return (
-    <div role="alert" className="border-b bg-warning/8 px-3 py-2 text-[13px] text-warning-foreground">
-      {gitMissing ? vsb('Git not found. Install it or configure it using the "git.path" setting.') : t('env.shellFailed')}
+    <div role="alert" className="flex items-center gap-2 border-b bg-warning/8 px-3 py-2 text-[13px] text-warning-foreground">
+      <span className="min-w-0 flex-1">
+        {gitMissing ? vsb('Git not found. Install it or configure it using the "git.path" setting.') : t('env.shellFailed')}
+      </span>
+      <Button size="xs" variant="outline" onClick={() => void ipc.envRefresh()}>
+        {t('env.retry')}
+      </Button>
     </div>
   )
 }
@@ -153,6 +162,11 @@ export function PanelApp() {
 
   useRepoChangeSync()
   useEffect(() => setActiveRepo(repo?.root ?? null), [repo])
+  // Inactive projects only get a "changed" dot while hidden; re-read when the panel opens
+  const client = useQueryClient()
+  useTauriEvent('panel://shown', () => {
+    if (repo) void client.invalidateQueries({ queryKey: ['repo', repo.root] })
+  })
 
   useEffect(() => {
     setContext('gitmenu.window', 'panel')

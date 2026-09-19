@@ -56,7 +56,10 @@ function Shell() {
 void queryClient
   .fetchQuery(settingsQuery)
   .then((values) => setLocale(String(values['gitmenu.language'] ?? 'auto')))
-  .catch(() => setLocale('auto'))
+  .catch((e: unknown) => {
+    console.error('[gitmenu] settings unavailable at startup', e)
+    return setLocale('auto')
+  })
   .finally(() => {
     createRoot(document.getElementById('root')!).render(
       <StrictMode>

@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { ArrowDownIcon, ArrowUpIcon, ChevronDownIcon, CloudUploadIcon, GitBranchIcon, RefreshCwIcon, SparklesIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
-import { setContext } from '@/commands/context'
+import { setContext, useContextKeys } from '@/commands/context'
 import { formatKey, useEffectiveBindings } from '@/commands/keybindings'
 import { executeCommand } from '@/commands/registry'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import type { ViewProps } from '@/features/views/registry'
 import { t, useLocale, vs, vsb } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { useSetting } from '@/settings/settings'
+import { git } from '@/lib/git'
 import { useRepoStatus } from '../api'
 import { loadCommitInput, setCommitInput, useCommitInput } from '../state'
 import { type Group, ResourceList } from './ResourceList'
@@ -25,6 +26,18 @@ function CommitInput({ root, branch }: { root: string; branch: string | null }) 
   const bindings = useEffectiveBindings()
   const commitKey = [...bindings].reverse().find((b) => b.command === 'git.commit')
   const aiState = useQuery({ queryKey: ['aiAvailability'], queryFn: async () => (await import('@/features/ai/api')).availability(), staleTime: 60_000 })
+  // VS Code's `git.inputValidation`: warn about a long subject or long lines
+  const validate = useSetting<boolean>('git.inputValidation')
+  const subjectMax = useSetting<number | null>('git.inputValidationSubjectLength')
+  const lineMax = useSetting<number>('git.inputValidationLength')
+  let warning: string | null = null
+  if (validate) {
+    const lines = value.split('\n')
+    const limit = (i: number) => (i === 0 && subjectMax ? subjectMax : lineMax)
+    const over = lines.findIndex((line, i) => line.length > limit(i))
+    if (over === 0) warning = t('scm.subjectTooLong', lines[0].length - limit(0), limit(0))
+    else if (over > 0) warning = t('scm.lineTooLong', over + 1, lines[over].length - limit(over), limit(over))
+  }
 
   useEffect(() => void loadCommitInput(root), [root])
 
@@ -55,6 +68,11 @@ function CommitInput({ root, branch }: { root: string; branch: string | null }) 
         className="block max-h-45 min-h-8 w-full resize-none rounded-md border border-input bg-background py-1.5 ps-2 pe-8 text-[13px] leading-snug outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/24"
         onChange={(e) => setCommitInput(root, e.target.value)}
       />
+      {warning && (
+        <p role="status" className="mt-1 text-[11px] text-warning-foreground">
+          {warning}
+        </p>
+      )}
       <Button
         size="icon-xs"
         variant="ghost"
@@ -196,14 +214,18 @@ export function ScmView({ repo }: ViewProps) {
   const { data: status, isPending, error } = useRepoStatus(repo.root)
   const untrackedMode = useSetting<string>('git.untrackedChanges')
   const showInput = useSetting<boolean>('git.showCommitInput')
+  const busy = Boolean(useContextKeys().operationInProgress)
+  // VS Code sets `scmProviderContext` to `worktree` inside a linked worktree
+  const worktrees = useQuery({ queryKey: ['repo', repo.root, 'worktrees'], queryFn: () => git.worktrees(repo.root), staleTime: Infinity })
+  const inWorktree = worktrees.data?.some((w) => w.current && !w.main) ?? false
 
   useEffect(() => {
     setContext('gitRebaseInProgress', status?.operation === 'rebase')
     setContext('gitMergeInProgress', status?.operation === 'merge')
     setContext('gitState', status?.operation ? status.operation : 'idle')
-    setContext('scmProviderContext', 'repository')
+    setContext('scmProviderContext', inWorktree ? 'worktree' : 'repository')
     setContext('gitFreshRepository', Boolean(status && !status.head.commit))
-  }, [status])
+  }, [status, inWorktree])
 
   const groups = useMemo<Group[]>(() => {
     if (!status) return []
@@ -253,7 +275,7 @@ export function ScmView({ repo }: ViewProps) {
           behind={up?.behind ?? 0}
           hasUpstream={Boolean(up)}
           branch={status.head.branch}
-          busy={false}
+          busy={busy}
         />
       </div>
       <div className="min-h-0 flex-1">

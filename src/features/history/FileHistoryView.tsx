@@ -5,17 +5,21 @@ import { setContext } from '@/commands/context'
 import { registerHandler } from '@/commands/registry'
 import { gl, useLocale } from '@/i18n'
 import { git } from '@/lib/git'
+import { toastManager } from '@/components/ui/toast'
 import { errorMessage, ipc } from '@/lib/ipc'
 import type { ViewProps } from '../views/registry'
-import { type TreeNode, ViewTree } from '../views/ViewTree'
+import { loadMore, type TreeNode, ViewTree } from '../views/ViewTree'
 import { usePagedLog } from './api'
-import { commitNode, loadMoreNode, messageNode } from './nodes'
+import { commitNode, messageNode } from './nodes'
 import { useFileHistoryTarget } from './state'
 
 export async function pickRepoFile(root: string): Promise<string | null> {
   const picked = await ipc.pickFile(root, gl('Open File History'))
   if (!picked) return null
-  if (!picked.startsWith(`${root}/`)) return null
+  if (!picked.startsWith(`${root}/`)) {
+    toastManager.add({ type: 'info', title: gl('The file must be inside the repository') })
+    return null
+  }
   return picked.slice(root.length + 1)
 }
 
@@ -49,7 +53,7 @@ export function FileHistoryView({ repo }: ViewProps) {
     if (log.error) nodes.push(messageNode('error', errorMessage(log.error)))
     else if (!log.isPending && log.commits.length === 0) nodes.push(messageNode('none', gl('No file history could be found.')))
     for (const commit of log.commits) nodes.push(commitNode(root, commit, { idPrefix: 'fh', locale, file: true }))
-    if (log.more) nodes.push(loadMoreNode('fh', log.loadMore, log.loadingMore))
+    if (log.more) nodes.push(loadMore('fh/more', log.loadingMore, log.loadMore))
   }
   return <ViewTree viewId="gitmenu.views.fileHistory" nodes={nodes} label={gl('File History')} />
 }

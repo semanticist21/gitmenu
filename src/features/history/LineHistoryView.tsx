@@ -4,9 +4,9 @@ import { gl, useLocale } from '@/i18n'
 import { git } from '@/lib/git'
 import { errorMessage } from '@/lib/ipc'
 import type { ViewProps } from '../views/registry'
-import { type TreeNode, ViewTree } from '../views/ViewTree'
+import { loadMore, type TreeNode, ViewTree } from '../views/ViewTree'
 import { usePagedLog } from './api'
-import { commitNode, loadMoreNode, messageNode } from './nodes'
+import { commitNode, messageNode } from './nodes'
 import { useLineHistoryTarget } from './state'
 
 export function LineHistoryView({ repo }: ViewProps) {
@@ -31,7 +31,7 @@ export function LineHistoryView({ repo }: ViewProps) {
     for (const commit of log.commits) {
       nodes.push(commitNode(root, { ...commit, path: active.path, status: 'modified' }, { idPrefix: 'lh', locale, file: true }))
     }
-    if (log.more) nodes.push(loadMoreNode('lh', log.loadMore, log.loadingMore))
+    if (log.more) nodes.push(loadMore('lh/more', log.loadingMore, log.loadMore))
   }
   return <ViewTree viewId="gitmenu.views.lineHistory" nodes={nodes} label={gl('Line History')} />
 }

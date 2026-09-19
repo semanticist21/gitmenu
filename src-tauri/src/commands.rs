@@ -1,6 +1,6 @@
 //! IPC commands for the panel and the detail window. Field names are camelCase on the wire.
 
-use std::{path::PathBuf, sync::Arc};
+use std::{os::unix::fs::PermissionsExt, path::PathBuf, sync::Arc};
 
 use serde_json::{Map, Value};
 use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
@@ -20,6 +20,12 @@ type Env<'a> = State<'a, Arc<GitEnv>>;
 #[tauri::command]
 pub fn env_status(env: Env) -> EnvStatus {
     env.status()
+}
+
+/// Reads the login shell and finds git again ("Try Again" in the panel).
+#[tauri::command]
+pub fn env_refresh(app: AppHandle, env: Env, settings: State<Arc<Settings>>) {
+    env.start(app, settings.inner().clone());
 }
 
 #[tauri::command]
@@ -109,8 +115,14 @@ pub async fn project_init_repo(
     projects: State<'_, Arc<Projects>>,
     queue: State<'_, Arc<Queue>>,
     id: PathBuf,
+    label: String,
+    branch: Option<String>,
 ) -> Result<ProjectInfo> {
-    queue.run(Target { worktree: &id, common_dir: &id.join(".git") }, OpKind::Other, "git init", &["init"]).await?;
+    let mut args = vec!["init"];
+    if let Some(branch) = branch.as_deref().filter(|b| !b.is_empty()) {
+        args.extend(["-b", branch]);
+    }
+    queue.run(Target { worktree: &id, common_dir: &id.join(".git") }, OpKind::Other, &label, &args).await?;
     projects.inner().rescan(&id)
 }
 
@@ -121,6 +133,8 @@ pub async fn pick_file(app: AppHandle, title: Option<String>, directory: PathBuf
     use tauri_plugin_dialog::DialogExt;
     let (tx, rx) = tokio::sync::oneshot::channel();
     let app2 = app.clone();
+    let picker = app.state::<Arc<tray::Tray>>().inner().clone();
+    picker.picker_open.store(true, std::sync::atomic::Ordering::Relaxed);
     app.run_on_main_thread(move || {
         activate_app();
         let mut dialog = app2.dialog().file().set_directory(directory);
@@ -131,7 +145,9 @@ pub async fn pick_file(app: AppHandle, title: Option<String>, directory: PathBuf
             let _ = tx.send(file.and_then(|f| f.into_path().ok()));
         });
     })?;
-    Ok(rx.await.unwrap_or(None))
+    let picked = rx.await.unwrap_or(None);
+    picker.picker_open.store(false, std::sync::atomic::Ordering::Relaxed);
+    Ok(picked)
 }
 
 #[tauri::command]
@@ -139,6 +155,8 @@ pub async fn pick_folder(app: AppHandle, title: Option<String>) -> Result<Option
     use tauri_plugin_dialog::DialogExt;
     let (tx, rx) = tokio::sync::oneshot::channel();
     let app2 = app.clone();
+    let picker = app.state::<Arc<tray::Tray>>().inner().clone();
+    picker.picker_open.store(true, std::sync::atomic::Ordering::Relaxed);
     app.run_on_main_thread(move || {
         activate_app();
         let mut dialog = app2.dialog().file();
@@ -149,7 +167,9 @@ pub async fn pick_folder(app: AppHandle, title: Option<String>) -> Result<Option
             let _ = tx.send(folder.and_then(|f| f.into_path().ok()));
         });
     })?;
-    Ok(rx.await.unwrap_or(None))
+    let picked = rx.await.unwrap_or(None);
+    picker.picker_open.store(false, std::sync::atomic::Ordering::Relaxed);
+    Ok(picked)
 }
 
 fn activate_app() {
@@ -175,6 +195,7 @@ pub fn panel_set_pinned(app: AppHandle, pinned: bool) {
 /// Opens (or focuses) the single detail window; `route` picks the tab to show.
 #[tauri::command]
 pub fn detail_open(app: AppHandle, route: String) -> Result<()> {
+    tray::keep_open_briefly(&app);
     if let Some(window) = app.get_webview_window(DETAIL) {
         let _ = tauri::Emitter::emit_to(&app, DETAIL, "detail://navigate", &route);
         window.show()?;
@@ -200,6 +221,12 @@ pub fn detail_set_always_on_top(app: AppHandle, value: bool) -> Result<()> {
         window.set_always_on_top(value)?;
     }
     Ok(())
+}
+
+/// Prompts git is still waiting on (the panel asks when it mounts; events aren't replayed).
+#[tauri::command]
+pub fn prompt_open(env: Env) -> Vec<crate::env::PromptEvent> {
+    env.open_prompts()
 }
 
 #[tauri::command]
@@ -256,6 +283,22 @@ pub async fn reveal_in_finder(path: PathBuf) -> Result<()> {
 /// Opens a file or folder with its default app (macOS `open`).
 #[tauri::command]
 pub async fn open_path(path: PathBuf) -> Result<()> {
+    // Files and web links only: `open` would also run apps and scripts, and remote URLs come
+    // from repository config and settings
+    let text = path.to_string_lossy();
+    let web = text.starts_with("https://") || text.starts_with("http://");
+    if !web && !path.is_absolute() {
+        return Err(Error::Other(format!("not a file path or web link: {text}")));
+    }
+    if !web {
+        let meta = std::fs::metadata(&path)?;
+        if !meta.is_file() && !meta.is_dir() {
+            return Err(Error::Other(format!("not a file or folder: {text}")));
+        }
+        if path.extension().is_some_and(|e| e == "app") || meta.permissions().mode() & 0o111 != 0 && meta.is_file() {
+            return Err(Error::Other(format!("won't launch an executable: {text}")));
+        }
+    }
     run_open(&[], &path).await
 }
 

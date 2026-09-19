@@ -14,6 +14,7 @@ interface OpStarted {
   repo: string
   kind: string
   label: string
+  background: boolean
 }
 
 interface OpFinished {
@@ -21,6 +22,7 @@ interface OpFinished {
   repo: string
   kind: string
   error: IpcError | null
+  background: boolean
 }
 
 export function errorText(error: IpcError): string {
@@ -33,12 +35,14 @@ export function OpsBar() {
   const client = useQueryClient()
   const [running, setRunning] = useState<OpStarted[]>([])
 
-  useTauriEvent<OpStarted>('op://started', (op) => setRunning((list) => [...list, op]))
+  useTauriEvent<OpStarted>('op://started', (op) => {
+    if (!op.background) setRunning((list) => [...list, op])
+  })
   useTauriEvent<OpFinished>('op://finished', (op) => {
     setRunning((list) => list.filter((o) => o.id !== op.id))
     // A write finished: re-read now rather than waiting for the file watcher
     void client.invalidateQueries({ queryKey: ['repo', op.repo] })
-    if (op.error && op.error.kind !== 'cancelled') {
+    if (op.error && op.error.kind !== 'cancelled' && !op.background) {
       toastManager.add({ type: 'error', title: errorText(op.error), description: op.error.stderr?.trim() || undefined })
     }
   })

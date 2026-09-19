@@ -5,7 +5,7 @@ import { type CommitFile, type CommitInfo, type FileStatus, git, type LogPage } 
 import { ipc } from '@/lib/ipc'
 import { fullDate, relativeTime } from '@/lib/time'
 import { Avatar } from '../avatars/Avatar'
-import { asyncChildren, loadMore, type TreeNode } from '../views/ViewTree'
+import { asyncChildren, type TreeNode } from '../views/ViewTree'
 
 /** What commands run from a commit row receive. */
 export interface CommitArg {
@@ -114,10 +114,6 @@ export function commitNode(root: string, commit: CommitInfo, options: CommitNode
     build: (details) => details.files.map((f) => fileNode(root, commit.id, commit.parents[0] ?? null, f, node.id)),
   })
   return node
-}
-
-export function loadMoreNode(id: string, onLoad: () => void, loading: boolean): TreeNode {
-  return loadMore(`${id}/more`, loading, onLoad)
 }
 
 /** Paged commit children (a branch's, tag's or author's history). */

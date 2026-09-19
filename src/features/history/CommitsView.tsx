@@ -6,9 +6,9 @@ import { git } from '@/lib/git'
 import { errorMessage } from '@/lib/ipc'
 import { useRepoStatus } from '../scm/api'
 import type { ViewProps } from '../views/registry'
-import { asyncChildren, type TreeNode, ViewTree } from '../views/ViewTree'
+import { asyncChildren, loadMore, type TreeNode, ViewTree } from '../views/ViewTree'
 import { usePagedLog } from './api'
-import { commitNode, loadMoreNode, messageNode } from './nodes'
+import { commitNode, messageNode } from './nodes'
 
 export function pluralCommits(n: number) {
   return n === 1 ? gl('1 commit') : gl('{0} commits', n)
@@ -67,7 +67,7 @@ export function CommitsView({ repo }: ViewProps) {
   if (log.error) nodes.push(messageNode('error', errorMessage(log.error)))
   else if (!log.isPending && log.commits.length === 0) nodes.push(messageNode('empty', gl('No commits could be found.')))
   for (const commit of log.commits) nodes.push(commitNode(root, commit, { idPrefix: 'log', locale, flags: ['current'] }))
-  if (log.more) nodes.push(loadMoreNode('log', log.loadMore, log.loadingMore))
+  if (log.more) nodes.push(loadMore('log/more', log.loadingMore, log.loadMore))
 
   return <ViewTree viewId="gitmenu.views.commits" nodes={nodes} label={gl('Commits')} />
 }

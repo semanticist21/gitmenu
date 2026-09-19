@@ -10,6 +10,7 @@ export const appContribution: Contribution = {
     { command: 'workbench.action.showCommands', title: { app: 'panel.commandPalette' } },
     { command: 'workbench.action.openSettings', title: { app: 'panel.settings' }, category, icon: SettingsIcon },
     { command: 'workbench.action.openGlobalKeybindings', title: { app: 'panel.keyboardShortcuts' }, category },
+    { command: 'workbench.action.closeActiveEditor', title: { vsb: 'Close Editor' } },
     { command: 'gitmenu.openProject', title: { app: 'project.open' }, category, icon: FolderOpenIcon },
     { command: 'gitmenu.closeProject', title: { app: 'project.close' }, category, enablement: 'gitmenu.hasProject' },
     { command: 'gitmenu.nextProject', title: { app: 'project.next' }, category, enablement: 'gitmenu.projectCount > 1' },
@@ -28,7 +29,10 @@ export const appContribution: Contribution = {
     { command: 'gitmenu.quit', title: { app: 'panel.quit' } },
   ],
   menus: {
-    commandPalette: [{ command: 'gitmenu.hidePanel', when: 'false' }],
+    commandPalette: [
+      { command: 'gitmenu.hidePanel', when: 'false' },
+      { command: 'workbench.action.closeActiveEditor', when: 'gitmenu.window == detail' },
+    ],
     'gitmenu/panel/more': [
       { command: 'workbench.action.showCommands', group: '1_commands' },
       { command: 'workbench.action.openSettings', group: '2_preferences@1' },
@@ -48,6 +52,7 @@ export const appContribution: Contribution = {
     { command: 'workbench.action.openGlobalKeybindings', key: 'ctrl+k ctrl+s', mac: 'cmd+k cmd+s' },
     { command: 'gitmenu.openProject', key: 'ctrl+o', mac: 'cmd+o' },
     { command: 'gitmenu.closeProject', key: 'ctrl+w', mac: 'cmd+w', when: 'gitmenu.window == panel' },
+    { command: 'workbench.action.closeActiveEditor', key: 'ctrl+w', mac: 'cmd+w', when: 'gitmenu.window == detail' },
     { command: 'gitmenu.nextProject', key: 'ctrl+tab', mac: 'cmd+shift+]' },
     { command: 'gitmenu.previousProject', key: 'ctrl+shift+tab', mac: 'cmd+shift+[' },
     { command: 'gitmenu.hidePanel', key: 'escape', when: 'gitmenu.window == panel && !inputFocus && !gitmenu.overlayOpen' },

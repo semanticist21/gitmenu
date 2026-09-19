@@ -58,8 +58,8 @@ pub async fn unstage(queue: &Queue, repo: Repo<'_>, paths: &[String], unborn: bo
 
 /// Captures tracked changes (index and worktree) as a dangling stash commit.
 /// Returns `None` when there is nothing to capture.
-pub async fn recovery_point(queue: &Queue, repo: &Repo<'_>) -> Result<Option<String>> {
-    let out = queue.run(repo.target(), OpKind::Other, "git stash create", &["stash", "create"]).await?;
+pub async fn recovery_point(queue: &Queue, repo: &Repo<'_>, label: &str) -> Result<Option<String>> {
+    let out = queue.run(repo.target(), OpKind::Other, label, &["stash", "create"]).await?;
     let id = out.stdout.trim();
     Ok((!id.is_empty()).then(|| id.to_owned()))
 }
@@ -82,7 +82,7 @@ pub async fn discard(
     untracked: &[String],
     label: &str,
 ) -> Result<DiscardResult> {
-    let recovery = if tracked.is_empty() { None } else { recovery_point(queue, &repo).await? };
+    let recovery = if tracked.is_empty() { None } else { recovery_point(queue, &repo, label).await? };
     if !tracked.is_empty() {
         queue
             .run_with_stdin(
@@ -116,8 +116,6 @@ pub fn trash(path: &Path) -> Result<()> {
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct CommitOptions {
-    /// Stage all tracked changes first (`--all`); untracked files are added by the caller
-    pub all: bool,
     pub amend: bool,
     pub signoff: bool,
     pub no_verify: bool,
@@ -145,9 +143,6 @@ pub async fn commit(
         args.extend(["--allow-empty-message", "-F", "-"]);
         Some(message.as_bytes().to_vec())
     };
-    if options.all {
-        args.push("--all");
-    }
     if options.amend {
         args.push("--amend");
     }

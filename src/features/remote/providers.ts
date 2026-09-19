@@ -138,7 +138,8 @@ function build(type: ProviderType, name: string, domain: string, path: string, s
       }
     }
     case 'Custom': {
-      const urls = setting?.urls ?? {}
+      // Templates end up in `open`; only web links are allowed
+      const urls = Object.fromEntries(Object.entries(setting?.urls ?? {}).filter(([, u]) => /^https?:\/\//i.test(u ?? ''))) as NonNullable<RemoteSetting['urls']>
       const values = (extra: Record<string, string> = {}) => ({ repo: path, ...extra })
       return {
         type, name, domain, path,

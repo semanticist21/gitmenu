@@ -1,5 +1,6 @@
 // Typed wrappers over the Rust commands in src-tauri/src/commands.rs.
 import { invoke } from '@tauri-apps/api/core'
+import type { Prompt } from '@/features/prompt/PromptDialog'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useEffect, useRef } from 'react'
 
@@ -39,6 +40,7 @@ export interface ProjectInfo {
 }
 
 export interface EnvStatus {
+  shellFailed: boolean
   ready: boolean
   git: string | null
   gitVersion: string | null
@@ -48,6 +50,7 @@ export type LoginItem = 'enabled' | 'disabled' | 'requiresApproval' | 'unavailab
 
 export const ipc = {
   envStatus: () => invoke<EnvStatus>('env_status'),
+  envRefresh: () => invoke<void>('env_refresh'),
   settingsGet: () => invoke<Record<string, unknown>>('settings_get'),
   settingsSet: (key: string, value: unknown) => invoke<void>('settings_set', { key, value }),
   settingsFilePaths: () => invoke<[string, string]>('settings_file_paths'),
@@ -63,7 +66,7 @@ export const ipc = {
   projectReorder: (order: string[]) => invoke<void>('project_reorder', { order }),
   projectRelocate: (id: string, path: string) => invoke<ProjectInfo>('project_relocate', { id, path }),
   projectAnswerParent: (id: string, accept: boolean) => invoke<ProjectInfo>('project_answer_parent', { id, accept }),
-  projectInitRepo: (id: string) => invoke<ProjectInfo>('project_init_repo', { id }),
+  projectInitRepo: (id: string, label: string, branch: string | null) => invoke<ProjectInfo>('project_init_repo', { id, label, branch }),
   pickFolder: (title?: string) => invoke<string | null>('pick_folder', { title }),
   pickFile: (directory: string, title?: string) => invoke<string | null>('pick_file', { directory, title }),
   clipboardWrite: (text: string) => invoke<void>('clipboard_write', { text }),
@@ -71,6 +74,7 @@ export const ipc = {
   panelSetPinned: (pinned: boolean) => invoke<void>('panel_set_pinned', { pinned }),
   detailOpen: (route: string) => invoke<void>('detail_open', { route }),
   detailSetAlwaysOnTop: (value: boolean) => invoke<void>('detail_set_always_on_top', { value }),
+  promptOpen: () => invoke<Prompt[]>('prompt_open'),
   promptRespond: (id: number, value: string | null) => invoke<void>('prompt_respond', { id, value }),
   promptReadFile: (path: string) => invoke<string>('prompt_read_file', { path }),
   promptWriteFile: (id: number, path: string, content: string | null) =>
@@ -81,6 +85,9 @@ export const ipc = {
   openPath: (path: string) => invoke<void>('open_path', { path }),
   terminalApps: () => invoke<string[]>('terminal_apps'),
   appQuit: () => invoke<void>('app_quit'),
+  crashReport: (message: string) => invoke<void>('crash_report', { message }),
+  aiAvailability: () => invoke<string>('ai_availability'),
+  aiCommitMessage: (root: string) => invoke<string>('ai_commit_message', { root }),
   loginItemStatus: () => invoke<LoginItem>('login_item_status'),
   loginItemSet: (enabled: boolean) => invoke<LoginItem>('login_item_set', { enabled }),
   updateCheck: () => invoke<{ version: string; notes: string | null } | null>('update_check'),

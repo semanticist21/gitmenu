@@ -152,7 +152,7 @@ async function reset(arg: unknown, previous: boolean) {
   if (!mode) return
   await guard(async () => {
     // Hard reset throws away uncommitted work: keep a recovery point to undo with
-    const recovery = mode === '--hard' ? await git.recoveryPoint(root) : null
+    const recovery = mode === '--hard' ? await git.recoveryPoint(root, gl('Reset')) : null
     await exec(root, 'other', gl('Reset'), ['reset', mode, target])
     offerUndo(root, recovery, gl('Reset'))
   })

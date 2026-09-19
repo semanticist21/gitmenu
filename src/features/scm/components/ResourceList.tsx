@@ -22,7 +22,63 @@ export interface Group {
   changes: FileChange[]
 }
 
-type Row = { kind: 'group'; group: Group } | { kind: 'file'; group: Group; change: FileChange }
+type Row =
+  | { kind: 'group'; group: Group }
+  | { kind: 'folder'; group: Group; path: string; name: string; depth: number }
+  | { kind: 'file'; group: Group; change: FileChange; depth: number }
+
+const INDENT = 12
+
+/** VS Code's `scm.defaultViewSortKey`: by file name, by full path, or by status then path. */
+function sortChanges(changes: FileChange[], sortKey: string): FileChange[] {
+  const name = (c: FileChange) => c.path.slice(c.path.lastIndexOf('/') + 1)
+  return [...changes].sort((a, b) => {
+    if (sortKey === 'name') return name(a).localeCompare(name(b)) || a.path.localeCompare(b.path)
+    if (sortKey === 'status') return LETTER[a.status].localeCompare(LETTER[b.status]) || a.path.localeCompare(b.path)
+    return a.path.localeCompare(b.path)
+  })
+}
+
+/** Tree view rows for one group: folders (with VS Code's compact `a/b` chains), then files. */
+function treeRows(group: Group, changes: FileChange[], collapsedFolders: string[]): Row[] {
+  interface Node {
+    folders: Map<string, Node>
+    files: FileChange[]
+  }
+  const top: Node = { folders: new Map(), files: [] }
+  for (const change of changes) {
+    let node = top
+    for (const part of change.path.split('/').slice(0, -1)) {
+      let next = node.folders.get(part)
+      if (!next) {
+        next = { folders: new Map(), files: [] }
+        node.folders.set(part, next)
+      }
+      node = next
+    }
+    node.files.push(change)
+  }
+  const out: Row[] = []
+  const walk = (node: Node, prefix: string, depth: number) => {
+    for (const [part, sub] of [...node.folders.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+      // Collapse single-child folder chains into one row, like VS Code's compact folders
+      let name = part
+      let current = sub
+      let path = `${prefix}${part}`
+      while (current.files.length === 0 && current.folders.size === 1) {
+        const [[only, next]] = current.folders.entries()
+        name = `${name}/${only}`
+        path = `${path}/${only}`
+        current = next
+      }
+      out.push({ kind: 'folder', group, path, name, depth })
+      if (!collapsedFolders.includes(`${group.id}:${path}`)) walk(current, `${path}/`, depth + 1)
+    }
+    for (const change of node.files) out.push({ kind: 'file', group, change, depth })
+  }
+  walk(top, '', 1)
+  return out
+}
 
 const ROW_HEIGHT = 22
 
@@ -38,7 +94,10 @@ function splitPath(path: string) {
 export function ResourceList({ root, groups }: { root: string; groups: Group[] }) {
   useLocale()
   const openDiffOnClick = useSetting<boolean>('git.openDiffOnClick')
+  const viewMode = useSetting<string>('scm.defaultViewMode')
+  const sortKey = useSetting<string>('scm.defaultViewSortKey')
   const [collapsed, setCollapsed] = useUiState<string[]>('scm.collapsedGroups', [])
+  const [collapsedFolders, setCollapsedFolders] = useUiState<string[]>('scm.collapsedFolders', [])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [anchor, setAnchor] = useState<string | null>(null)
   const [focusIndex, setFocusIndex] = useState(0)
@@ -49,10 +108,13 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
     for (const group of groups) {
       if (group.changes.length === 0) continue
       list.push({ kind: 'group', group })
-      if (!collapsed.includes(group.id)) for (const change of group.changes) list.push({ kind: 'file', group, change })
+      if (collapsed.includes(group.id)) continue
+      const changes = sortChanges(group.changes, sortKey)
+      if (viewMode === 'tree') list.push(...treeRows(group, changes, collapsedFolders))
+      else for (const change of changes) list.push({ kind: 'file', group, change, depth: 1 })
     }
     return list
-  }, [groups, collapsed])
+  }, [groups, collapsed, collapsedFolders, viewMode, sortKey])
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -63,6 +125,13 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
 
   const toggleGroup = (id: GroupId) =>
     setCollapsed(collapsed.includes(id) ? collapsed.filter((g) => g !== id) : [...collapsed, id])
+  const folderKey = (row: Extract<Row, { kind: 'folder' }>) => `${row.group.id}:${row.path}`
+  const toggleFolder = (row: Extract<Row, { kind: 'folder' }>) => {
+    const k = folderKey(row)
+    setCollapsedFolders(collapsedFolders.includes(k) ? collapsedFolders.filter((f) => f !== k) : [...collapsedFolders, k])
+  }
+  /** Files under a folder row (for its context menu and inline actions). */
+  const folderChanges = (row: Extract<Row, { kind: 'folder' }>) => row.group.changes.filter((c) => c.path.startsWith(`${row.path}/`))
 
   /** The clicked file plus every other selected file of its group, like VS Code. */
   const selectionFor = (group: Group, change: FileChange): ScmSelection => {
@@ -82,6 +151,10 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
     setFocusIndex(index)
     if (row.kind === 'group') {
       toggleGroup(row.group.id)
+      return
+    }
+    if (row.kind === 'folder') {
+      toggleFolder(row)
       return
     }
     const k = key(row.group.id, row.change)
@@ -125,14 +198,20 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
         break
       case 'ArrowRight':
         if (row.kind === 'group' && collapsed.includes(row.group.id)) toggleGroup(row.group.id)
+        else if (row.kind === 'folder' && collapsedFolders.includes(folderKey(row))) toggleFolder(row)
         break
       case 'ArrowLeft':
         if (row.kind === 'group' && !collapsed.includes(row.group.id)) toggleGroup(row.group.id)
-        else if (row.kind === 'file') focusRow(rows.findIndex((r) => r.kind === 'group' && r.group.id === row.group.id))
+        else if (row.kind === 'folder' && !collapsedFolders.includes(folderKey(row))) toggleFolder(row)
+        else if (row.kind !== 'group') {
+          const depth = row.depth
+          focusRow(rows.slice(0, focusIndex).findLastIndex((r) => r.kind === 'group' || (r.kind === 'folder' && r.depth < depth)))
+        }
         break
       case 'Enter':
         event.preventDefault()
         if (row.kind === 'group') toggleGroup(row.group.id)
+        else if (row.kind === 'folder') toggleFolder(row)
         else open(row.group, row.change)
         break
       case ' ':
@@ -209,9 +288,39 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
               </ContextMenu>
             )
           }
+          if (row.kind === 'folder') {
+            const expanded = !collapsedFolders.includes(folderKey(row))
+            const context = { scmProvider: 'git', scmResourceGroup: row.group.id, scmResourceFolder: true }
+            const selection: ScmSelection = { root, group: row.group.id, changes: folderChanges(row) }
+            return (
+              <ContextMenu key={`f:${folderKey(row)}`}>
+                <ContextMenuTrigger
+                  render={
+                    <div
+                      role="treeitem"
+                      aria-level={row.depth + 1}
+                      aria-expanded={expanded}
+                      aria-label={row.name}
+                      className="group/row absolute inset-x-0 top-0 flex cursor-default items-center gap-1 pe-1 text-[13px] outline-none hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+                      style={{ ...style, paddingInlineStart: 4 + row.depth * INDENT }}
+                      {...common}
+                    />
+                  }
+                >
+                  <ChevronRightIcon className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-90')} />
+                  <span className="min-w-0 flex-1 truncate">{row.name}</span>
+                  <InlineActions menu="scm/resourceFolder/context" context={context} args={[selection]} />
+                </ContextMenuTrigger>
+                <ContextMenuPopup>
+                  <MenuItems menu="scm/resourceFolder/context" kind="context" context={context} args={[selection]} />
+                </ContextMenuPopup>
+              </ContextMenu>
+            )
+          }
           const { change, group } = row
           const k = key(group.id, change)
           const { name, dir } = splitPath(change.path)
+          const tree = viewMode === 'tree'
           const context = { scmProvider: 'git', scmResourceGroup: group.id, scmResourceState: 'worktree' }
           const deleted = isDeletion(change.status)
           const tooltip = `${change.originalPath ? `${change.originalPath} → ` : ''}${change.path} • ${statusText(change.status)}`
@@ -221,16 +330,16 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
                 render={
                   <div
                     role="treeitem"
-                    aria-level={2}
+                    aria-level={row.depth + 1}
                     aria-selected={selected.has(k)}
                     aria-label={`${name}, ${statusText(change.status)}`}
                     data-selected={selected.has(k)}
                     title={tooltip}
                     className={cn(
-                      'group/row absolute inset-x-0 top-0 flex cursor-default items-center gap-1.5 ps-5 pe-1 text-[13px] outline-none hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
+                      'group/row absolute inset-x-0 top-0 flex cursor-default items-center gap-1.5 pe-1 text-[13px] outline-none hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
                       selected.has(k) && 'bg-accent',
                     )}
-                    style={style}
+                    style={{ ...style, paddingInlineStart: (tree ? 22 : 20) + (row.depth - 1) * INDENT }}
                     {...common}
                   />
                 }
@@ -239,7 +348,7 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
                   {name}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs">
-                  {change.originalPath ? `${change.originalPath} → ${dir}` : dir}
+                  {change.originalPath ? `${change.originalPath} → ${dir}` : tree ? '' : dir}
                 </span>
                 <InlineActions menu="scm/resourceState/context" context={context} args={[selectionFor(group, change)]} />
                 <span className="w-3 shrink-0 text-center font-mono text-[11px] font-semibold" style={{ color: statusColor(change.status) }}>

@@ -284,6 +284,31 @@ export const scmContribution: Contribution = {
         ['git.stageAllUntracked', 'inline@2'],
       ]),
     ],
+    // VS Code's folder rows in the tree view: stage/unstage/discard the folder's files
+    'scm/resourceFolder/context': [
+      ...resourceItems('merge', [
+        ['git.stage', '1_modification'],
+        ['git.stage', 'inline@2'],
+      ]),
+      ...resourceItems('index', [
+        ['git.unstage', '1_modification'],
+        ['git.unstage', 'inline@2'],
+      ]),
+      ...resourceItems('workingTree', [
+        ['git.stage', '1_modification'],
+        ['git.clean', '1_modification'],
+        ['git.clean', 'inline@2'],
+        ['git.stage', 'inline@2'],
+        ['git.ignore', '1_modification@3'],
+      ]),
+      ...resourceItems('untracked', [
+        ['git.stage', '1_modification'],
+        ['git.clean', '1_modification'],
+        ['git.clean', 'inline@2'],
+        ['git.stage', 'inline@2'],
+        ['git.ignore', '1_modification@3'],
+      ]),
+    ],
     'scm/resourceState/context': [
       ...resourceItems('merge', [
         ['git.stage', '1_modification'],

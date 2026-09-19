@@ -96,7 +96,9 @@ export function installMocks() {
         case 'projects_recent':
           return ['/Users/me/code/archived']
         case 'env_status':
-          return { ready: true, git: '/usr/bin/git', gitVersion: 'git version 2.50.1' }
+          return { ready: true, git: '/usr/bin/git', gitVersion: 'git version 2.50.1', shellFailed: false }
+        case 'prompt_open':
+          return []
         case 'repo_status':
           return status
         case 'repo_refs':

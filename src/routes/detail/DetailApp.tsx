@@ -77,7 +77,9 @@ export function DetailApp() {
       registerHandler('workbench.action.closeActiveEditor', () => active && close(active)),
     ]
     return () => disposers.forEach((d) => d())
-  })
+    // `open`/`close` read the latest tabs and active through these
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, tabs])
 
   const current = active ? parse(active) : null
   const Current = current ? kinds.get(current.kind)?.component : undefined
@@ -143,7 +145,7 @@ export function DetailApp() {
           {onTop ? <PinOffIcon /> : <PinIcon />}
         </Button>
       </header>
-      <main className="min-h-0 flex-1">{current && Current && <Current route={active!} params={current.params} />}</main>
+      <main className="min-h-0 flex-1">{current && Current && <Current key={active} route={active!} params={current.params} />}</main>
     </div>
   )
 }

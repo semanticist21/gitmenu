@@ -34,12 +34,15 @@ use crate::{
 
 const IPC_ENV: &str = "GITMENU_IPC";
 const SHELL_TIMEOUT: Duration = Duration::from_secs(10);
+const SHELL_RETRY: Duration = Duration::from_secs(30);
 
 #[derive(Debug)]
 pub struct Resolved {
     pub vars: HashMap<String, String>,
     pub git: Option<PathBuf>,
     pub git_version: Option<String>,
+    /// The login shell couldn't be read; `vars` is the fallback environment
+    pub shell_failed: bool,
 }
 
 /// Shared handle to the resolved environment and the prompt bridge.
@@ -48,15 +51,19 @@ pub struct GitEnv {
     socket: PathBuf,
     exe: PathBuf,
     pending: Mutex<HashMap<u64, oneshot::Sender<Option<String>>>>,
+    /// Prompts not answered yet, for a panel that mounts after the event was sent
+    open_prompts: Mutex<Vec<PromptEvent>>,
     next_id: AtomicU64,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EnvStatus {
+    /// False while the login shell is still being read
     pub ready: bool,
     pub git: Option<String>,
     pub git_version: Option<String>,
+    pub shell_failed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,7 +77,7 @@ pub enum PromptRequest {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct PromptEvent {
+pub struct PromptEvent {
     id: u64,
     #[serde(flatten)]
     request: PromptRequest,
@@ -87,28 +94,34 @@ impl GitEnv {
             socket,
             exe,
             pending: Mutex::new(HashMap::new()),
+            open_prompts: Mutex::new(Vec::new()),
             next_id: AtomicU64::new(1),
         })
     }
 
-    /// Reads the login shell environment and finds git, off the main thread.
+    /// Reads the login shell environment and finds git, off the main thread. A shell that
+    /// times out (cold startup files) is retried once before its fallback sticks.
     pub fn start(self: &Arc<Self>, app: AppHandle, settings: Arc<Settings>) {
         let this = Arc::clone(self);
         std::thread::spawn(move || {
-            let vars = match login_shell_env() {
-                Ok(vars) => vars,
-                Err(message) => {
-                    log::warn!("login shell environment unavailable: {message}");
-                    let _ = app.emit("env://failed", message);
-                    fallback_env()
+            let mut attempt = 0;
+            loop {
+                attempt += 1;
+                let (vars, shell_failed) = match login_shell_env() {
+                    Ok(vars) => (vars, false),
+                    Err(message) => {
+                        log::warn!("login shell environment unavailable: {message}");
+                        (fallback_env(), true)
+                    }
+                };
+                let (git, git_version) = find_git(&vars, settings.get_str("git.path").as_deref());
+                this.state.send_replace(Some(Arc::new(Resolved { vars, git, git_version, shell_failed })));
+                let _ = app.emit("env://ready", this.status());
+                if !shell_failed || attempt >= 2 {
+                    break;
                 }
-            };
-            let (git, git_version) = find_git(&vars, settings.get_str("git.path").as_deref());
-            if git.is_none() {
-                let _ = app.emit("git://missing", ());
+                std::thread::sleep(SHELL_RETRY);
             }
-            this.state.send_replace(Some(Arc::new(Resolved { vars, git, git_version })));
-            let _ = app.emit("env://ready", this.status());
         });
     }
 
@@ -118,10 +131,12 @@ impl GitEnv {
             return;
         };
         let (git, git_version) = find_git(&current.vars, settings.get_str("git.path").as_deref());
-        if git.is_none() {
-            let _ = app.emit("git://missing", ());
-        }
-        self.state.send_replace(Some(Arc::new(Resolved { vars: current.vars.clone(), git, git_version })));
+        self.state.send_replace(Some(Arc::new(Resolved {
+            vars: current.vars.clone(),
+            git,
+            git_version,
+            shell_failed: current.shell_failed,
+        })));
         let _ = app.emit("env://ready", self.status());
     }
 
@@ -131,8 +146,9 @@ impl GitEnv {
                 ready: true,
                 git: r.git.as_ref().map(|p| p.display().to_string()),
                 git_version: r.git_version.clone(),
+                shell_failed: r.shell_failed,
             },
-            None => EnvStatus { ready: false, git: None, git_version: None },
+            None => EnvStatus { ready: false, git: None, git_version: None, shell_failed: false },
         }
     }
 
@@ -169,7 +185,9 @@ impl GitEnv {
             .env("GIT_ASKPASS", &self.exe)
             .env("SSH_ASKPASS", &self.exe)
             .env("SSH_ASKPASS_REQUIRE", "force")
-            .env("GIT_EDITOR", format!("'{}' --editor", self.exe.display()))
+            // git runs this through `sh -c`; the only character that needs care in a single-quoted
+            // word is the quote itself
+            .env("GIT_EDITOR", format!("'{}' --editor", self.exe.display().to_string().replace('\'', "'\\''")))
             .args(["-c", "core.quotepath=false", "-c", "color.ui=false"])
             .args(args)
             .stdin(Stdio::null())
@@ -227,9 +245,18 @@ impl GitEnv {
             PromptRequest::Editor { .. } => "editor",
             PromptRequest::Askpass { prompt } => classify_prompt(prompt),
         };
+        let event = PromptEvent { id, request, input };
+        self.open_prompts.lock().unwrap().push(event.clone());
         crate::tray::show_panel(app);
-        let _ = app.emit("prompt://request", PromptEvent { id, request, input });
-        rx.await.ok().flatten()
+        // Tauri events aren't replayed: the panel also asks for `open_prompts` when it mounts
+        let _ = app.emit("prompt://request", event);
+        let answer = rx.await.ok().flatten();
+        self.open_prompts.lock().unwrap().retain(|p| p.id != id);
+        answer
+    }
+
+    pub fn open_prompts(&self) -> Vec<PromptEvent> {
+        self.open_prompts.lock().unwrap().clone()
     }
 
     /// Answers a pending prompt; `None` cancels it (git sees a failed helper).
@@ -303,7 +330,11 @@ fn login_shell_env() -> std::result::Result<HashMap<String, String>, String> {
 fn fallback_env() -> HashMap<String, String> {
     let mut vars: HashMap<String, String> = std::env::vars().collect();
     let path = vars.get("PATH").cloned().unwrap_or_default();
-    vars.insert("PATH".into(), format!("/opt/homebrew/bin:/usr/local/bin:{path}:/usr/bin:/bin"));
+    let home = vars.get("HOME").cloned().unwrap_or_default();
+    vars.insert(
+        "PATH".into(),
+        format!("/opt/homebrew/bin:/usr/local/bin:/opt/local/bin:{home}/.nix-profile/bin:/run/current-system/sw/bin:{path}:/usr/bin:/bin"),
+    );
     vars
 }
 

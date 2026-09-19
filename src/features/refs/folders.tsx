@@ -29,7 +29,6 @@ export function folderize<T>(items: T[], name: (item: T) => string, leaf: (item:
         id: `${idPrefix}/folder:${path}${part}`,
         label: part,
         icon: <FolderIcon className="text-muted-foreground" />,
-        contextValue: 'gitlens:folder',
         children: build(sub, `${path}${part}/`),
       })),
     ...folder.leaves,

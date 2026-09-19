@@ -10,13 +10,18 @@ import { Textarea } from '@/components/ui/textarea'
 import { t, useLocale } from '@/i18n'
 import { ipc, useTauriEvent } from '@/lib/ipc'
 
-type Prompt =
+export type Prompt =
   | { id: number; kind: 'askpass'; prompt: string; input: 'text' | 'secret' | 'confirm' }
   | { id: number; kind: 'editor'; path: string; input: 'editor' }
 
 export function PromptDialog() {
   const [queue, setQueue] = useState<Prompt[]>([])
-  useTauriEvent<Prompt>('prompt://request', (prompt) => setQueue((q) => [...q, prompt]))
+  const add = (prompt: Prompt) => setQueue((q) => (q.some((p) => p.id === prompt.id) ? q : [...q, prompt]))
+  useTauriEvent<Prompt>('prompt://request', add)
+  // Events aren't replayed: git may already be waiting from before this window mounted
+  useEffect(() => {
+    void ipc.promptOpen().then((open) => open.forEach(add))
+  }, [])
   const current = queue[0]
   if (!current) return null
   return <PromptForm key={current.id} prompt={current} onDone={() => setQueue((q) => q.slice(1))} />

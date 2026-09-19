@@ -48,11 +48,11 @@ function refMenu(root: string, row: GraphRow, ref: GraphRef): { context: Record<
     const arg: StashArg = { root, stash: { index, commit: row.id, message: row.subject, time: row.committer.time } }
     return { context: { view: 'gitmenu.views.graph', viewItem: 'gitlens:stash' }, arg }
   }
+  if (ref.name === 'HEAD') return null
   const kind: RefInfo['kind'] = ref.kind === 'remote' ? 'remote' : ref.kind === 'tag' ? 'tag' : 'branch'
   const prefix = { branch: 'refs/heads/', remote: 'refs/remotes/', tag: 'refs/tags/' }[kind]
   const info: RefInfo = { name: `${prefix}${ref.name}`, short: ref.name, kind, commit: row.id, time: row.committer.time, subject: row.subject }
   const viewItem = kind === 'tag' ? 'gitlens:tag' : kind === 'remote' ? 'gitlens:branch+remote' : `gitlens:branch${ref.kind === 'head' ? '+current' : ''}`
-  if (ref.name === 'HEAD') return null
   return { context: { view: 'gitmenu.views.graph', viewItem }, arg: { root, ref: info } satisfies RefArg }
 }
 

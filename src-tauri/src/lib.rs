@@ -1,4 +1,5 @@
 mod ai;
+mod autofetch;
 mod avatar;
 mod commands;
 mod crash;
@@ -79,13 +80,26 @@ pub fn run() {
             app.manage(Arc::clone(&projects));
 
             tray::setup(&handle)?;
+            autofetch::start(handle.clone());
             register_global_shortcut(&handle, &settings);
+            // Edits to settings.json from outside the app: act only on the keys that matter
             handle.listen("settings://changed", {
                 let handle = handle.clone();
+                let seen = std::sync::Mutex::new((
+                    settings.get_str("git.path"),
+                    settings.get_str("gitmenu.panel.globalShortcut"),
+                ));
                 move |_| {
                     let settings = handle.state::<Arc<Settings>>();
-                    register_global_shortcut(&handle, &settings);
-                    handle.state::<Arc<GitEnv>>().refresh_git(&handle, &settings);
+                    let now = (settings.get_str("git.path"), settings.get_str("gitmenu.panel.globalShortcut"));
+                    let mut seen = seen.lock().unwrap();
+                    if now.1 != seen.1 {
+                        register_global_shortcut(&handle, &settings);
+                    }
+                    if now.0 != seen.0 {
+                        handle.state::<Arc<GitEnv>>().refresh_git(&handle, &settings);
+                    }
+                    *seen = now;
                 }
             });
 
@@ -98,6 +112,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::env_status,
+            commands::env_refresh,
             commands::settings_get,
             commands::settings_set,
             commands::settings_file_paths,
@@ -121,6 +136,7 @@ pub fn run() {
             commands::panel_set_pinned,
             commands::detail_open,
             commands::detail_set_always_on_top,
+            commands::prompt_open,
             commands::prompt_respond,
             commands::prompt_read_file,
             commands::prompt_write_file,

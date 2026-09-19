@@ -25,18 +25,38 @@ export function setContext(key: string, value: unknown) {
 }
 
 let overlays = 0
+let popupOpen = false
+
+function publishOverlay() {
+  setContext('gitmenu.overlayOpen', overlays > 0 || popupOpen)
+}
 
 /** Marks a dialog as open (`gitmenu.overlayOpen`) until the returned function runs. */
 export function openOverlay(): () => void {
   overlays++
-  setContext('gitmenu.overlayOpen', true)
+  publishOverlay()
   let closed = false
   return () => {
     if (closed) return
     closed = true
     overlays--
-    setContext('gitmenu.overlayOpen', overlays > 0)
+    publishOverlay()
   }
+}
+
+// Menus, selects and dialogs are portals with these roles; while one is open, Escape belongs
+// to it (Base UI closes it) and must not also hide the panel
+const POPUP = '[role="menu"], [role="listbox"], [role="dialog"], [role="alertdialog"]'
+
+function installPopupTracking() {
+  const update = () => {
+    const next = document.querySelector(POPUP) !== null
+    if (next === popupOpen) return
+    popupOpen = next
+    publishOverlay()
+  }
+  new MutationObserver(update).observe(document.body, { childList: true, subtree: true })
+  update()
 }
 
 export function setSettingsContext(values: Record<string, unknown>) {
@@ -82,6 +102,7 @@ export function installFocusTracking() {
   document.addEventListener('focusin', update)
   document.addEventListener('focusout', () => queueMicrotask(update))
   update()
+  installPopupTracking()
 }
 
 function subscribe(fn: () => void) {

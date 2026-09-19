@@ -11,7 +11,6 @@ export type StatusCode =
   | 'deleted'
   | 'untracked'
   | 'intentToAdd'
-  | 'intentToRename'
   | 'typeChanged'
   | 'addedByUs'
   | 'addedByThem'
@@ -72,7 +71,6 @@ export interface GitOutput {
 }
 
 export interface CommitOptions {
-  all?: boolean
   amend?: boolean
   signoff?: boolean
   noVerify?: boolean
@@ -256,7 +254,9 @@ export const git = {
   unstage: (root: string, paths: string[], label: string) => invoke<GitOutput>('git_unstage', { root, paths, label }),
   discard: (root: string, tracked: string[], untracked: string[], label: string) =>
     invoke<{ recovery: string | null; trashed: string[] }>('git_discard', { root, tracked, untracked, label }),
-  recoveryPoint: (root: string) => invoke<string | null>('git_recovery_point', { root }),
+  recoveryPoint: (root: string, label: string) => invoke<string | null>('git_recovery_point', { root, label }),
+  /** Text of a file inside the repository (refused outside it) */
+  readTextFile: (root: string, path: string, maxBytes: number) => invoke<string>('read_text_file', { root, path, maxBytes }),
   commit: (root: string, message: string, options: CommitOptions, label: string) =>
     invoke<GitOutput>('git_commit', { root, message, options, label }),
   apply: (root: string, patch: string, cached: boolean, reverse: boolean, label: string) =>

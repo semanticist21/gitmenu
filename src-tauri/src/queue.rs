@@ -79,6 +79,8 @@ struct OpEvent<'a> {
     repo: &'a Path,
     kind: OpKind,
     label: &'a str,
+    /// Started by the app (autofetch), not the user: no bar entry, no error toast
+    background: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -88,6 +90,7 @@ struct OpDone<'a> {
     repo: &'a Path,
     kind: OpKind,
     error: Option<&'a Error>,
+    background: bool,
 }
 
 pub struct Queue {
@@ -130,7 +133,13 @@ impl Queue {
 
     /// Runs `git <args>` for `target`. `label` is shown in the panel while it runs.
     pub async fn run(&self, target: Target<'_>, kind: OpKind, label: &str, args: &[&str]) -> Result<Output> {
-        self.run_with_stdin(target, kind, label, args, None).await
+        self.run_inner(target, kind, label, args, None, false).await
+    }
+
+    /// A run the user didn't ask for: it still queues and blinks the badge, but stays out of
+    /// the ops bar and never toasts.
+    pub async fn run_background(&self, target: Target<'_>, kind: OpKind, label: &str, args: &[&str]) -> Result<Output> {
+        self.run_inner(target, kind, label, args, None, true).await
     }
 
     pub async fn run_with_stdin(
@@ -140,6 +149,18 @@ impl Queue {
         label: &str,
         args: &[&str],
         stdin: Option<Vec<u8>>,
+    ) -> Result<Output> {
+        self.run_inner(target, kind, label, args, stdin, false).await
+    }
+
+    async fn run_inner(
+        &self,
+        target: Target<'_>,
+        kind: OpKind,
+        label: &str,
+        args: &[&str],
+        stdin: Option<Vec<u8>>,
+        background: bool,
     ) -> Result<Output> {
         let network_key = (target.common_dir.to_path_buf(), kind);
         if kind.is_network() && !self.network.lock().unwrap().insert(network_key.clone()) {
@@ -156,6 +177,13 @@ impl Queue {
             Some(slot) => Some(slot.lock().await),
             None => None,
         };
+        let _slot_cleanup = scopeguard(slot.is_some(), || {
+            // Only this call and the map hold the slot: nothing is queued behind it
+            let mut slots = self.slots.lock().unwrap();
+            if slots.get(target.worktree).is_some_and(|s| Arc::strong_count(s) <= 2) {
+                slots.remove(target.worktree);
+            }
+        });
         let worktree = target.worktree.to_path_buf();
         if kind.takes_write_slot() {
             *self.writing.lock().unwrap().entry(worktree.clone()).or_default() += 1;
@@ -168,11 +196,13 @@ impl Queue {
 
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         self.begin(id, kind);
-        let _ = self.app.emit("op://started", OpEvent { id, repo: target.worktree, kind, label });
+        let _ = self.app.emit("op://started", OpEvent { id, repo: target.worktree, kind, label, background });
         let result = self.run_retrying(id, target.worktree, args, stdin).await;
         self.end(id, result.as_ref().err());
-        let _ =
-            self.app.emit("op://finished", OpDone { id, repo: target.worktree, kind, error: result.as_ref().err() });
+        let _ = self.app.emit(
+            "op://finished",
+            OpDone { id, repo: target.worktree, kind, error: result.as_ref().err(), background },
+        );
         result
     }
 

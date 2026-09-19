@@ -311,9 +311,10 @@ pub async fn git_recovery_point(
     projects: State<'_, Arc<Projects>>,
     repos: State<'_, Arc<Repos>>,
     root: PathBuf,
+    label: String,
 ) -> Result<Option<String>> {
     let (common, root) = target!(projects, repos, root);
-    write::recovery_point(&queue, &Repo { root: &root, common_dir: &common }).await
+    write::recovery_point(&queue, &Repo { root: &root, common_dir: &common }, &label).await
 }
 
 #[tauri::command]
@@ -358,12 +359,55 @@ pub async fn git_exec(
     args: Vec<String>,
 ) -> Result<Output> {
     let (common, root) = target!(projects, repos, root);
+    check_exec_args(&args)?;
     let result = write::exec(&queue, Repo { root: &root, common_dir: &common }, kind, &label, &args).await;
     // Remote, branch and config changes are cached in the open handle
     if args.first().is_some_and(|a| a == "remote" || a == "config") {
         repos.forget(&root);
     }
     result
+}
+
+/// Subcommands the windows may run through `git_exec`; anything that could point git at
+/// another program (`-c`, `--exec-path`, `--upload-pack`, …) is refused.
+const EXEC_ALLOWED: &[&str] = &[
+    "branch",
+    "checkout",
+    "cherry-pick",
+    "commit",
+    "config",
+    "fetch",
+    "ls-remote",
+    "merge",
+    "pull",
+    "push",
+    "rebase",
+    "remote",
+    "reset",
+    "rev-list",
+    "revert",
+    "stash",
+    "switch",
+    "tag",
+    "update-ref",
+    "worktree",
+];
+
+fn check_exec_args(args: &[String]) -> Result<()> {
+    let Some(first) = args.first() else { return Err(Error::Other("empty git command".into())) };
+    if !EXEC_ALLOWED.contains(&first.as_str()) {
+        return Err(Error::Other(format!("git {first} isn't allowed from the window")));
+    }
+    let blocked = ["-c", "--exec-path", "--upload-pack", "--receive-pack", "--git-dir", "--work-tree", "-C"];
+    for arg in args {
+        if blocked.iter().any(|b| arg == b || arg.starts_with(&format!("{b}="))) {
+            return Err(Error::Other(format!("git option {arg} isn't allowed from the window")));
+        }
+    }
+    if first == "config" && args.iter().any(|a| a.starts_with("core.sshCommand") || a.starts_with("core.gitProxy")) {
+        return Err(Error::Other("that config key isn't allowed from the window".into()));
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -404,10 +448,15 @@ pub fn trash_paths(paths: Vec<PathBuf>) -> Result<()> {
     Ok(())
 }
 
-/// Reads a file in the worktree as text, for AI context and small previews.
+/// Reads a file inside `root` as text, for AI context and conflict checks.
 #[tauri::command]
-pub fn read_text_file(path: PathBuf, max_bytes: Option<usize>) -> Result<Value> {
-    let bytes = std::fs::read(&path)?;
+pub fn read_text_file(root: PathBuf, path: String, max_bytes: Option<usize>) -> Result<Value> {
+    let root = std::fs::canonicalize(&root)?;
+    let full = std::fs::canonicalize(root.join(&path))?;
+    if !full.starts_with(&root) {
+        return Err(Error::Other(format!("{path} is outside the repository")));
+    }
+    let bytes = std::fs::read(&full)?;
     let cut = max_bytes.map_or(bytes.len(), |m| m.min(bytes.len()));
     Ok(Value::String(String::from_utf8_lossy(&bytes[..cut]).into_owned()))
 }
@@ -423,4 +472,25 @@ pub async fn repo_graph(
     let graphs = Arc::clone(&graphs);
     let at = root.clone();
     read(&repos, root, move |repo| graphs.page(repo, &at, &query)).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::check_exec_args;
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn exec_allowlist() {
+        assert!(check_exec_args(&args(&["push", "origin", "main"])).is_ok());
+        assert!(check_exec_args(&args(&["stash", "pop", "--index", "stash@{0}"])).is_ok());
+        assert!(check_exec_args(&args(&[])).is_err());
+        assert!(check_exec_args(&args(&["clone", "x"])).is_err());
+        assert!(check_exec_args(&args(&["push", "-c", "core.sshCommand=evil"])).is_err());
+        assert!(check_exec_args(&args(&["fetch", "--upload-pack=evil"])).is_err());
+        assert!(check_exec_args(&args(&["config", "core.sshCommand", "evil"])).is_err());
+        assert!(check_exec_args(&args(&["config", "user.name", "Ann"])).is_ok());
+    }
 }
