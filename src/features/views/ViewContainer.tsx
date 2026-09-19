@@ -1,7 +1,7 @@
 // Collapsible view sections with draggable sashes, like VS Code's sidebar panes (paneview.css,
 // paneviewlet.css, sash.css). Layout (visible, collapsed, sizes) is persisted; right-click any
 // header to show or hide views.
-import { type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/Icon'
 import {
   ContextMenu,
@@ -16,11 +16,9 @@ import { t, useLocale } from '@/i18n'
 import { useUiState } from '@/lib/uiState'
 import { cn } from '@/lib/utils'
 import { useViewDescriptions } from './description'
+import { HEADER, MIN_EXPANDED, paneHeights } from './paneHeights'
 import { DEFAULT_LAYOUT, VIEWS, type ViewLayout } from './views'
 
-const MIN_EXPANDED = 64
-/** `--pane-header-size` */
-const HEADER = 22
 /** paneview.ts keeps `.animated` on the pane view this long after an expand or collapse */
 const ANIMATION_MS = 200
 
@@ -45,81 +43,127 @@ export function ViewContainer({ render, actions, progress }: Props) {
   useLocale()
   const [layout, setLayout] = useViewLayout()
   const descriptions = useViewDescriptions()
-  const sectionRefs = useRef(new Map<string, HTMLElement>())
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [total, setTotal] = useState(0)
   const [resizing, setResizing] = useState<string | null>(null)
-  // Pane heights animate only right after an expand or collapse, never while dragging a sash
+  // Weights while a sash is being dragged (saved on release)
+  const [dragWeights, setDragWeights] = useState<Record<string, number> | null>(null)
+  // paneview.ts: heights animate only right after an expand or collapse, never while dragging
   const [animating, setAnimating] = useState(false)
-  const animationTimer = useRef<number | undefined>(undefined)
-  useEffect(() => () => window.clearTimeout(animationTimer.current), [])
+  // A collapsing pane keeps its body, at the height it had, until the animation ends
+  // (paneview.ts removes it after 200ms)
+  const [closing, setClosing] = useState<ReadonlyMap<string, number>>(new Map())
+  const timers = useRef(new Map<string, number>())
   const visible = VIEWS.filter((v) => layout.visible.includes(v.id))
+  const collapsedSet = new Set(layout.collapsed)
+  const heights = paneHeights(
+    visible.map((v) => v.id),
+    collapsedSet,
+    dragWeights ?? layout.weights,
+    total,
+  )
+
+  useLayoutEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const observer = new ResizeObserver(() => setTotal(el.clientHeight))
+    observer.observe(el)
+    setTotal(el.clientHeight)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const pending = timers.current
+    return () => pending.forEach((t) => window.clearTimeout(t))
+  }, [])
 
   const setCollapsed = (id: string, collapsed: boolean) => {
     const set = new Set(layout.collapsed)
     if (collapsed) set.add(id)
     else set.delete(id)
     setAnimating(true)
-    window.clearTimeout(animationTimer.current)
-    animationTimer.current = window.setTimeout(() => setAnimating(false), ANIMATION_MS)
+    window.clearTimeout(timers.current.get('animation'))
+    timers.current.set('animation', window.setTimeout(() => setAnimating(false), ANIMATION_MS))
+    window.clearTimeout(timers.current.get(id))
+    if (collapsed) {
+      const index = visible.findIndex((v) => v.id === id)
+      const body = (heights.get(id) ?? 0) - HEADER - (index > 0 ? 1 : 0)
+      setClosing((prev) => new Map(prev).set(id, body))
+      timers.current.set(
+        id,
+        window.setTimeout(() => {
+          setClosing((prev) => {
+            const next = new Map(prev)
+            next.delete(id)
+            return next
+          })
+        }, ANIMATION_MS),
+      )
+    } else {
+      setClosing((prev) => {
+        if (!prev.has(id)) return prev
+        const next = new Map(prev)
+        next.delete(id)
+        return next
+      })
+    }
     setLayout({ ...layout, collapsed: [...set] })
   }
 
   const startResize = (above: string, below: string, event: ReactPointerEvent) => {
-    const top = sectionRefs.current.get(above)
-    const bottom = sectionRefs.current.get(below)
-    if (!top || !bottom) return
     event.preventDefault()
     setAnimating(false)
     setResizing(below)
     const startY = event.clientY
-    const topStart = top.getBoundingClientRect().height
-    const bottomStart = bottom.getBoundingClientRect().height
-    const total = topStart + bottomStart
-    let weights = layout.weights
+    const minBody = MIN_EXPANDED - HEADER
+    // Freeze every expanded pane at its current body height; only the two around the sash move
+    const frozen: Record<string, number> = {}
+    visible.forEach((view, index) => {
+      if (!collapsedSet.has(view.id)) frozen[view.id] = (heights.get(view.id) ?? 0) - HEADER - (index > 0 ? 1 : 0)
+    })
+    const topStart = frozen[above] ?? minBody
+    const pair = topStart + (frozen[below] ?? minBody)
+    let weights = frozen
     const move = (e: PointerEvent) => {
-      const topHeight = Math.min(Math.max(topStart + e.clientY - startY, MIN_EXPANDED), total - MIN_EXPANDED)
-      weights = { ...weights, [above]: topHeight, [below]: total - topHeight }
-      top.style.flexGrow = String(topHeight)
-      bottom.style.flexGrow = String(total - topHeight)
+      const top = Math.min(Math.max(topStart + e.clientY - startY, minBody), pair - minBody)
+      weights = { ...frozen, [above]: top, [below]: pair - top }
+      setDragWeights(weights)
     }
     const up = () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
       setResizing(null)
-      setLayout({ ...layout, weights })
+      setDragWeights(null)
+      setLayout({ ...layout, weights: { ...layout.weights, ...weights } })
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div ref={containerRef} className="flex h-full min-h-0 flex-col overflow-hidden">
       {visible.map((view, index) => {
-        const collapsed = layout.collapsed.includes(view.id)
+        const collapsed = collapsedSet.has(view.id)
         const previous = visible[index - 1]
-        const resizable = previous && !collapsed && !layout.collapsed.includes(previous.id)
+        const resizable = previous && !collapsed && !collapsedSet.has(previous.id)
         const label = t(view.title)
         const description = descriptions[view.id]
-        // Border-box: a collapsed pane is its header plus the top border it has after the first
-        const collapsedBasis = HEADER + (index > 0 ? 1 : 0)
+        const headerSize = HEADER + (index > 0 ? 1 : 0)
+        const height = heights.get(view.id) ?? headerSize
+        // Laid out once at its final size and clipped while the pane animates (paneview.ts)
+        const bodyHeight = collapsed ? (closing.get(view.id) ?? 0) : height - headerSize
+        const showBody = !collapsed || closing.has(view.id)
         const toggle = () => setCollapsed(view.id, !collapsed)
         return (
           <section
             key={view.id}
-            ref={(el) => {
-              if (el) sectionRefs.current.set(view.id, el)
-              else sectionRefs.current.delete(view.id)
-            }}
             aria-label={label}
             className={cn(
-              'group/pane relative flex min-h-0 flex-col overflow-hidden',
+              'group/pane relative flex shrink-0 flex-col overflow-hidden',
               index > 0 && 'border-(--vsc-sideBarSectionHeader-border) border-t',
-              animating && 'transition-[flex-grow,flex-basis] duration-150 ease-out motion-reduce:transition-none',
+              animating && 'transition-[height] duration-150 ease-out motion-reduce:transition-none',
             )}
-            style={
-              collapsed
-                ? { flex: `0 0 ${collapsedBasis}px` }
-                : { flex: `${layout.weights[view.id] ?? 1} 1 0px`, minHeight: animating ? undefined : MIN_EXPANDED }
-            }
+            style={{ height }}
             data-context={JSON.stringify({ view: `gitmenu.views.${view.id}`, focusedView: `gitmenu.views.${view.id}` })}
           >
             {resizable && (
@@ -185,7 +229,11 @@ export function ViewContainer({ render, actions, progress }: Props) {
               </ContextMenuPopup>
             </ContextMenu>
             {progress?.(view.id) && <ProgressBar aria-label={label} className="absolute inset-x-0 top-5 z-[5]" />}
-            {!collapsed && <div className="min-h-0 flex-1 overflow-hidden">{render(view.id)}</div>}
+            {showBody && (
+              <div className="shrink-0 overflow-hidden" style={{ height: bodyHeight }} inert={collapsed || undefined}>
+                {render(view.id)}
+              </div>
+            )}
           </section>
         )
       })}
