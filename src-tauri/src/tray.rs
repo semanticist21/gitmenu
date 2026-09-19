@@ -233,6 +233,19 @@ pub fn note_detached_frame(app: &AppHandle) {
     }
 }
 
+/// While a native file or folder picker is open. The picker is a normal-level window, so the
+/// floating panel drops to normal level until it closes, or it would cover the picker.
+pub fn set_picker_open(app: &AppHandle, open: bool) {
+    app.state::<Arc<Tray>>().picker_open.store(open, Ordering::Relaxed);
+    let level = if open { PanelLevel::Normal } else { PanelLevel::Floating };
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let Ok(panel) = handle.get_webview_panel(PANEL) {
+            panel.set_level(level.value());
+        }
+    });
+}
+
 pub fn save_detached_frame(app: &AppHandle) {
     let tray = app.state::<Arc<Tray>>();
     if let Some(frame) = *tray.detached_frame.lock().unwrap() {

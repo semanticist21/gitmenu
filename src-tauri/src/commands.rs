@@ -133,8 +133,7 @@ pub async fn pick_file(app: AppHandle, title: Option<String>, directory: PathBuf
     use tauri_plugin_dialog::DialogExt;
     let (tx, rx) = tokio::sync::oneshot::channel();
     let app2 = app.clone();
-    let picker = app.state::<Arc<tray::Tray>>().inner().clone();
-    picker.picker_open.store(true, std::sync::atomic::Ordering::Relaxed);
+    tray::set_picker_open(&app, true);
     app.run_on_main_thread(move || {
         activate_app();
         let mut dialog = app2.dialog().file().set_directory(directory);
@@ -146,7 +145,7 @@ pub async fn pick_file(app: AppHandle, title: Option<String>, directory: PathBuf
         });
     })?;
     let picked = rx.await.unwrap_or(None);
-    picker.picker_open.store(false, std::sync::atomic::Ordering::Relaxed);
+    tray::set_picker_open(&app, false);
     Ok(picked)
 }
 
@@ -155,8 +154,7 @@ pub async fn pick_folder(app: AppHandle, title: Option<String>) -> Result<Option
     use tauri_plugin_dialog::DialogExt;
     let (tx, rx) = tokio::sync::oneshot::channel();
     let app2 = app.clone();
-    let picker = app.state::<Arc<tray::Tray>>().inner().clone();
-    picker.picker_open.store(true, std::sync::atomic::Ordering::Relaxed);
+    tray::set_picker_open(&app, true);
     app.run_on_main_thread(move || {
         activate_app();
         let mut dialog = app2.dialog().file();
@@ -168,7 +166,7 @@ pub async fn pick_folder(app: AppHandle, title: Option<String>) -> Result<Option
         });
     })?;
     let picked = rx.await.unwrap_or(None);
-    picker.picker_open.store(false, std::sync::atomic::Ordering::Relaxed);
+    tray::set_picker_open(&app, false);
     Ok(picked)
 }
 
