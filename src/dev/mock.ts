@@ -80,13 +80,15 @@ export function installMocks() {
   })
   const params = new URLSearchParams(window.location.search)
   mockWindows(window.location.hash.startsWith('#/detail') ? 'detail' : (params.get('window') ?? 'panel'))
-  // For the e2e tests: every command the UI invoked, in order
+  // For the e2e tests: every command the UI invoked, in order, and their arguments
   const calls: string[] = []
-  Object.assign(window, { __ipcCalls: calls })
+  const callArgs: Record<string, unknown>[] = []
+  Object.assign(window, { __ipcCalls: calls, __ipcArgs: callArgs })
   mockIPC(
     (cmd, args) => {
       const a = (args ?? {}) as Record<string, unknown>
       calls.push(cmd)
+      callArgs.push(a)
       switch (cmd) {
         case 'settings_get':
           return settings
@@ -246,6 +248,26 @@ export function installMocks() {
           return 'available'
         case 'ai_commit_message':
           return 'feat(scm): add commit and push to the action button'
+        case 'git_log_entries': {
+          const now = Date.now()
+          const repo = '/Users/me/code/gitmenu'
+          return [
+            { op: 7, time: now - 60_000, repo, args: ['fetch', '--all'], durationMs: 812, code: 0, stderr: 'From github.com:me/gitmenu\n   3f2a1c9..8b7d6e5  main       -> origin/main' },
+            { op: 8, time: now - 30_000, repo, args: ['add', '-A', '--', 'src/main.tsx'], durationMs: 41, code: 0, stderr: '' },
+            {
+              op: 9,
+              time: now - 5_000,
+              repo,
+              args: ['pull', '--tags', 'origin', 'main'],
+              durationMs: 1234,
+              code: 128,
+              stderr:
+                'hint: You have divergent branches and need to specify how to reconcile them.\nhint: You can do so by running one of the following commands sometime before\nhint: your next pull:\nhint:\nhint:   git config pull.rebase false  # merge\nhint:   git config pull.rebase true   # rebase\nhint:   git config pull.ff only       # fast-forward only\nfatal: Need to specify how to reconcile divergent branches.',
+            },
+          ]
+        }
+        case 'git_log_clear':
+          return null
         case 'terminal_apps':
           return ['Terminal', 'Ghostty']
         case 'login_item_status':

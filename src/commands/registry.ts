@@ -72,13 +72,21 @@ const submenus = new Map<string, SubmenuContribution>()
 const defaultKeybindings: KeybindingContribution[] = []
 const handlers = new Map<string, Handler>()
 
+const menuKey = (item: MenuItem) => [item.command, item.submenu, item.group, item.when, item.alt].join('|')
+const bindingKey = (binding: KeybindingContribution) => [binding.command, binding.key, binding.mac, binding.when].join('|')
+
+/** Adds a contribution. Contributing the same items again (a module re-run by hot reload) replaces them. */
 export function contribute(contribution: Contribution) {
   for (const command of contribution.commands ?? []) commands.set(command.command, command)
   for (const [id, items] of Object.entries(contribution.menus ?? {})) {
-    menus.set(id, [...(menus.get(id) ?? []), ...items])
+    const added = new Set(items.map(menuKey))
+    menus.set(id, [...(menus.get(id) ?? []).filter((item) => !added.has(menuKey(item))), ...items])
   }
   for (const submenu of contribution.submenus ?? []) submenus.set(submenu.id, submenu)
-  defaultKeybindings.push(...(contribution.keybindings ?? []))
+  const bindings = contribution.keybindings ?? []
+  const added = new Set(bindings.map(bindingKey))
+  const kept = defaultKeybindings.filter((binding) => !added.has(bindingKey(binding)))
+  defaultKeybindings.splice(0, defaultKeybindings.length, ...kept, ...bindings)
 }
 
 /** Registers the implementation of a command; returns an unregister function. */

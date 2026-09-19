@@ -46,6 +46,17 @@ export interface EnvStatus {
   gitVersion: string | null
 }
 
+/** One git command in the Git output log (src-tauri/src/output.rs) */
+export interface GitLogEntry {
+  op: number
+  time: number
+  repo: string
+  args: string[]
+  durationMs: number
+  code: number | null
+  stderr: string
+}
+
 export type LoginItem = 'enabled' | 'disabled' | 'requiresApproval' | 'unavailable'
 
 export const ipc = {
@@ -81,6 +92,8 @@ export const ipc = {
   promptWriteFile: (id: number, path: string, content: string | null) =>
     invoke<void>('prompt_write_file', { id, path, content }),
   opCancel: (id: number) => invoke<void>('op_cancel', { id }),
+  gitLogEntries: () => invoke<GitLogEntry[]>('git_log_entries'),
+  gitLogClear: () => invoke<void>('git_log_clear'),
   openInTerminal: (path: string) => invoke<void>('open_in_terminal', { path }),
   revealInFinder: (path: string) => invoke<void>('reveal_in_finder', { path }),
   openPath: (path: string) => invoke<void>('open_path', { path }),

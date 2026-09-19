@@ -7,7 +7,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useSyncExternalStore } from 'react'
 import { setContext } from '@/commands/context'
 import { toastManager } from '@/components/ui/toast'
-import { t, useLocale } from '@/i18n'
+import { t, useLocale, vsb } from '@/i18n'
 import type { OpKind } from '@/lib/git'
 import { type IpcError, ipc, useTauriEvent } from '@/lib/ipc'
 
@@ -40,6 +40,8 @@ interface Snapshot {
   /** Running, or finished less than 300ms ago */
   busy: boolean
 }
+
+const BLOCKING = new Set<OpKind>(['checkout', 'commit', 'pull', 'push', 'sync'])
 
 let snapshot: Snapshot = { running: [], busy: false }
 const listeners = new Set<() => void>()
@@ -141,15 +143,25 @@ export function Operations() {
     if (!op.background) started({ id: op.id, repo: op.repo, kind: op.kind, label: op.label })
   })
   useTauriEvent<OpFinished>('op://finished', (op) => {
+    const label = snapshot.running.find((o) => o.id === op.id)?.label
     finished(op.id)
     // A write finished: re-read now rather than waiting for the file watcher
     void client.invalidateQueries({ queryKey: ['repo', op.repo] })
     if (op.error && op.error.kind !== 'cancelled' && !op.background) {
-      toastManager.add({ type: 'error', title: errorText(op.error) })
+      // VS Code's error notification offers git's full output
+      const route = `/detail/output?${new URLSearchParams({ op: String(op.id), ...(label ? { title: label } : {}) })}`
+      toastManager.add({
+        type: 'error',
+        title: errorText(op.error),
+        actionProps:
+          op.error.kind === 'git' ? { children: vsb('Show Command Output'), onClick: () => void ipc.detailOpen(route) } : undefined,
+      })
     }
   })
 
-  const busy = useOpsBusy()
-  useEffect(() => setContext('operationInProgress', running.length > 0 || busy), [running.length, busy])
+  // VS Code disables git commands only while a blocking operation runs (operation.ts:
+  // Checkout, Commit, Pull, Push, Sync); staging and fetching leave them enabled
+  const blocking = running.some((op) => BLOCKING.has(op.kind))
+  useEffect(() => setContext('operationInProgress', blocking), [blocking])
   return null
 }

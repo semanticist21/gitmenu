@@ -6,6 +6,7 @@ mod crash;
 mod env;
 mod error;
 mod git;
+mod output;
 mod project;
 mod queue;
 mod read;
@@ -142,6 +143,8 @@ pub fn run() {
             commands::prompt_read_file,
             commands::prompt_write_file,
             commands::op_cancel,
+            commands::git_log_entries,
+            commands::git_log_clear,
             commands::open_in_terminal,
             commands::reveal_in_finder,
             commands::open_path,

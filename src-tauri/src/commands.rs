@@ -258,6 +258,17 @@ pub fn prompt_write_file(env: Env, id: u64, path: PathBuf, content: Option<Strin
     Ok(())
 }
 
+/// The Git output log, oldest first
+#[tauri::command]
+pub fn git_log_entries(queue: State<Arc<Queue>>) -> Vec<crate::output::LogEntry> {
+    queue.log().entries()
+}
+
+#[tauri::command]
+pub fn git_log_clear(queue: State<Arc<Queue>>) {
+    queue.log().clear();
+}
+
 #[tauri::command]
 pub fn op_cancel(queue: State<Arc<Queue>>, id: u64) {
     queue.cancel(id);

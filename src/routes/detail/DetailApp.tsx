@@ -49,7 +49,7 @@ function initialRoute() {
 /** The editor's label icon: file editors show `file`, the others their editor's codicon. */
 function TabIcon({ kind }: { kind: string }) {
   if (kind === 'graph') return <GraphIcon className="me-1.5" />
-  const name = { changes: 'diff-multiple', settings: 'settings', 'keyboard-shortcuts': 'keyboard' }[kind] ?? 'file'
+  const name = { changes: 'diff-multiple', settings: 'settings', 'keyboard-shortcuts': 'keyboard', output: 'output' }[kind] ?? 'file'
   return <Icon name={name} className="me-1.5" />
 }
 

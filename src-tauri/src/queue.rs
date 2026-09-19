@@ -17,7 +17,7 @@ use std::{
         Arc, Mutex,
         atomic::{AtomicU64, Ordering},
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use serde::{Deserialize, Serialize};
@@ -27,6 +27,7 @@ use tokio::{io::AsyncReadExt, sync::oneshot};
 use crate::{
     env::GitEnv,
     error::{Error, Result},
+    output::{GitLog, LogEntry, now_ms},
     tray::{self, Activity},
 };
 
@@ -102,6 +103,7 @@ pub struct Queue {
     active: Mutex<HashMap<u64, OpKind>>,
     writing: Mutex<HashMap<PathBuf, usize>>,
     next_id: AtomicU64,
+    log: GitLog,
 }
 
 /// What an operation runs against.
@@ -123,7 +125,13 @@ impl Queue {
             active: Mutex::new(HashMap::new()),
             writing: Mutex::new(HashMap::new()),
             next_id: AtomicU64::new(1),
+            log: GitLog::default(),
         })
+    }
+
+    /// The Git output log
+    pub fn log(&self) -> &GitLog {
+        &self.log
     }
 
     /// True while a write is running in this worktree; the watcher holds its events until then.
@@ -233,7 +241,30 @@ impl Queue {
         }
     }
 
+    /// Runs git once and records it in the output log
     async fn spawn(&self, id: u64, cwd: &Path, args: &[&str], stdin: Option<Vec<u8>>) -> Result<Output> {
+        let time = now_ms();
+        let started = Instant::now();
+        let result = self.spawn_git(id, cwd, args, stdin).await;
+        let (code, stderr) = match &result {
+            Ok(output) => (Some(0), output.stderr.clone()),
+            Err(Error::Git { stderr, code, .. }) => (*code, stderr.clone()),
+            Err(error) => (None, error.to_string()),
+        };
+        let entry = LogEntry {
+            op: id,
+            time,
+            repo: cwd.to_path_buf(),
+            args: args.iter().map(|a| (*a).to_owned()).collect(),
+            duration_ms: started.elapsed().as_millis() as u64,
+            code,
+            stderr,
+        };
+        self.log.push(&self.app, entry);
+        result
+    }
+
+    async fn spawn_git(&self, id: u64, cwd: &Path, args: &[&str], stdin: Option<Vec<u8>>) -> Result<Output> {
         let mut cmd = self.env.git(cwd, args).await?;
         if stdin.is_some() {
             cmd.stdin(Stdio::piped());

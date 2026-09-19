@@ -210,9 +210,9 @@ export function ViewContainer({ render, actions, progress }: Props) {
                   <span className="ms-2.5 min-w-0 shrink-[100000] truncate font-normal text-(--vsc-panelTitle-inactiveForeground)">{description}</span>
                 )}
                 {!collapsed && actions && (
-                  // Shown while the pane is hovered or holds focus (VS Code toggles `display`)
+                  // Shown while the pane is hovered or holds focus, or one of its menus is open (VS Code toggles `display`)
                   <div
-                    className="ms-auto me-2 hidden shrink-0 items-center gap-1 pe-1 group-focus-within/pane:flex group-hover/pane:flex"
+                    className="ms-auto me-2 hidden shrink-0 items-center gap-1 pe-1 group-focus-within/pane:flex group-hover/pane:flex has-data-popup-open:flex"
                     onClick={(e) => e.stopPropagation()}
                     onKeyDown={(e) => e.stopPropagation()}
                   >

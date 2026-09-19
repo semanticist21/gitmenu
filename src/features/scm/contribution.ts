@@ -112,6 +112,7 @@ const commands: CommandContribution[] = [
   command('git.openHEADFile', { enablement: undefined }),
   command('git.revealFileInOS.mac', { enablement: undefined }),
   command('git.continueOperation', { title: { app: 'scm.continue' } }),
+  command('git.showOutput', { enablement: undefined }),
   command('git.abortOperation', { title: { app: 'scm.abort' } }),
 ]
 
@@ -167,6 +168,7 @@ export const scmContribution: Contribution = {
       { submenu: 'git.stash', group: '2_main@6', when: 'scmProvider == git' },
       { submenu: 'git.tags', group: '2_main@7', when: 'scmProvider == git' },
       { submenu: 'git.worktrees', group: '2_main@8', when: 'scmProvider == git' },
+      { command: 'git.showOutput', group: '3_footer', when: 'scmProvider == git' },
     ],
     'git.commit': [
       { command: 'git.commit', group: '1_commit@1' },

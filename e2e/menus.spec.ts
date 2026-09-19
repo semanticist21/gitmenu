@@ -89,3 +89,34 @@ test('Sync pulls and then pushes even when the pull refreshes the views', async 
   await expect(page.getByText('CancelledError')).toHaveCount(0)
   expect(errors).toEqual([])
 })
+
+test('a pane header menu stays put while the pointer moves into it', async ({ page }) => {
+  await page.goto('/?window=panel')
+  const pane = page.getByRole('region', { name: 'Source Control', exact: true })
+  await pane.getByRole('button', { name: 'Source Control', exact: true }).hover()
+  await pane.getByRole('button', { name: 'More Actions...', exact: true }).first().click()
+  const menu = page.locator('[role="menu"]')
+  await expect(menu).toBeVisible()
+  const before = await menu.boundingBox()
+  // Leaving the pane hides its header actions unless a menu is open from them
+  await page.mouse.move((before?.x ?? 0) + 20, (before?.y ?? 0) + 12, { steps: 5 })
+  await page.waitForTimeout(300)
+  expect(await menu.boundingBox()).toEqual(before)
+})
+
+test('Unstage Changes acts on every selected staged file', async ({ page }) => {
+  await page.goto('/?window=panel')
+  await page.getByRole('treeitem', { name: /^usage\.md/ }).click({ modifiers: ['Meta'] })
+  await page.getByRole('treeitem', { name: /^queue\.rs/ }).click({ modifiers: ['Meta'] })
+  await page.getByRole('treeitem', { name: /^queue\.rs/ }).click({ button: 'right' })
+  const unstage = page.getByRole('menuitem', { name: 'Unstage Changes' })
+  await expect(unstage).toBeEnabled()
+  await unstage.click()
+  const unstaged = () =>
+    page.evaluate(() => {
+      const w = window as unknown as { __ipcCalls: string[]; __ipcArgs: { paths?: string[] }[] }
+      const i = w.__ipcCalls.lastIndexOf('git_unstage')
+      return i < 0 ? [] : [...(w.__ipcArgs[i].paths ?? [])].sort()
+    })
+  await expect.poll(unstaged).toHaveLength(2)
+})

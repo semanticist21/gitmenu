@@ -22,8 +22,10 @@ import { scmContribution } from './scm/contribution'
 import { commitAndThen, registerScmHandlers } from './scm/handlers'
 import { KeybindingsTab } from './settings/KeybindingsTab'
 import { SettingsTab } from './settings/SettingsTab'
+import { OutputTab, outputLabel } from './output/OutputTab'
 import { registerView } from './views/registry'
 import { t } from '@/i18n'
+import { ipc } from '@/lib/ipc'
 
 contribute(scmContribution)
 contribute(diffContribution)
@@ -73,3 +75,5 @@ registerDetailTab('file', { label: fileLabel, component: FileTab })
 registerDetailTab('changes', { label: changesLabel, component: ChangesTab })
 registerDetailTab('settings', { label: () => t('detail.settings'), component: SettingsTab })
 registerDetailTab('keyboard-shortcuts', { label: () => t('detail.keybindings'), component: KeybindingsTab })
+registerDetailTab('output', { label: outputLabel, component: OutputTab })
+registerHandler('git.showOutput', () => ipc.detailOpen('/detail/output'))
