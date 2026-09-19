@@ -1,6 +1,6 @@
 // Maps view ids to their components, and renders each view's title actions
 // (VS Code's `view/title` menu: `navigation` items as 20px icon actions, the rest under "…").
-import type { ComponentType } from 'react'
+import { type ComponentType, memo } from 'react'
 import { MenuItems } from '@/commands/MenuItems'
 import { executeCommand, resolveMenu, title } from '@/commands/registry'
 import { Menu, MenuPopup, MenuTrigger } from '@/components/ui/menu'
@@ -14,8 +14,16 @@ export interface ViewProps {
 
 const components = new Map<string, ComponentType<ViewProps>>()
 
+/** Same repository, even if the project list handed us a new object for it. */
+function sameRepo(a: ViewProps, b: ViewProps) {
+  const x = a.repo
+  const y = b.repo
+  return x.root === y.root && x.gitDir === y.gitDir && x.commonDir === y.commonDir && x.kind === y.kind && x.name === y.name
+}
+
 export function registerView(id: string, component: ComponentType<ViewProps>) {
-  components.set(id, component)
+  // A view re-renders for its own data, not when a sibling pane is toggled or resized
+  components.set(id, memo(component, sameRepo))
 }
 
 /** A view without a component yet: VS Code's tree message. */

@@ -54,6 +54,9 @@ export function ViewContainer({ render, actions, progress }: Props) {
   // (paneview.ts removes it after 200ms)
   const [closing, setClosing] = useState<ReadonlyMap<string, number>>(new Map())
   const timers = useRef(new Map<string, number>())
+  // Panes opened at least once keep their content mounted, hidden while collapsed: VS Code
+  // renders a pane body once and only re-attaches it, so expanding doesn't rebuild the view
+  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set())
   const visible = VIEWS.filter((v) => layout.visible.includes(v.id))
   const collapsedSet = new Set(layout.collapsed)
   const heights = paneHeights(
@@ -86,6 +89,8 @@ export function ViewContainer({ render, actions, progress }: Props) {
     timers.current.set('animation', window.setTimeout(() => setAnimating(false), ANIMATION_MS))
     window.clearTimeout(timers.current.get(id))
     if (collapsed) {
+      // It was open, so its content exists: keep it for the next expand
+      setOpened((prev) => (prev.has(id) ? prev : new Set(prev).add(id)))
       const index = visible.findIndex((v) => v.id === id)
       const body = (heights.get(id) ?? 0) - HEADER - (index > 0 ? 1 : 0)
       setClosing((prev) => new Map(prev).set(id, body))
@@ -152,7 +157,8 @@ export function ViewContainer({ render, actions, progress }: Props) {
         const height = heights.get(view.id) ?? headerSize
         // Laid out once at its final size and clipped while the pane animates (paneview.ts)
         const bodyHeight = collapsed ? (closing.get(view.id) ?? 0) : height - headerSize
-        const showBody = !collapsed || closing.has(view.id)
+        const closingNow = closing.has(view.id)
+        const mounted = !collapsed || closingNow || opened.has(view.id)
         const toggle = () => setCollapsed(view.id, !collapsed)
         return (
           <section
@@ -229,8 +235,13 @@ export function ViewContainer({ render, actions, progress }: Props) {
               </ContextMenuPopup>
             </ContextMenu>
             {progress?.(view.id) && <ProgressBar aria-label={label} className="absolute inset-x-0 top-5 z-[5]" />}
-            {showBody && (
-              <div className="shrink-0 overflow-hidden" style={{ height: bodyHeight }} inert={collapsed || undefined}>
+            {mounted && (
+              <div
+                className="shrink-0 overflow-hidden [contain:strict]"
+                style={{ height: bodyHeight }}
+                hidden={collapsed && !closingNow}
+                inert={collapsed || undefined}
+              >
                 {render(view.id)}
               </div>
             )}
