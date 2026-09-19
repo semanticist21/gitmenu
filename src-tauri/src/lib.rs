@@ -134,6 +134,7 @@ pub fn run() {
             commands::clipboard_write,
             commands::panel_hide,
             commands::panel_set_pinned,
+            commands::panel_set_detached,
             commands::detail_open,
             commands::detail_set_always_on_top,
             commands::prompt_open,
@@ -185,10 +186,22 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building gitmenu")
-        .run(|app, event| {
-            if let tauri::RunEvent::Exit = event {
+        .run(|app, event| match event {
+            tauri::RunEvent::Exit => {
+                tray::save_detached_frame(app);
                 app.state::<Arc<GitEnv>>().cleanup();
             }
+            tauri::RunEvent::WindowEvent { label, event, .. } if label == tray::PANEL => match event {
+                // The detached window's close button re-attaches it instead of destroying it
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    tray::hide_panel(app);
+                    tray::set_detached(app, false);
+                }
+                tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) => tray::note_detached_frame(app),
+                _ => {}
+            },
+            _ => {}
         });
 }
 

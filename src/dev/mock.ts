@@ -73,9 +73,13 @@ export function installMocks() {
   })
   const params = new URLSearchParams(window.location.search)
   mockWindows(window.location.hash.startsWith('#/detail') ? 'detail' : (params.get('window') ?? 'panel'))
+  // For the e2e tests: every command the UI invoked, in order
+  const calls: string[] = []
+  Object.assign(window, { __ipcCalls: calls })
   mockIPC(
     (cmd, args) => {
       const a = (args ?? {}) as Record<string, unknown>
+      calls.push(cmd)
       switch (cmd) {
         case 'settings_get':
           return settings

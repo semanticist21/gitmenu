@@ -72,6 +72,7 @@ export const ipc = {
   clipboardWrite: (text: string) => invoke<void>('clipboard_write', { text }),
   panelHide: () => invoke<void>('panel_hide'),
   panelSetPinned: (pinned: boolean) => invoke<void>('panel_set_pinned', { pinned }),
+  panelSetDetached: (detached: boolean) => invoke<void>('panel_set_detached', { detached }),
   detailOpen: (route: string) => invoke<void>('detail_open', { route }),
   detailSetAlwaysOnTop: (value: boolean) => invoke<void>('detail_set_always_on_top', { value }),
   promptOpen: () => invoke<Prompt[]>('prompt_open'),

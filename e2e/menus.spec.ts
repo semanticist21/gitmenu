@@ -34,3 +34,34 @@ test('the command palette opens with its shortcut', async ({ page }) => {
   await page.keyboard.press('Meta+Shift+P')
   await expect(page.getByRole('dialog')).toBeVisible()
 })
+
+declare global {
+  interface Window {
+    __ipcCalls: string[]
+  }
+}
+
+test('Escape closes an open menu without hiding the panel', async ({ page }) => {
+  await page.goto('/?window=panel')
+  await page.getByRole('treeitem', { name: /^main\.tsx/ }).click({ button: 'right' })
+  await expect(page.locator('[role="menu"]')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.locator('[role="menu"]')).toHaveCount(0)
+  expect(await page.evaluate(() => window.__ipcCalls.filter((c) => c === 'panel_hide').length)).toBe(0)
+  await page.getByRole('tree').first().focus()
+  await page.keyboard.press('Escape')
+  expect(await page.evaluate(() => window.__ipcCalls.filter((c) => c === 'panel_hide').length)).toBe(1)
+})
+
+test('⌘W closes the active detail tab', async ({ page }) => {
+  await page.goto('/#/detail/settings')
+  await expect(page.getByRole('tab', { name: /Settings/ })).toBeVisible()
+  await page.keyboard.press('Meta+w')
+  await expect(page.getByRole('tab', { name: /Settings/ })).toHaveCount(0)
+})
+
+test('detach is in the panel menu', async ({ page }) => {
+  await page.goto('/?window=panel')
+  await page.getByRole('button', { name: 'More' }).click()
+  await expect(page.getByRole('menuitem', { name: 'Detach into a Window' })).toBeVisible()
+})

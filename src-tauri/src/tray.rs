@@ -116,6 +116,10 @@ pub struct Tray {
     state: Mutex<IconState>,
     wake: Condvar,
     pinned: AtomicBool,
+    /// The panel is a free-floating window (movable, titled) instead of hanging off the icon
+    detached: AtomicBool,
+    /// Last detached position and size, saved to UI state when the panel hides or attaches
+    detached_frame: Mutex<Option<[f64; 4]>>,
     /// A native file picker is open: it isn't one of our windows, but the panel must stay
     pub picker_open: AtomicBool,
     /// Blur-hide is suppressed until this instant (while a window we opened takes focus)
@@ -138,6 +142,8 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         state: Mutex::new(IconState::default()),
         wake: Condvar::new(),
         pinned: AtomicBool::new(false),
+        detached: AtomicBool::new(false),
+        detached_frame: Mutex::new(None),
         picker_open: AtomicBool::new(false),
         suppress_hide_until: Mutex::new(None),
         last_rect: Mutex::new(None),
@@ -167,7 +173,74 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
     setup_panel(app)?;
     spawn_blinker(app.clone(), tray_state, frames);
+    if app.state::<Arc<UiState>>().get("panel.detached").and_then(|v| v.as_bool()) == Some(true) {
+        set_detached(app, true);
+    }
     Ok(())
+}
+
+pub fn is_detached(app: &AppHandle) -> bool {
+    app.state::<Arc<Tray>>().detached.load(Ordering::Relaxed)
+}
+
+/// Detached: a titled, movable, resizable window at its remembered frame that stays open
+/// until closed. Attached: the borderless panel under the icon that hides on blur.
+pub fn set_detached(app: &AppHandle, detached: bool) {
+    let app2 = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let app = app2;
+        let Ok(panel) = app.get_webview_panel(PANEL) else { return };
+        let Some(window) = app.get_webview_window(PANEL) else { return };
+        let tray = app.state::<Arc<Tray>>();
+        let ui = app.state::<Arc<UiState>>();
+        tray.detached.store(detached, Ordering::Relaxed);
+        ui.set("panel.detached", serde_json::Value::Bool(detached));
+        if detached {
+            panel.set_style_mask(StyleMask::empty().titled().closable().resizable().full_size_content_view().into());
+            panel.set_level(PanelLevel::Normal.value());
+            panel.set_floating_panel(false);
+            panel.set_collection_behavior(CollectionBehavior::new().managed().participates_in_cycle().into());
+            let _ = window.set_title_bar_style(tauri::TitleBarStyle::Overlay);
+            let frame = ui.get("panel.detachedFrame").and_then(|v| serde_json::from_value::<[f64; 4]>(v).ok());
+            if let Some([x, y, w, h]) = frame {
+                let _ = window.set_size(tauri::LogicalSize::new(w, h));
+                let _ = window.set_position(tauri::LogicalPosition::new(x, y));
+            }
+        } else {
+            save_detached_frame(&app);
+            panel.set_style_mask(StyleMask::empty().nonactivating_panel().resizable().into());
+            panel.set_level(PanelLevel::Floating.value());
+            panel.set_floating_panel(true);
+            panel.set_collection_behavior(
+                CollectionBehavior::new().full_screen_auxiliary().can_join_all_spaces().into(),
+            );
+            if panel.is_visible() {
+                place_panel(&app, &window);
+            }
+        }
+        let _ = app.emit("panel://detached", detached);
+    });
+}
+
+/// Records the detached window's frame (called on move and resize; written out later).
+pub fn note_detached_frame(app: &AppHandle) {
+    let tray = app.state::<Arc<Tray>>();
+    if !tray.detached.load(Ordering::Relaxed) {
+        return;
+    }
+    let Some(window) = app.get_webview_window(PANEL) else { return };
+    if let (Ok(pos), Ok(size), Ok(scale)) = (window.outer_position(), window.inner_size(), window.scale_factor()) {
+        let p = pos.to_logical::<f64>(scale);
+        let s = size.to_logical::<f64>(scale);
+        *tray.detached_frame.lock().unwrap() = Some([p.x, p.y, s.width, s.height]);
+    }
+}
+
+pub fn save_detached_frame(app: &AppHandle) {
+    let tray = app.state::<Arc<Tray>>();
+    if let Some(frame) = *tray.detached_frame.lock().unwrap() {
+        app.state::<Arc<UiState>>().set("panel.detachedFrame", serde_json::json!(frame));
+    }
 }
 
 fn setup_panel(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
@@ -199,7 +272,10 @@ fn setup_panel(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 /// our windows took (or is about to take) focus.
 fn hide_if_unfocused(app: &AppHandle) {
     let tray = app.state::<Arc<Tray>>();
-    if tray.pinned.load(Ordering::Relaxed) || tray.picker_open.load(Ordering::Relaxed) {
+    if tray.pinned.load(Ordering::Relaxed)
+        || tray.detached.load(Ordering::Relaxed)
+        || tray.picker_open.load(Ordering::Relaxed)
+    {
         return;
     }
     if tray.suppress_hide_until.lock().unwrap().is_some_and(|t| Instant::now() < t) {
@@ -217,8 +293,10 @@ pub fn keep_open_briefly(app: &AppHandle) {
 }
 
 pub fn toggle_panel(app: &AppHandle) {
+    let focused = app.get_webview_window(PANEL).and_then(|w| w.is_focused().ok()).unwrap_or(false);
     match app.get_webview_panel(PANEL) {
-        Ok(panel) if panel.is_visible() => hide_panel(app),
+        // A detached window may be open behind other apps: the icon brings it forward first
+        Ok(panel) if panel.is_visible() && (focused || !is_detached(app)) => hide_panel(app),
         Ok(_) => show_panel(app),
         Err(e) => log::error!("panel handle lost: {e:?}"),
     }
@@ -238,7 +316,9 @@ pub fn show_panel(app: &AppHandle) {
         }
         // Never `panel.to_window()` here: in this nspanel revision it converts the panel back
         // into a plain window and drops the delegate
-        if let Some(window) = app.get_webview_window(PANEL) {
+        if !is_detached(&app)
+            && let Some(window) = app.get_webview_window(PANEL)
+        {
             place_panel(&app, &window);
         }
         panel.show_and_make_key();
@@ -259,7 +339,9 @@ pub fn hide_panel(app: &AppHandle) {
         if !panel.is_visible() {
             return;
         }
-        if let Some(window) = app.get_webview_window(PANEL)
+        if is_detached(&app) {
+            save_detached_frame(&app);
+        } else if let Some(window) = app.get_webview_window(PANEL)
             && let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor())
         {
             let logical = size.to_logical::<f64>(scale);

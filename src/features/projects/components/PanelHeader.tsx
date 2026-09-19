@@ -1,6 +1,6 @@
 // Project tabs across the top of the panel, with open, pin and "more" menus.
 import { useQuery } from '@tanstack/react-query'
-import { EllipsisIcon, PinIcon, PinOffIcon, PlusIcon } from 'lucide-react'
+import { EllipsisIcon, PictureInPicture2Icon, PinIcon, PinOffIcon, PlusIcon } from 'lucide-react'
 import { MenuItems } from '@/commands/MenuItems'
 import { executeCommand } from '@/commands/registry'
 import { Button } from '@/components/ui/button'
@@ -23,16 +23,19 @@ interface Props {
   active: ProjectInfo | null
   pinned: boolean
   onTogglePin: () => void
+  detached: boolean
+  onToggleDetach: () => void
 }
 
-export function PanelHeader({ projects, active, pinned, onTogglePin }: Props) {
+export function PanelHeader({ projects, active, pinned, onTogglePin, detached, onToggleDetach }: Props) {
   useLocale()
   const recent = useQuery({ queryKey: ['recentProjects'], queryFn: ipc.projectsRecent })
   const openIds = new Set(projects.map((p) => p.id))
   const recentClosed = (recent.data ?? []).filter((p) => !openIds.has(p))
 
   return (
-    <header className="flex h-9 shrink-0 items-center gap-1 border-b ps-1.5 pe-1">
+    // Detached: the header is the title bar (drag region, room for the traffic lights)
+    <header data-tauri-drag-region className={cn('flex h-9 shrink-0 items-center gap-1 border-b pe-1', detached ? 'ps-[78px]' : 'ps-1.5')}>
       <div
         role="tablist"
         aria-label={t('view.sourceControl')}
@@ -90,6 +93,17 @@ export function PanelHeader({ projects, active, pinned, onTogglePin }: Props) {
           ))}
         </MenuPopup>
       </Menu>
+
+      <Button
+        size="icon-xs"
+        variant="ghost"
+        aria-pressed={detached}
+        aria-label={detached ? t('panel.attach') : t('panel.detach')}
+        title={detached ? t('panel.attach') : t('panel.detach')}
+        onClick={onToggleDetach}
+      >
+        <PictureInPicture2Icon />
+      </Button>
 
       <Button
         size="icon-xs"

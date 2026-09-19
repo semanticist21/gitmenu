@@ -27,6 +27,8 @@ const en = {
   'panel.commandPalette': 'Command Palette…',
   'panel.quit': 'Quit gitmenu',
   'panel.hide': 'Hide Panel',
+  'panel.detach': 'Detach into a Window',
+  'panel.attach': 'Attach to Menu Bar',
   'panel.openInTerminal': 'Open in Terminal',
   'panel.revealInFinder': 'Reveal in Finder',
   'view.sourceControl': 'Source Control',

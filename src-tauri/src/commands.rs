@@ -192,6 +192,11 @@ pub fn panel_set_pinned(app: AppHandle, pinned: bool) {
     tray::set_pinned(&app, pinned);
 }
 
+#[tauri::command]
+pub fn panel_set_detached(app: AppHandle, detached: bool) {
+    tray::set_detached(&app, detached);
+}
+
 /// Opens (or focuses) the single detail window; `route` picks the tab to show.
 #[tauri::command]
 pub fn detail_open(app: AppHandle, route: String) -> Result<()> {

@@ -28,7 +28,7 @@ import { useUiState } from '@/lib/uiState'
 import { useSetting } from '@/settings/settings'
 import { checkForUpdates } from '@/features/update/update'
 
-function usePanelCommands(projectIds: string[], activeId: string | null, activeRepo: string | null, togglePin: () => void) {
+function usePanelCommands(projectIds: string[], activeId: string | null, activeRepo: string | null, togglePin: () => void, toggleDetach: () => void) {
   useEffect(() => {
     const step = (delta: number) => {
       if (projectIds.length < 2 || !activeId) return
@@ -44,6 +44,7 @@ function usePanelCommands(projectIds: string[], activeId: string | null, activeR
       registerHandler('gitmenu.nextProject', () => step(1)),
       registerHandler('gitmenu.previousProject', () => step(-1)),
       registerHandler('gitmenu.togglePin', togglePin),
+      registerHandler('gitmenu.toggleDetach', toggleDetach),
       registerHandler('gitmenu.hidePanel', () => ipc.panelHide()),
       registerHandler('gitmenu.openInTerminal', (path?: unknown) => {
         const target = typeof path === 'string' ? path : (activeRepo ?? activeId)
@@ -59,7 +60,7 @@ function usePanelCommands(projectIds: string[], activeId: string | null, activeR
       registerHandler('workbench.action.openGlobalKeybindings', () => ipc.detailOpen('/detail/keyboard-shortcuts')),
     ]
     return () => disposers.forEach((d) => d())
-  }, [projectIds, activeId, activeRepo, togglePin])
+  }, [projectIds, activeId, activeRepo, togglePin, toggleDetach])
 }
 
 /** Folders dropped on the panel open as projects. */
@@ -142,12 +143,17 @@ export function PanelApp() {
     setPinned(next)
     void ipc.panelSetPinned(next)
   }
+  // Rust owns the flag (it restores it at launch); the panel mirrors it for the header
+  const [detached, setDetached] = useUiState<boolean>('panel.detached', false)
+  useTauriEvent<boolean>('panel://detached', setDetached)
+  const toggleDetach = () => void ipc.panelSetDetached(!detached)
 
   usePanelCommands(
     projects.map((p) => p.id),
     active?.id ?? null,
     repo?.root ?? null,
     togglePin,
+    toggleDetach,
   )
   useFolderDrop()
 
@@ -200,7 +206,7 @@ export function PanelApp() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground select-none">
-      <PanelHeader projects={projects} active={active} pinned={pinned} onTogglePin={togglePin} />
+      <PanelHeader projects={projects} active={active} pinned={pinned} onTogglePin={togglePin} detached={detached} onToggleDetach={toggleDetach} />
       <EnvBanner />
       <main className="min-h-0 flex-1">{body}</main>
       <OpsBar />

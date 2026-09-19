@@ -1,6 +1,6 @@
 // gitmenu's own commands (project tabs, panel, windows). VS Code ids are kept where VS Code
 // has the same command (palette, settings, keyboard shortcuts).
-import { FolderOpenIcon, PinIcon, SettingsIcon, SquareTerminalIcon } from 'lucide-react'
+import { FolderOpenIcon, PictureInPicture2Icon, PinIcon, SettingsIcon, SquareTerminalIcon } from 'lucide-react'
 import type { Contribution } from '../registry'
 
 const category = { text: 'gitmenu' }
@@ -17,6 +17,7 @@ export const appContribution: Contribution = {
     { command: 'gitmenu.previousProject', title: { app: 'project.previous' }, category, enablement: 'gitmenu.projectCount > 1' },
     { command: 'gitmenu.togglePin', title: { app: 'panel.pin' }, category, icon: PinIcon },
     { command: 'gitmenu.hidePanel', title: { app: 'panel.hide' }, category },
+    { command: 'gitmenu.toggleDetach', title: { app: 'panel.detach' }, category, icon: PictureInPicture2Icon },
     {
       command: 'gitmenu.openInTerminal',
       title: { app: 'panel.openInTerminal' },
@@ -35,6 +36,7 @@ export const appContribution: Contribution = {
     ],
     'gitmenu/panel/more': [
       { command: 'workbench.action.showCommands', group: '1_commands' },
+      { command: 'gitmenu.toggleDetach', group: '1_commands@2' },
       { command: 'workbench.action.openSettings', group: '2_preferences@1' },
       { command: 'workbench.action.openGlobalKeybindings', group: '2_preferences@2' },
       { command: 'update.checkForUpdates', group: '3_update' },
