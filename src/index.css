@@ -1,6 +1,8 @@
 @import "tailwindcss";
 /* Codicons (the font VS Code draws every icon with); in the base layer so utilities can size them */
 @import "@vscode/codicons/dist/codicon.css" layer(base);
+/* xterm.js (the detail window's terminal tabs), in the base layer so utilities can place it */
+@import "@xterm/xterm/css/xterm.css" layer(base);
 
 @custom-variant dark (&:is(.dark *));
 
@@ -483,6 +485,28 @@
   --vsc-editorGutter-addedBackground: #2ea043;
   --vsc-editorGutter-modifiedBackground: #005fb8;
   --vsc-editorGutter-deletedBackground: #f85149;
+  /* terminal (terminalColorRegistry.ts defaults, light_modern.json overrides); a terminal in the
+     editor area has no background of its own and draws on --vsc-editor-background */
+  --vsc-terminal-foreground: #3b3b3b;
+  --vsc-terminalCursor-foreground: #005fb8;
+  --vsc-terminal-selectionBackground: var(--vsc-editor-selectionBackground);
+  --vsc-terminal-inactiveSelectionBackground: #e5ebf1;
+  --vsc-terminal-ansiBlack: #000000;
+  --vsc-terminal-ansiRed: #cd3131;
+  --vsc-terminal-ansiGreen: #107c10;
+  --vsc-terminal-ansiYellow: #949800;
+  --vsc-terminal-ansiBlue: #0451a5;
+  --vsc-terminal-ansiMagenta: #bc05bc;
+  --vsc-terminal-ansiCyan: #0598bc;
+  --vsc-terminal-ansiWhite: #555555;
+  --vsc-terminal-ansiBrightBlack: #666666;
+  --vsc-terminal-ansiBrightRed: #f14c4c;
+  --vsc-terminal-ansiBrightGreen: #14ce14;
+  --vsc-terminal-ansiBrightYellow: #b5ba00;
+  --vsc-terminal-ansiBrightBlue: #3b8eea;
+  --vsc-terminal-ansiBrightMagenta: #d670d6;
+  --vsc-terminal-ansiBrightCyan: #29b8db;
+  --vsc-terminal-ansiBrightWhite: #a5a5a5;
   --vsc-editorGroupHeader-tabsBackground: #e5e5e5;
   --vsc-editorGroupHeader-tabsBorder: #e5e5e5;
   --vsc-tab-activeBackground: #ffffff;
@@ -674,6 +698,26 @@
   --vsc-editorGutter-addedBackground: #2ea043;
   --vsc-editorGutter-modifiedBackground: #0078d4;
   --vsc-editorGutter-deletedBackground: #f85149;
+  --vsc-terminal-foreground: #cccccc;
+  /* Dark Modern sets no terminalCursor.foreground: the cursor takes terminal.foreground */
+  --vsc-terminalCursor-foreground: var(--vsc-terminal-foreground);
+  --vsc-terminal-inactiveSelectionBackground: #3a3d41;
+  --vsc-terminal-ansiBlack: #000000;
+  --vsc-terminal-ansiRed: #cd3131;
+  --vsc-terminal-ansiGreen: #0dbc79;
+  --vsc-terminal-ansiYellow: #e5e510;
+  --vsc-terminal-ansiBlue: #2472c8;
+  --vsc-terminal-ansiMagenta: #bc3fbc;
+  --vsc-terminal-ansiCyan: #11a8cd;
+  --vsc-terminal-ansiWhite: #e5e5e5;
+  --vsc-terminal-ansiBrightBlack: #666666;
+  --vsc-terminal-ansiBrightRed: #f14c4c;
+  --vsc-terminal-ansiBrightGreen: #23d18b;
+  --vsc-terminal-ansiBrightYellow: #f5f543;
+  --vsc-terminal-ansiBrightBlue: #3b8eea;
+  --vsc-terminal-ansiBrightMagenta: #d670d6;
+  --vsc-terminal-ansiBrightCyan: #29b8db;
+  --vsc-terminal-ansiBrightWhite: #e5e5e5;
   --vsc-editorGroupHeader-tabsBackground: #2b2b2b;
   --vsc-editorGroupHeader-tabsBorder: #2b2b2b;
   --vsc-tab-activeBackground: #1f1f1f;

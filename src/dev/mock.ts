@@ -1,6 +1,7 @@
 // Browser preview without the Rust backend: `VITE_MOCK=1 bun run dev`, then open
 // http://localhost:1420/?window=panel (or #/detail/settings). Used for UI checks and the
 // Playwright tests; never bundled into the app (main.tsx imports it only when VITE_MOCK is set).
+import type { Channel } from '@tauri-apps/api/core'
 import { emit } from '@tauri-apps/api/event'
 import { mockIPC, mockWindows } from '@tauri-apps/api/mocks'
 import { resolveMenu, title } from '@/commands/registry'
@@ -109,6 +110,14 @@ export function installMocks() {
   const calls: string[] = []
   const callArgs: Record<string, unknown>[] = []
   Object.assign(window, { __ipcCalls: calls, __ipcArgs: callArgs })
+  // Terminal sessions by key, as terminal.rs keeps them: each writes to the channel it was last
+  // opened with, and the "shell" prints a prompt and echoes what it is sent. e2e tests print
+  // with __terminalOutput, mark shells as running something in __terminalBusy, and set what
+  // ⌘V pastes in __clipboard
+  const terminals = new Map<string, Channel<ArrayBuffer>>()
+  const output = (key: string, text: string) => terminals.get(key)?.onmessage(new TextEncoder().encode(text).buffer)
+  const busy = new Set<string>()
+  Object.assign(window, { __terminalOutput: output, __terminalBusy: busy, __clipboard: 'pasted' })
   mockIPC(
     (cmd, args) => {
       const a = (args ?? {}) as Record<string, unknown>
@@ -284,6 +293,29 @@ export function installMocks() {
           return null
         case 'terminal_apps':
           return ['Terminal', 'Ghostty']
+        case 'terminal_open': {
+          const key = a.key as string
+          const reattached = terminals.has(key)
+          // mockIPC hands over the Channel itself, not its serialized id
+          terminals.set(key, a.onData as Channel<ArrayBuffer>)
+          if (!reattached) setTimeout(() => output(key, '$ '))
+          return { shell: 'zsh', cwd: (a.cwd as string | null) ?? root, pid: 4242, reattached }
+        }
+        case 'terminal_write':
+          output(a.key as string, a.data === '\r' ? '\r\n$ ' : (a.data as string))
+          return null
+        case 'terminal_write_binary':
+          return null
+        case 'terminal_has_child_processes':
+          return busy.has(a.key as string)
+        case 'terminal_kill':
+          terminals.delete(a.key as string)
+          busy.delete(a.key as string)
+          return null
+        case 'terminal_resize':
+          return null
+        case 'clipboard_read':
+          return (window as unknown as { __clipboard: string }).__clipboard
         case 'login_item_status':
           return 'disabled'
         default:

@@ -185,6 +185,18 @@ const zhTw: Partial<Record<AppKey, string>> = {
   'setting.update.mode': '檢查更新的時機：啟動時（預設，start）、僅在要求時（manual）或永不（none）。',
   'detail.pin': '保持在最上層',
   'detail.unpin': '取消保持在最上層',
+  'terminal.new': '新增終端機',
+  'terminal.title': '終端機',
+  'terminal.exited': '終端機處理序已終止。結束代碼: {0}。',
+  'terminal.launchFailed': '終端機處理序無法啟動 (結束代碼: {0})。',
+  'terminal.confirmKill': '要終止執行中的流程嗎?',
+  'terminal.confirmKill.detail': '關閉將會終止此終端機中正在執行的流程。',
+  'terminal.confirmKill.detailMany': '關閉將會終止終端機中正在執行的流程。',
+  'terminal.confirmKill.terminate': '終止',
+  'terminal.paste.message': '是否確實要將 {0} 行文本貼至終端?',
+  'terminal.paste.preview': '預覽:',
+  'terminal.paste.paste': '貼上',
+  'terminal.paste.oneLine': '貼上作為一行',
 }
 
 export default zhTw

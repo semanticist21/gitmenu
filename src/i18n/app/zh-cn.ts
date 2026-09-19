@@ -185,6 +185,18 @@ const zhCn: Partial<Record<AppKey, string>> = {
   'setting.update.mode': '何时检查更新：启动时（默认，start）、仅在请求时（manual）或从不（none）。',
   'detail.pin': '保持置顶',
   'detail.unpin': '取消置顶',
+  'terminal.new': '新建终端',
+  'terminal.title': '终端',
+  'terminal.exited': '终端进程已终止，退出代码: {0}。',
+  'terminal.launchFailed': '终端进程启动失败(退出代码: {0})。',
+  'terminal.confirmKill': '是否要终止正在运行的进程?',
+  'terminal.confirmKill.detail': '关闭将终止此终端中正在运行的进程。',
+  'terminal.confirmKill.detailMany': '关闭将终止此终端中正在运行的进程。',
+  'terminal.confirmKill.terminate': '终止',
+  'terminal.paste.message': '是否确实要将 {0} 行文本粘贴到终端?',
+  'terminal.paste.preview': '预览:',
+  'terminal.paste.paste': '粘贴',
+  'terminal.paste.oneLine': '粘贴为一行',
 }
 
 export default zhCn

@@ -185,6 +185,18 @@ const de: Partial<Record<AppKey, string>> = {
   'setting.update.mode': 'Wann nach Updates gesucht wird: beim Start (Standard, start), nur auf Anfrage (manual) oder nie (none).',
   'detail.pin': 'Im Vordergrund halten',
   'detail.unpin': 'Nicht mehr im Vordergrund halten',
+  'terminal.new': 'Neues Terminal',
+  'terminal.title': 'Terminal',
+  'terminal.exited': 'Der Terminalprozess wurde mit folgendem Exitcode beendet: {0}.',
+  'terminal.launchFailed': 'Der Terminalprozess konnte nicht gestartet werden (Exitcode: {0}).',
+  'terminal.confirmKill': 'Möchten Sie die ausgeführten Prozesse beenden?',
+  'terminal.confirmKill.detail': 'Durch das Schließen werden die ausgeführten Prozesse in diesem Terminal beendet.',
+  'terminal.confirmKill.detailMany': 'Durch das Schließen werden die ausgeführten Prozesse in den Terminals beendet.',
+  'terminal.confirmKill.terminate': 'Beenden',
+  'terminal.paste.message': 'Möchten Sie {0} Textzeilen wirklich in das Terminal einfügen?',
+  'terminal.paste.preview': 'Vorschau:',
+  'terminal.paste.paste': 'Einfügen',
+  'terminal.paste.oneLine': 'Als eine Zeile einfügen',
 }
 
 export default de

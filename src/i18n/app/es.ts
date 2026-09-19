@@ -185,6 +185,18 @@ const es: Partial<Record<AppKey, string>> = {
   'setting.update.mode': 'Cuándo buscar actualizaciones: al iniciar (predeterminado, start), solo cuando se pida (manual) o nunca (none).',
   'detail.pin': 'Mantener en primer plano',
   'detail.unpin': 'Dejar de mantener en primer plano',
+  'terminal.new': 'Nuevo terminal',
+  'terminal.title': 'Terminal',
+  'terminal.exited': 'El proceso del terminal finalizó con el código de salida {0}.',
+  'terminal.launchFailed': 'Error del proceso del terminal al iniciarse (código de salida: {0}).',
+  'terminal.confirmKill': '¿Quiere terminar los procesos en ejecución?',
+  'terminal.confirmKill.detail': 'Si se cierra, finalizarán los procesos en ejecución en este terminal.',
+  'terminal.confirmKill.detailMany': 'Si se cierra, finalizarán los procesos en ejecución en los terminales.',
+  'terminal.confirmKill.terminate': 'Finalizar',
+  'terminal.paste.message': '¿Está seguro de que desea pegar {0} líneas de texto en el terminal?',
+  'terminal.paste.preview': 'Vista previa:',
+  'terminal.paste.paste': 'Pegar',
+  'terminal.paste.oneLine': 'Pegar como una línea',
 }
 
 export default es

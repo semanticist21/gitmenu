@@ -11,18 +11,19 @@ mod project;
 mod queue;
 mod read;
 mod settings;
+mod terminal;
 mod tray;
 mod update;
 mod write;
 
 use std::sync::Arc;
 
-use tauri::{ActivationPolicy, AppHandle, Listener, Manager};
+use tauri::{ActivationPolicy, AppHandle, Emitter, Listener, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 pub use env::run_helper;
 
-use crate::{env::GitEnv, project::Projects, queue::Queue, settings::Settings};
+use crate::{env::GitEnv, project::Projects, queue::Queue, settings::Settings, terminal::Terminals};
 
 pub fn run() {
     tauri::Builder::default()
@@ -74,6 +75,15 @@ pub fn run() {
             app.manage(Arc::new(read::graph::GraphCache::default()));
             let cache = app.path().app_cache_dir().unwrap_or_else(|_| std::env::temp_dir().join("gitmenu"));
             app.manage(Arc::new(avatar::Avatars::new(&cache)));
+            app.manage(Terminals::new(cache.join("shell-integration"), handle.package_info().version.to_string(), {
+                let handle = handle.clone();
+                move |event| {
+                    let _ = match event {
+                        terminal::Event::Exit(exit) => handle.emit(terminal::EXIT_EVENT, exit),
+                        terminal::Event::Title(title) => handle.emit(terminal::TITLE_EVENT, title),
+                    };
+                }
+            }));
             let queue = Queue::new(Arc::clone(&env), handle.clone());
             app.manage(Arc::clone(&queue));
             let projects = Projects::new(handle.clone(), Arc::clone(&settings), Arc::clone(&ui), queue);
@@ -133,6 +143,7 @@ pub fn run() {
             commands::pick_folder,
             commands::pick_file,
             commands::clipboard_write,
+            commands::clipboard_read,
             commands::panel_hide,
             commands::panel_set_pinned,
             commands::panel_set_detached,
@@ -187,6 +198,12 @@ pub fn run() {
             git::git_clone,
             git::trash_paths,
             git::read_text_file,
+            terminal::terminal_open,
+            terminal::terminal_write,
+            terminal::terminal_write_binary,
+            terminal::terminal_resize,
+            terminal::terminal_has_child_processes,
+            terminal::terminal_kill,
         ])
         .build(tauri::generate_context!())
         .expect("error while building gitmenu")
@@ -194,6 +211,13 @@ pub fn run() {
             tauri::RunEvent::Exit => {
                 tray::save_detached_frame(app);
                 app.state::<Arc<GitEnv>>().cleanup();
+                app.state::<Arc<Terminals>>().kill_all();
+            }
+            // Terminal tabs live in the detail window; their shells end with it
+            tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::Destroyed, .. }
+                if label == tray::DETAIL =>
+            {
+                app.state::<Arc<Terminals>>().kill_all();
             }
             tauri::RunEvent::WindowEvent { label, event, .. } if label == tray::PANEL => match event {
                 // The detached window's close button re-attaches it instead of destroying it

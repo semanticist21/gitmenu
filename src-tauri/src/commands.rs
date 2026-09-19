@@ -289,12 +289,26 @@ pub async fn open_in_terminal(settings: State<'_, Arc<Settings>>, path: PathBuf)
 #[tauri::command]
 pub async fn clipboard_write(text: String) -> Result<()> {
     use tokio::io::AsyncWriteExt;
-    let mut child = tokio::process::Command::new("/usr/bin/pbcopy").stdin(std::process::Stdio::piped()).spawn()?;
+    let mut child = pasteboard("/usr/bin/pbcopy").stdin(std::process::Stdio::piped()).spawn()?;
     if let Some(mut stdin) = child.stdin.take() {
         stdin.write_all(text.as_bytes()).await?;
     }
     child.wait().await?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn clipboard_read() -> Result<String> {
+    let output = pasteboard("/usr/bin/pbpaste").stdin(std::process::Stdio::null()).output().await?;
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// pbcopy and pbpaste pick their text encoding from the locale, and an app started from Finder
+/// may have none: without UTF-8 they drop or garble anything outside ASCII.
+fn pasteboard(program: &str) -> tokio::process::Command {
+    let mut cmd = tokio::process::Command::new(program);
+    cmd.env("LC_ALL", "en_US.UTF-8");
+    cmd
 }
 
 #[tauri::command]

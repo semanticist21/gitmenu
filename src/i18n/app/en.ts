@@ -185,6 +185,18 @@ const en = {
   'setting.update.mode': 'When to check for updates: at launch (default, start), only when asked (manual), or never (none).',
   'detail.pin': 'Keep on Top',
   'detail.unpin': 'Stop Keeping on Top',
+  'terminal.new': 'New Terminal',
+  'terminal.title': 'Terminal',
+  'terminal.exited': 'The terminal process terminated with exit code: {0}.',
+  'terminal.launchFailed': 'The terminal process failed to launch (exit code: {0}).',
+  'terminal.confirmKill': 'Do you want to terminate running processes?',
+  'terminal.confirmKill.detail': 'Closing will terminate the running processes in this terminal.',
+  'terminal.confirmKill.detailMany': 'Closing will terminate the running processes in the terminals.',
+  'terminal.confirmKill.terminate': 'Terminate',
+  'terminal.paste.message': 'Are you sure you want to paste {0} lines of text into the terminal?',
+  'terminal.paste.preview': 'Preview:',
+  'terminal.paste.paste': 'Paste',
+  'terminal.paste.oneLine': 'Paste as one line',
 } as const
 
 export type AppKey = keyof typeof en

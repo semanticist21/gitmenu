@@ -185,6 +185,18 @@ const ko: Partial<Record<AppKey, string>> = {
   'setting.update.mode': '업데이트 확인 시점: 실행 시(기본값, start), 요청할 때만(manual), 확인 안 함(none).',
   'detail.pin': '항상 위에 표시',
   'detail.unpin': '항상 위에 표시 안 함',
+  'terminal.new': '새 터미널',
+  'terminal.title': '터미널',
+  'terminal.exited': '터미널 프로세스가 종료되었습니다(종료 코드: {0}).',
+  'terminal.launchFailed': '터미널 프로세스를 시작하지 못했습니다(종료 코드: {0}).',
+  'terminal.confirmKill': '실행 중인 프로세스를 종료하시겠습니까?',
+  'terminal.confirmKill.detail': '닫으면 이 터미널에서 실행 중인 프로세스가 종료됩니다.',
+  'terminal.confirmKill.detailMany': '닫으면 터미널에서 실행 중인 프로세스가 종료됩니다.',
+  'terminal.confirmKill.terminate': '종료',
+  'terminal.paste.message': '{0}줄의 텍스트를 터미널에 붙여넣으시겠습니까?',
+  'terminal.paste.preview': '미리 보기:',
+  'terminal.paste.paste': '붙여넣기',
+  'terminal.paste.oneLine': '한 줄로 붙여넣기',
 }
 
 export default ko

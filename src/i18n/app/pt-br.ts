@@ -185,6 +185,18 @@ const ptBr: Partial<Record<AppKey, string>> = {
   'setting.update.mode': 'Quando verificar atualizações: ao iniciar (padrão, start), só quando solicitado (manual) ou nunca (none).',
   'detail.pin': 'Manter na Frente',
   'detail.unpin': 'Parar de Manter na Frente',
+  'terminal.new': 'Novo Terminal',
+  'terminal.title': 'Terminal',
+  'terminal.exited': 'O processo de terminal foi terminado com o código de saída: {0}.',
+  'terminal.launchFailed': 'O processo de terminal falhou ao iniciar (código de saída: {0}).',
+  'terminal.confirmKill': 'Você deseja encerrar os processos em execução?',
+  'terminal.confirmKill.detail': 'O fechamento encerrará os processos em execução neste terminal.',
+  'terminal.confirmKill.detailMany': 'O fechamento encerrará os processos em execução nos terminais.',
+  'terminal.confirmKill.terminate': 'Terminar',
+  'terminal.paste.message': 'Tem certeza de que deseja colar {0} linhas de texto no terminal?',
+  'terminal.paste.preview': 'Visualização:',
+  'terminal.paste.paste': 'Colar',
+  'terminal.paste.oneLine': 'Colar como uma linha',
 }
 
 export default ptBr

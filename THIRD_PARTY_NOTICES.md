@@ -34,6 +34,12 @@ GitLens' `plus` directory, which is under the GitLens Pro license, is used.
 Colors (Light Modern and Dark Modern), metrics and component styles in `src/index.css`
 and `src/components/ui/` follow Visual Studio Code (MIT, Copyright (c) Microsoft Corporation).
 
+## Visual Studio Code shell integration
+
+- Source: https://github.com/microsoft/vscode (`src/vs/workbench/contrib/terminal/common/scripts/shellIntegration-{env,profile,rc,login}.zsh`, `shellIntegration-bash.sh`)
+- Adapted into: `src-tauri/src/terminal/` (how the startup files hand over to the user's own)
+- License: MIT, Copyright (c) Microsoft Corporation
+
 Visual Studio Code and GitLens are trademarks of their respective owners; gitmenu is not
 affiliated with or endorsed by Microsoft or GitKraken.
 

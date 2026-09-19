@@ -185,6 +185,18 @@ const ja: Partial<Record<AppKey, string>> = {
   'setting.update.mode': '更新を確認するタイミング: 起動時 (既定、start)、要求時のみ (manual)、確認しない (none)。',
   'detail.pin': '常に手前に表示',
   'detail.unpin': '常に手前に表示しない',
+  'terminal.new': '新しいターミナル',
+  'terminal.title': 'ターミナル',
+  'terminal.exited': 'ターミナル プロセスが終了コード {0} で終了しました。',
+  'terminal.launchFailed': 'ターミナル プロセスが起動に失敗しました (終了コード: {0})。',
+  'terminal.confirmKill': '実行中のプロセスを終了しますか?',
+  'terminal.confirmKill.detail': '閉じると、このターミナルで実行中のプロセスが終了します。',
+  'terminal.confirmKill.detailMany': '閉じると、このターミナルで実行中のプロセスが終了します。',
+  'terminal.confirmKill.terminate': '終了',
+  'terminal.paste.message': '{0} 行のテキストをターミナルに貼り付けますか?',
+  'terminal.paste.preview': 'プレビュー:',
+  'terminal.paste.paste': '貼り付け',
+  'terminal.paste.oneLine': '1 行として貼り付け',
 }
 
 export default ja

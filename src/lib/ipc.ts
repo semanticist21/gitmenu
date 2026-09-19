@@ -1,5 +1,5 @@
 // Typed wrappers over the Rust commands in src-tauri/src/commands.rs.
-import { invoke } from '@tauri-apps/api/core'
+import { type Channel, invoke } from '@tauri-apps/api/core'
 import type { Prompt } from '@/features/prompt/PromptDialog'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useEffect, useRef } from 'react'
@@ -59,6 +59,16 @@ export interface GitLogEntry {
   stderr: string
 }
 
+/** A shell in a PTY (src-tauri/src/terminal.rs) */
+export interface TerminalInfo {
+  /** The shell's file name, e.g. `zsh` */
+  shell: string
+  cwd: string
+  pid: number | null
+  /** The session already existed and now writes to the new channel */
+  reattached: boolean
+}
+
 export type LoginItem = 'enabled' | 'disabled' | 'requiresApproval' | 'unavailable'
 
 export const ipc = {
@@ -83,6 +93,7 @@ export const ipc = {
   pickFolder: (title?: string) => invoke<string | null>('pick_folder', { title }),
   pickFile: (directory: string, title?: string) => invoke<string | null>('pick_file', { directory, title }),
   clipboardWrite: (text: string) => invoke<void>('clipboard_write', { text }),
+  clipboardRead: () => invoke<string>('clipboard_read'),
   panelHide: () => invoke<void>('panel_hide'),
   panelSetPinned: (pinned: boolean) => invoke<void>('panel_set_pinned', { pinned }),
   panelSetDetached: (detached: boolean) => invoke<void>('panel_set_detached', { detached }),
@@ -102,6 +113,21 @@ export const ipc = {
   revealInFinder: (path: string) => invoke<void>('reveal_in_finder', { path }),
   openPath: (path: string) => invoke<void>('open_path', { path }),
   terminalApps: () => invoke<string[]>('terminal_apps'),
+  /**
+   * Starts the shell for `key`, or re-attaches it when it is already running. The PTY's output
+   * arrives on `onData` as raw bytes, in order. `locale` (the UI language) picks LANG when the
+   * login environment has no UTF-8 one.
+   */
+  terminalOpen: (key: string, cwd: string | null, cols: number, rows: number, locale: string, onData: Channel<ArrayBuffer>) =>
+    invoke<TerminalInfo>('terminal_open', { key, cwd, cols, rows, locale, onData }),
+  terminalWrite: (key: string, data: string) => invoke<void>('terminal_write', { key, data }),
+  /** Bytes that aren't UTF-8 text (xterm's mouse reports in the default encoding) */
+  terminalWriteBinary: (key: string, data: number[]) => invoke<void>('terminal_write_binary', { key, data }),
+  terminalResize: (key: string, cols: number, rows: number) => invoke<void>('terminal_resize', { key, cols, rows }),
+  /** Whether the shell runs something that closing its tab would end */
+  terminalHasChildProcesses: (key: string) => invoke<boolean>('terminal_has_child_processes', { key }),
+  /** Ends the shell and its process group (no `terminal://exit` follows) */
+  terminalKill: (key: string) => invoke<void>('terminal_kill', { key }),
   appQuit: () => invoke<void>('app_quit'),
   crashReport: (message: string) => invoke<void>('crash_report', { message }),
   aiAvailability: () => invoke<string>('ai_availability'),

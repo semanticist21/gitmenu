@@ -1,18 +1,19 @@
-// The detail window: one window, tabs for diffs, Graph, Settings and Keyboard Shortcuts.
-// Opening something already open switches to its tab. Tabs survive closing the window.
+// The detail window: one window, tabs for diffs, Graph, Settings, Keyboard Shortcuts and
+// terminals. Opening something already open switches to its tab. Tabs survive closing the window.
 // The tab strip is VS Code's editor title (multieditortabscontrol.css): 35px tabs, the active
-// one with a 1px top border, close buttons shown on the active or hovered tab, and the active
-// tab's title actions at the right end.
+// one with a 1px top border, close buttons shown on the active or hovered tab, and at the right
+// end New Terminal, the active tab's title actions and Keep on Top.
 import { emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { type ComponentType, type KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { type ComponentType, type KeyboardEvent, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { setContext } from '@/commands/context'
-import { registerHandler } from '@/commands/registry'
+import { executeCommand, registerHandler } from '@/commands/registry'
 import { Icon } from '@/components/Icon'
 import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { LogoMarkIcon } from '@/components/LogoIcons'
 import { ACTIVE_FILE_EVENT } from '@/features/history/state'
 import { useOpSync, useRepoChangeSync } from '@/features/scm/api'
+import { newTerminalRoute } from '@/features/terminal/contribution'
 import { t, useLocale, vsb } from '@/i18n'
 import { ipc, useTauriEvent } from '@/lib/ipc'
 import { useUiState } from '@/lib/uiState'
@@ -28,7 +29,20 @@ export interface DetailTabProps {
 
 interface TabKind {
   label: (params: URLSearchParams) => string
+  /** The hover; defaults to the file's path, else the label */
+  title?: (params: URLSearchParams) => string
   component: ComponentType<DetailTabProps>
+  /** Runs when the tab closes, however it closes (a terminal ends its shell) */
+  onClose?: (params: URLSearchParams) => void
+  /**
+   * VS Code's editor close handler: asked once for this kind's tabs before the user closes them
+   * or the window; false keeps them all (a terminal running something asks first)
+   */
+  confirmClose?: (tabs: URLSearchParams[]) => Promise<boolean>
+  /** Gives the editor the keyboard when its tab is clicked while active */
+  focus?: (params: URLSearchParams) => void
+  /** For labels and hovers that change while the tab is open; returns the unsubscribe */
+  subscribe?: (onChange: () => void) => () => void
 }
 
 const kinds = new Map<string, TabKind>()
@@ -37,6 +51,52 @@ const kinds = new Map<string, TabKind>()
 export function registerDetailTab(kind: string, tab: TabKind) {
   kinds.set(kind, tab)
 }
+
+type CloseRequest = (kind: string, match: (params: URLSearchParams) => boolean, keepWindow?: Promise<unknown>) => void
+const closeRequests = new Set<CloseRequest>()
+
+/**
+ * Closes the open tabs of `kind` that `match` picks without asking (a terminal whose shell
+ * exited). A window left without tabs closes, or once `keepWindow` settles when it still shows
+ * something (the terminal's exit alert).
+ */
+export function closeDetailTabs(kind: string, match: (params: URLSearchParams) => boolean, keepWindow?: Promise<unknown>) {
+  closeRequests.forEach((request) => request(kind, match, keepWindow))
+}
+
+/** Whether the editors of `routes` let them close: each kind with a close handler asks once for its tabs. */
+async function confirmClose(routes: string[]): Promise<boolean> {
+  const byKind = new Map<string, URLSearchParams[]>()
+  for (const route of routes) {
+    const { kind, params } = parse(route)
+    byKind.set(kind, [...(byKind.get(kind) ?? []), params])
+  }
+  for (const [kind, tabs] of byKind) {
+    const confirm = kinds.get(kind)?.confirmClose
+    if (confirm && !(await confirm(tabs))) return false
+  }
+  return true
+}
+
+// Tabs whose close is waiting for an answer: closing one again doesn't ask twice
+const confirming = new Set<string>()
+
+// The strip re-renders when a kind's label source changes (a terminal learning its shell)
+let labelsVersion = 0
+function subscribeLabels(onChange: () => void) {
+  const unsubscribe = [...kinds.values()].flatMap((kind) =>
+    kind.subscribe
+      ? [
+          kind.subscribe(() => {
+            labelsVersion++
+            onChange()
+          }),
+        ]
+      : [],
+  )
+  return () => unsubscribe.forEach((fn) => fn())
+}
+const labelsSnapshot = () => labelsVersion
 
 function parse(route: string) {
   const [path, query = ''] = route.split('?')
@@ -52,7 +112,7 @@ function initialRoute() {
 /** The editor's label icon: file editors show `file`, the others their editor's codicon. */
 function TabIcon({ kind }: { kind: string }) {
   if (kind === 'graph') return <LogoMarkIcon className="me-1.5" />
-  const name = { changes: 'diff-multiple', settings: 'settings', 'keyboard-shortcuts': 'keyboard', output: 'output', about: 'info' }[kind] ?? 'file'
+  const name = { changes: 'diff-multiple', settings: 'settings', 'keyboard-shortcuts': 'keyboard', output: 'output', about: 'info', terminal: 'terminal' }[kind] ?? 'file'
   return <Icon name={name} className="me-1.5" />
 }
 
@@ -92,6 +152,7 @@ export function DetailApp() {
   const [slot, setSlot] = useState<HTMLElement | null>(null)
   const focused = useWindowFocused()
   const stripRef = useRef<HTMLDivElement>(null)
+  useSyncExternalStore(subscribeLabels, labelsSnapshot)
 
   const open = (route: string) => {
     setTabs(tabs.includes(route) ? tabs : [...tabs, route])
@@ -107,21 +168,64 @@ export function DetailApp() {
 
   useTauriEvent<string>('detail://navigate', open)
 
-  const close = (route: string) => {
-    const next = tabs.filter((r) => r !== route)
+  const close = (routes: string[], keepWindow?: Promise<unknown>) => {
+    routes = routes.filter((route) => tabs.includes(route))
+    if (routes.length === 0) return
+    for (const route of routes) {
+      const { kind, params } = parse(route)
+      kinds.get(kind)?.onClose?.(params)
+    }
+    const next = tabs.filter((r) => !routes.includes(r))
     setTabs(next)
-    if (active === route) setActive(next[next.length - 1] ?? null)
-    if (next.length === 0) void getCurrentWindow().close()
+    if (active && routes.includes(active)) setActive(next[next.length - 1] ?? null)
+    if (next.length > 0) return
+    if (!keepWindow) void getCurrentWindow().close()
+    else void keepWindow.then(() => latest.current.tabs.length === 0 && void getCurrentWindow().close())
   }
+  // The tabs and close of the latest render, for closes that finish after an answer or an alert
+  const latest = useRef({ tabs, close })
+  useEffect(() => {
+    latest.current = { tabs, close }
+  })
+
+  /** Closes tabs at the user's request (⌘W, the close button), once their editors agree. */
+  const requestClose = (routes: string[]) => {
+    routes = routes.filter((route) => !confirming.has(route))
+    routes.forEach((route) => confirming.add(route))
+    void confirmClose(routes)
+      .then((confirmed) => confirmed && latest.current.close(routes))
+      .finally(() => routes.forEach((route) => confirming.delete(route)))
+  }
+
+  // Closing the window closes every tab, so the editors' close handlers get their say
+  useEffect(() => {
+    const unlisten = getCurrentWindow().onCloseRequested(async (event) => {
+      if (!(await confirmClose(latest.current.tabs))) event.preventDefault()
+    })
+    return () => void unlisten.then((fn) => fn())
+  }, [])
 
   useEffect(() => {
     setContext('gitmenu.window', 'detail')
     const disposers = [
       registerHandler('workbench.action.openSettings', () => open('/detail/settings')),
       registerHandler('workbench.action.openGlobalKeybindings', () => open('/detail/keyboard-shortcuts')),
-      registerHandler('workbench.action.closeActiveEditor', () => active && close(active)),
+      registerHandler('workbench.action.closeActiveEditor', () => active && requestClose([active])),
+      // New Terminal starts in the active tab's repository (the panel's handler lets Rust pick)
+      registerHandler('workbench.action.terminal.new', () => open(newTerminalRoute(active ? parse(active).params.get('repo') : null))),
     ]
-    return () => disposers.forEach((d) => d())
+    const request: CloseRequest = (kind, match, keepWindow) => {
+      const routes = tabs.filter((route) => {
+        const tab = parse(route)
+        return tab.kind === kind && match(tab.params)
+      })
+      close(routes, keepWindow)
+    }
+    closeRequests.add(request)
+    return () => {
+      disposers.forEach((d) => d())
+      closeRequests.delete(request)
+    }
     // `open`/`close` read the latest tabs and active through these
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, tabs])
@@ -164,7 +268,8 @@ export function DetailApp() {
           <ScrollableTabs label={t('detail.tabs')} activeKey={active} scrollerRef={stripRef}>
             {tabs.map((route) => {
               const { kind, params } = parse(route)
-              const label = kinds.get(kind)?.label(params) ?? kind
+              const tabKind = kinds.get(kind)
+              const label = tabKind?.label(params) ?? kind
               const isActive = route === active
               return (
                 <Tooltip key={route}>
@@ -181,8 +286,8 @@ export function DetailApp() {
                             ? 'bg-tab-active text-tab-active-foreground'
                             : 'bg-tab-inactive text-tab-inactive-foreground hover:bg-tab-hover',
                         )}
-                        onClick={() => setActive(route)}
-                        onAuxClick={(e) => e.button === 1 && close(route)}
+                        onClick={() => (isActive ? tabKind?.focus?.(params) : setActive(route))}
+                        onAuxClick={(e) => e.button === 1 && requestClose([route])}
                         onKeyDown={(e) => onTabKeyDown(e, route)}
                       />
                     }
@@ -210,14 +315,14 @@ export function DetailApp() {
                         )}
                         onClick={(e) => {
                           e.stopPropagation()
-                          close(route)
+                          requestClose([route])
                         }}
                       >
                         <Icon name="close" />
                       </button>
                     </span>
                   </TooltipTrigger>
-                  <TooltipPopup side="bottom">{tabTitle(params, label)}</TooltipPopup>
+                  <TooltipPopup side="bottom">{tabKind?.title?.(params) ?? tabTitle(params, label)}</TooltipPopup>
                 </Tooltip>
               )
             })}
@@ -225,6 +330,12 @@ export function DetailApp() {
           </ScrollableTabs>
           {/* Editor title actions: padding 0 8px 0 4px, 4px between actions */}
           <div className="flex shrink-0 items-center gap-1 ps-1 pe-2">
+            <ActionButton
+              icon="add"
+              label={t('terminal.new')}
+              command="workbench.action.terminal.new"
+              onClick={() => void executeCommand('workbench.action.terminal.new')}
+            />
             <div ref={setSlot} className="flex items-center gap-1 empty:hidden" />
             <ActionButton
               icon={onTop ? 'pinned' : 'pin'}

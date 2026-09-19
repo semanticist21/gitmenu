@@ -32,7 +32,7 @@ use crate::{
     settings::Settings,
 };
 
-const IPC_ENV: &str = "GITMENU_IPC";
+pub(crate) const IPC_ENV: &str = "GITMENU_IPC";
 const SHELL_TIMEOUT: Duration = Duration::from_secs(10);
 const SHELL_RETRY: Duration = Duration::from_secs(30);
 
@@ -152,8 +152,8 @@ impl GitEnv {
         }
     }
 
-    /// Waits for the environment; errors if git is missing.
-    pub async fn ready(&self) -> Result<Arc<Resolved>> {
+    /// Waits for the login shell environment, whether or not git was found.
+    pub async fn resolved(&self) -> Result<Arc<Resolved>> {
         let mut rx = self.state.subscribe();
         let resolved = rx
             .wait_for(Option::is_some)
@@ -161,6 +161,12 @@ impl GitEnv {
             .map_err(|_| Error::Other("environment resolver stopped".into()))?
             .clone()
             .expect("checked is_some");
+        Ok(resolved)
+    }
+
+    /// Waits for the environment; errors if git is missing.
+    pub async fn ready(&self) -> Result<Arc<Resolved>> {
+        let resolved = self.resolved().await?;
         if resolved.git.is_none() {
             return Err(Error::GitMissing);
         }

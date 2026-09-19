@@ -56,7 +56,7 @@ VS Code와 GitLens가 이미 정해 둔 동작과 기본값은 그대로 따른�
   - 상태는 오른쪽 아래 작은 배지(약 11px)로만 나타낸다. 평소에는 배지가 없다. git 작업 중에는 작업별 배지가 깜빡인다(push 위 화살표, pull 아래 화살표, fetch 도는 화살표, 커밋 점). merge 충돌은 빨간 느낌표, 작업 실패는 빨간 ×이고 둘 다 깜빡이지 않는다.
   - 본체와 작업 배지는 흑백 템플릿 이미지라 메뉴 막대 색을 따라간다. 빨간 배지가 붙는 상태에서만 색이 있는 합성 이미지를 쓴다.
   - 프레임은 OpenAI 이미지 API로 만들어 템플릿 PNG(@1x/@2x)로 후처리한다.
-- **상세 창**: 하나만 두고 탭으로 diff, Graph, Settings, Keyboard Shortcuts를 연다(이미 열린 파일이면 그 탭으로 이동). WebView는 패널 + 상세 창 최대 2개. 닫으면 WebView를 파기하고, 다시 열 때 탭 상태를 복원한다. 다른 창 뒤로 가면 패널 버튼과 단축키로 불러오고, 상세 창에도 항상 위 토글이 있다.
+- **상세 창**: 하나만 두고 탭으로 diff, Graph, Settings, Keyboard Shortcuts, 터미널을 연다(이미 열린 파일이면 그 탭으로 이동). WebView는 패널 + 상세 창 최대 2개. 닫으면 WebView를 파기하고, 다시 열 때 탭 상태를 복원한다. 다른 창 뒤로 가면 패널 버튼과 단축키로 불러오고, 상세 창에도 항상 위 토글이 있다.
 - **에디터 연동 없음**: 파일 열기는 macOS 기본 앱. CLI 진입점 없음.
 - **프로젝트**: Open Project와 최근 프로젝트 목록, 패널 안 프로젝트 탭. 탭 하나에 저장소 여러 개(서브모듈, 중첩 저장소)를 담고 Repositories 목록으로 선택한다. 감지 기본값은 VS Code와 같다(detectSubmodules 10개, autoRepositoryDetection 깊이 1, 상위 폴더 저장소는 물어보기, untracked는 mixed).
 - **프로젝트 경로가 없을 때**
@@ -75,6 +75,7 @@ VS Code와 GitLens가 이미 정해 둔 동작과 기본값은 그대로 따른�
   - Open on Remote, Share 링크 → remote URL로 구현
   - blame/annotation → 상세 창(diff, 특정 리비전 파일 보기)에서 토글
   - 터미널에서 열기: 저장소 폴더를 터미널 앱으로 연다(`open -a <터미널 앱> <경로>`). 패널 머리말 버튼과 저장소·worktree 컨텍스트 메뉴("Finder에서 보기" 옆)에 둔다. 기본값은 macOS 기본 Terminal이고, 설정에서 다른 터미널 앱을 고를 수 있다(설치된 앱 목록에서 고르거나 직접 지정).
+  - 통합 터미널: VS Code 편집 영역의 터미널처럼 상세 창 탭에서 사용자 로그인 셸을 PTY로 실행한다. New Terminal(`workbench.action.terminal.new`, `` ⌃⇧` ``)은 탭 줄 오른쪽 + 버튼과 패널에서도 쓰고, 활성 탭의 저장소 → 활성 프로젝트 → 홈 순서로 시작 폴더를 정한다. 탭을 닫으면 셸을 끝내고, 셸이 끝나면 탭을 닫는다. 셸은 상세 창을 닫거나 앱을 끝내면 모두 끝나고, 복원된 터미널 탭은 새 셸로 시작한다.
   - 제외: vscode.dev, Launchpad, Drafts/Cloud Patches, Workspaces, Pull Request 뷰, Home/Welcome/Timeline
 - **staging**: VS Code와 동일. Staged/Changes 그룹, stage한 파일이 없으면 커밋 시 전체 stage 확인("항상" 옵션). 상세 창에서 변경 블록 단위 Stage/Revert 버튼과 선택 영역 Stage/Revert(명령·단축키). patch를 만들어 `git apply --cached`로 적용한다(Revert는 `-R`).
 - **커밋**: 입력창 ⌘Enter, Commit 드롭다운(Commit, Amend, Commit & Push).
@@ -149,13 +150,14 @@ src-tauri/src/
   read/        gix: status, log, commit_files, diff, blame, remote, graph
   write/       git CLI 헬퍼와 쓰기 명령, patch 적용, 복구 지점
   avatar.rs    아바타(noreply, gh GraphQL, Gravatar, 디스크 캐시)
+  terminal.rs  통합 터미널(PTY 셸, zsh/bash 시작 파일은 terminal/)
   crash.rs     옵트인 크래시 리포트(경로 제거)
   ai/          Foundation Models Swift 브리지
   update.rs    updater(릴리스 빌드에만 키·피드), 로그인 시 자동 실행
 src/
   commands/    명령 레지스트리
   i18n/        10개 언어(VS Code 언어팩 복사분 + 직접 번역)
-  routes/      panel(프로젝트 탭 + 뷰), detail(diff, graph, settings, keyboard-shortcuts 탭)
+  routes/      panel(프로젝트 탭 + 뷰), detail(diff, graph, settings, keyboard-shortcuts, terminal 탭)
   features/remote/  호스팅별 remote URL(순수 계산이라 프론트)
   features/<뷰 또는 기능>/{api.ts,components/}
   workers/     shiki worker(Oniguruma WASM)

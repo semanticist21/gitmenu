@@ -86,6 +86,11 @@ function subscribe(fn: () => void) {
   return () => listeners.delete(fn)
 }
 
+/** The UI language now, outside React. */
+export function currentLocale(): Locale {
+  return locale
+}
+
 /** Re-renders the caller when the language changes. */
 export function useLocale(): Locale {
   return useSyncExternalStore(subscribe, () => locale)

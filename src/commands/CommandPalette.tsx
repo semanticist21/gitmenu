@@ -1,6 +1,6 @@
 // Command palette (⌘⇧P): every command the palette allows in the current context, in VS Code's
 // quick input widget (22px rows, bold matches, key caps on the right).
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Command,
   CommandDialog,
@@ -28,10 +28,15 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const bindings = useEffectiveBindings()
+  // Where the keyboard was, to go back to when the palette closes (a terminal's hidden input
+  // isn't found otherwise, and the keys would reach nothing)
+  const returnFocus = useRef<HTMLElement | null>(null)
 
   useEffect(
     () =>
       registerHandler('workbench.action.showCommands', () => {
+        const focused = document.activeElement
+        returnFocus.current = focused instanceof HTMLElement && focused !== document.body ? focused : null
         setQuery('')
         setOpen(true)
       }),
@@ -57,7 +62,7 @@ export function CommandPalette() {
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandDialogPopup aria-label={t('palette.placeholder')}>
+      <CommandDialogPopup aria-label={t('palette.placeholder')} finalFocus={returnFocus}>
         <Command
           items={items}
           value={query}

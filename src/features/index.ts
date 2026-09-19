@@ -24,6 +24,9 @@ import { KeybindingsTab } from './settings/KeybindingsTab'
 import { SettingsTab } from './settings/SettingsTab'
 import { AboutTab, aboutLabel } from './about/AboutTab'
 import { OutputTab, outputLabel } from './output/OutputTab'
+import { registerTerminalHandlers, terminalContribution } from './terminal/contribution'
+import { subscribeTerminalInfo } from './terminal/sessions'
+import { closeTerminalTab, confirmCloseTerminalTabs, focusTerminalTab, TerminalTab, terminalLabel, terminalTitle } from './terminal/TerminalTab'
 import { registerView } from './views/registry'
 import { t } from '@/i18n'
 import { ipc } from '@/lib/ipc'
@@ -80,3 +83,15 @@ registerDetailTab('output', { label: outputLabel, component: OutputTab })
 registerDetailTab('about', { label: aboutLabel, component: AboutTab })
 registerHandler('workbench.action.showAboutDialog', () => ipc.detailOpen('/detail/about'))
 registerHandler('git.showOutput', () => ipc.detailOpen('/detail/output'))
+
+contribute(terminalContribution)
+registerTerminalHandlers()
+registerDetailTab('terminal', {
+  label: terminalLabel,
+  title: terminalTitle,
+  component: TerminalTab,
+  onClose: closeTerminalTab,
+  confirmClose: confirmCloseTerminalTabs,
+  focus: focusTerminalTab,
+  subscribe: subscribeTerminalInfo,
+})

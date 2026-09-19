@@ -185,6 +185,18 @@ const fr: Partial<Record<AppKey, string>> = {
   'setting.update.mode': 'Quand rechercher les mises à jour : au lancement (par défaut, start), uniquement sur demande (manual) ou jamais (none).',
   'detail.pin': 'Garder au premier plan',
   'detail.unpin': 'Ne plus garder au premier plan',
+  'terminal.new': 'Nouveau terminal',
+  'terminal.title': 'Terminal',
+  'terminal.exited': 'Arrêt du processus de terminal. Code de sortie : {0}.',
+  'terminal.launchFailed': 'Échec du lancement du processus de terminal (code de sortie : {0}).',
+  'terminal.confirmKill': 'Voulez-vous arrêter les processus en cours d’exécution?',
+  'terminal.confirmKill.detail': 'La fermeture va entraîner l’arrêt des processus en cours d’exécution dans ce terminal.',
+  'terminal.confirmKill.detailMany': 'La fermeture va entraîner l’arrêt des processus en cours d’exécution dans ces terminaux.',
+  'terminal.confirmKill.terminate': 'Terminer',
+  'terminal.paste.message': 'Voulez-vous vraiment coller {0} lignes de texte dans le terminal ?',
+  'terminal.paste.preview': 'Aperçu :',
+  'terminal.paste.paste': 'Coller',
+  'terminal.paste.oneLine': 'Coller en sous la forme d’une ligne',
 }
 
 export default fr

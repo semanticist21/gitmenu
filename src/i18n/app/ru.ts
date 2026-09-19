@@ -185,6 +185,18 @@ const ru: Partial<Record<AppKey, string>> = {
   'setting.update.mode': 'Когда проверять наличие обновлений: при запуске (по умолчанию, start), только по запросу (manual) или никогда (none).',
   'detail.pin': 'Поверх других окон',
   'detail.unpin': 'Не поверх других окон',
+  'terminal.new': 'Новый терминал',
+  'terminal.title': 'Терминал',
+  'terminal.exited': 'Процесс терминала завершен с кодом выхода: {0}.',
+  'terminal.launchFailed': 'Не удалось запустить процесс терминала (код выхода: {0}).',
+  'terminal.confirmKill': 'Вы хотите остановить запущенные процессы?',
+  'terminal.confirmKill.detail': 'Закрытие приведет к завершению выполнения процессов в этом терминале.',
+  'terminal.confirmKill.detailMany': 'Закрытие приведет к завершению выполнения процессов в этих терминалах.',
+  'terminal.confirmKill.terminate': 'Завершить',
+  'terminal.paste.message': 'Действительно вставить строки текста ({0}) в терминал?',
+  'terminal.paste.preview': 'Предварительный просмотр:',
+  'terminal.paste.paste': 'Вставить',
+  'terminal.paste.oneLine': 'Вставить как одну строку',
 }
 
 export default ru
