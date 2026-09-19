@@ -5,7 +5,7 @@ import { emit } from '@tauri-apps/api/event'
 import { useEffect, useState } from 'react'
 import { registerHandler } from '@/commands/registry'
 import { ProgressBar } from '@/components/ui/progress'
-import { GitLensFilledIcon, GitLensIcon } from '@/features/graph/glicons'
+import { LogoBadgeFilledIcon, LogoBadgeIcon } from '@/components/LogoIcons'
 import { gl, t, useLocale, vs } from '@/i18n'
 import { git, type Side } from '@/lib/git'
 import { errorMessage, ipc } from '@/lib/ipc'
@@ -83,7 +83,7 @@ export function FileTab({ params }: DetailTabProps) {
       <EditorActions>
         <ActionButton icon="go-to-file" label={vs('command.openFile')} onClick={() => void ipc.openPath(`${root}/${path}`)} />
         <ActionButton
-          icon={blameOn ? <GitLensFilledIcon /> : <GitLensIcon />}
+          icon={blameOn ? <LogoBadgeFilledIcon /> : <LogoBadgeIcon />}
           label={gl('Toggle File Blame')}
           command="gitlens.toggleFileBlame"
           pressed={blameOn}

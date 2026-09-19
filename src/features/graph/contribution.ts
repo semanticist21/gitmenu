@@ -1,11 +1,11 @@
 // GitLens's "Show Commit Graph": opens the Graph tab for a repository.
 import { type CommandIcon, type Contribution, registerHandler } from '@/commands/registry'
+import { LogoMarkIcon } from '@/components/LogoIcons'
 import { ipc } from '@/lib/ipc'
 import { repoFrom } from '../scm/state'
-import { GraphIcon } from './glicons'
 
-// `$(gitlens-graph)`: GitLens's own glyph, a component drawing a 16px currentColor SVG
-const graphIcon: CommandIcon = GraphIcon
+// GitLens draws its own `$(gitlens-graph)` glyph here; gitmenu uses its logo mark
+const graphIcon: CommandIcon = LogoMarkIcon
 
 export const graphContribution: Contribution = {
   commands: [{ command: 'gitlens.showGraph', title: { gl: 'Show Commit Graph' }, category: { text: 'GitLens' }, icon: graphIcon }],

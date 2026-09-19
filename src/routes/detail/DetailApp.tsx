@@ -10,7 +10,7 @@ import { setContext } from '@/commands/context'
 import { registerHandler } from '@/commands/registry'
 import { Icon } from '@/components/Icon'
 import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { GraphIcon } from '@/features/graph/glicons'
+import { LogoMarkIcon } from '@/components/LogoIcons'
 import { ACTIVE_FILE_EVENT } from '@/features/history/state'
 import { useOpSync, useRepoChangeSync } from '@/features/scm/api'
 import { t, useLocale, vsb } from '@/i18n'
@@ -51,7 +51,7 @@ function initialRoute() {
 
 /** The editor's label icon: file editors show `file`, the others their editor's codicon. */
 function TabIcon({ kind }: { kind: string }) {
-  if (kind === 'graph') return <GraphIcon className="me-1.5" />
+  if (kind === 'graph') return <LogoMarkIcon className="me-1.5" />
   const name = { changes: 'diff-multiple', settings: 'settings', 'keyboard-shortcuts': 'keyboard', output: 'output', about: 'info' }[kind] ?? 'file'
   return <Icon name={name} className="me-1.5" />
 }

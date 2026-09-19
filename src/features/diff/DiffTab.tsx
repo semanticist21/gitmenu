@@ -14,7 +14,7 @@ import { Menu, MenuCheckboxItem, MenuItem, MenuPopup, MenuSeparator, MenuTrigger
 import { ProgressBar } from '@/components/ui/progress'
 import { toastManager } from '@/components/ui/toast'
 import { Tooltip, TooltipPopup, TooltipTrigger } from '@/components/ui/tooltip'
-import { GitLensFilledIcon, GitLensIcon } from '@/features/graph/glicons'
+import { LogoBadgeFilledIcon, LogoBadgeIcon } from '@/components/LogoIcons'
 import { gl, t, useLocale, vs, vsb } from '@/i18n'
 import { type DiffResult, git, type Side } from '@/lib/git'
 import { errorMessage, ipc } from '@/lib/ipc'
@@ -334,7 +334,7 @@ export function DiffTab({ params }: DetailTabProps) {
         <ActionButton icon="whitespace" label={t('diff.showWhitespace')} pressed={!ignoreWs} onClick={() => void setSetting('diffEditor.ignoreTrimWhitespace', !ignoreWs)} />
         <ActionButton icon="map" label="Toggle Collapse Unchanged Regions" pressed={collapse} onClick={() => setCollapse(!collapse)} />
         <ActionButton
-          icon={blameOn ? <GitLensFilledIcon /> : <GitLensIcon />}
+          icon={blameOn ? <LogoBadgeFilledIcon /> : <LogoBadgeIcon />}
           label={blameLabel}
           command="gitlens.toggleFileBlame"
           pressed={blameOn}
