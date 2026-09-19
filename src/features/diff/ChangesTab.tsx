@@ -1,13 +1,16 @@
 // "View Changes" / "View Staged Changes": every file of a group, one diff at a time
 // (VS Code opens a multi-file diff; here a file list sits beside the selected file's diff).
-import { useMemo, useState } from 'react'
+// The list is a VS Code list: 22px rows, file name and folder on one line, the status letter
+// in its git decoration color on the right.
+import { type KeyboardEvent, useMemo, useState } from 'react'
+import { Icon } from '@/components/Icon'
 import { useRepoStatus } from '@/features/scm/api'
-import { LETTER, statusColor } from '@/features/scm/status'
+import { LETTER, statusColor, statusText } from '@/features/scm/status'
 import { t, useLocale, vsb } from '@/i18n'
-import type { DetailTabProps } from '@/routes/detail/DetailApp'
 import { cn } from '@/lib/utils'
+import type { DetailTabProps } from '@/routes/detail/DetailApp'
 import { useSetting } from '@/settings/settings'
-import { type DiffGroup, DiffTab } from './DiffTab'
+import { type DiffGroup, DiffTab, EditorPlaceholder } from './DiffTab'
 
 export function changesLabel(params: URLSearchParams): string {
   const group = params.get('group')
@@ -29,35 +32,67 @@ export function ChangesTab({ params, route }: DetailTabProps) {
   const [selected, setSelected] = useState<string | null>(null)
   const current = files.find((f) => f.path === selected) ?? files[0]
 
-  if (files.length === 0) return <p className="p-4 text-muted-foreground text-sm">{t('diff.noChanges')}</p>
+  if (files.length === 0) return <EditorPlaceholder icon="info" message={t('diff.noChanges')} />
   const params2 = new URLSearchParams({
     repo: root,
     path: current.path,
     group: current.status === 'untracked' ? 'untracked' : group,
   })
   if (current.originalPath) params2.set('original', current.originalPath)
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const index = files.indexOf(current)
+    const next = { ArrowDown: index + 1, ArrowUp: index - 1, Home: 0, End: files.length - 1 }[event.key]
+    if (next === undefined || !files[next]) return
+    event.preventDefault()
+    setSelected(files[next].path)
+    event.currentTarget.querySelector<HTMLElement>(`[data-index="${next}"]`)?.scrollIntoView({ block: 'nearest' })
+  }
+
   return (
     <div className="flex h-full">
-      <nav aria-label={changesLabel(params)} className="w-60 shrink-0 overflow-auto border-e py-1">
-        {files.map((file) => (
-          <button
-            key={file.path}
-            type="button"
-            className={cn(
-              'flex w-full items-center gap-2 px-3 py-0.5 text-start text-[13px] hover:bg-accent/50',
-              file.path === current.path && 'bg-accent',
-            )}
-            onClick={() => setSelected(file.path)}
-          >
-            <span className="min-w-0 flex-1 truncate" style={{ color: statusColor(file.status) }}>
-              {file.path.split('/').pop()}
-            </span>
-            <span className="font-mono text-[11px]" style={{ color: statusColor(file.status) }}>
-              {LETTER[file.status]}
-            </span>
-          </button>
-        ))}
-      </nav>
+      <div
+        role="listbox"
+        aria-label={changesLabel(params)}
+        tabIndex={0}
+        className="group/list w-60 shrink-0 overflow-y-auto border-(--vsc-editorGroupHeader-tabsBorder) border-r bg-(--vsc-sideBar-background) outline-none"
+        onKeyDown={onKeyDown}
+      >
+        {files.map((file, index) => {
+          const slash = file.path.lastIndexOf('/')
+          const name = file.path.slice(slash + 1)
+          const folder = slash === -1 ? '' : file.path.slice(0, slash)
+          const isSelected = file.path === current.path
+          return (
+            <div
+              key={file.path}
+              role="option"
+              aria-selected={isSelected}
+              data-index={index}
+              title={`${file.path} • ${statusText(file.status)}`}
+              className={cn(
+                'flex h-[22px] cursor-default items-center pe-3 ps-2 text-[13px] leading-[22px]',
+                isSelected
+                  ? 'bg-(--vsc-list-inactiveSelectionBackground) group-focus/list:bg-(--vsc-list-activeSelectionBackground) group-focus/list:text-(--vsc-list-activeSelectionForeground) group-focus/list:outline-solid group-focus/list:outline-1 group-focus/list:-outline-offset-1 group-focus/list:outline-(--vsc-list-focusAndSelectionOutline)'
+                  : 'hover:bg-(--vsc-list-hoverBackground)',
+              )}
+              onClick={() => setSelected(file.path)}
+            >
+              <Icon name="file" className="me-1.5" />
+              <span className="min-w-0 flex-1 truncate">
+                <span className={cn('whitespace-pre', LETTER[file.status] === 'D' && 'line-through')}>{name}</span>
+                {folder && <span className="ms-[.5em] whitespace-pre text-[.9em] opacity-95 dark:opacity-70">{folder}</span>}
+              </span>
+              <span
+                className="ms-[5px] me-[3px] inline-flex h-4 min-w-4 shrink-0 items-center justify-center font-semibold text-[11px] opacity-75"
+                style={{ color: statusColor(file.status) }}
+              >
+                {LETTER[file.status]}
+              </span>
+            </div>
+          )
+        })}
+      </div>
       <div className="min-w-0 flex-1">
         <DiffTab key={current.path} route={route} params={params2} />
       </div>

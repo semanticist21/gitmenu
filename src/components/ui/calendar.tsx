@@ -1,11 +1,7 @@
 "use client";
 
 import { DayPicker } from "@daypicker/react";
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronsUpDownIcon,
-} from "lucide-react";
+import { Icon } from "@/components/Icon";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +24,7 @@ export function Calendar({
     day: "size-(--cell-size) text-sm py-px",
     day_button: cn(
       buttonClassNames,
-      "in-data-disabled:pointer-events-none in-[.range-middle]:rounded-none in-[.range-end:not(.range-start)]:rounded-s-none in-[.range-start:not(.range-end)]:rounded-e-none in-[.range-middle]:in-data-selected:bg-accent in-data-selected:bg-primary in-[.range-middle]:in-data-selected:text-foreground in-data-disabled:text-muted-foreground/72 in-data-outside:text-muted-foreground/72 in-data-selected:in-data-outside:text-primary-foreground in-data-selected:text-primary-foreground in-data-disabled:line-through outline-none in-[[data-selected]:not(.range-middle)]:transition-[border-radius,box-shadow] focus-visible:z-1 focus-visible:ring-[3px] focus-visible:ring-ring/50",
+      "in-data-disabled:pointer-events-none in-[.range-middle]:rounded-none in-[.range-end:not(.range-start)]:rounded-s-none in-[.range-start:not(.range-end)]:rounded-e-none in-[.range-middle]:in-data-selected:bg-accent in-data-selected:bg-primary in-[.range-middle]:in-data-selected:text-foreground in-data-disabled:text-muted-foreground/72 in-data-outside:text-muted-foreground/72 in-data-selected:in-data-outside:text-primary-foreground in-data-selected:text-primary-foreground in-data-disabled:line-through outline-none focus-visible:z-1 focus-visible:ring-[3px] focus-visible:ring-ring/50",
     ),
     dropdown: "absolute bg-popover inset-0 opacity-0",
     dropdown_root:
@@ -81,7 +77,7 @@ export function Calendar({
     }): React.ReactElement => {
       if (orientation === "left") {
         return (
-          <ChevronLeftIcon
+          <Icon name="chevron-left"
             className={cn(className, "rtl:rotate-180")}
             {...props}
             aria-hidden="true"
@@ -91,7 +87,7 @@ export function Calendar({
 
       if (orientation === "right") {
         return (
-          <ChevronRightIcon
+          <Icon name="chevron-right"
             className={cn(className, "rtl:rotate-180")}
             {...props}
             aria-hidden="true"
@@ -100,7 +96,7 @@ export function Calendar({
       }
 
       return (
-        <ChevronsUpDownIcon
+        <Icon name="chevron-down"
           className={className}
           {...props}
           aria-hidden="true"

@@ -1,16 +1,95 @@
 "use client";
 
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
-import { ChevronRightIcon } from "lucide-react";
-import type * as React from "react";
+import * as React from "react";
+import { Icon } from "@/components/Icon";
+import { normalizeKeyLabel } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
+
+// VS Code's context/dropdown menu (base/browser/ui/menu/menu.ts): 13px, 8px radius, 4px
+// vertical padding, 24px items inset 4px with a 6px radius, label and keybinding padded 2em,
+// a 2em check column, list.hoverBackground highlight, full-width separators. Opens with an
+// 83ms opacity fade; closes and opens submenus instantly.
+
+export const menuPopupClassName =
+  "relative flex min-w-[160px] max-w-[calc(100vw-8px)] overflow-hidden rounded-[8px] border border-(--vsc-menu-border) bg-(--vsc-menu-background) text-[13px] text-(--vsc-menu-foreground) leading-[normal] outline-none [box-shadow:var(--vsc-shadow-lg)]";
+
+export const menuScrollClassName =
+  "max-h-[calc(var(--available-height)-8px)] w-full overflow-y-auto py-1 [&::-webkit-scrollbar]:size-[7px]";
+
+export const menuItemClassName =
+  "relative mx-1 flex h-6 cursor-default select-none items-center rounded-[6px] outline-none data-disabled:text-(--vsc-disabledForeground) data-highlighted:bg-(--vsc-list-hoverBackground) data-popup-open:bg-(--vsc-list-hoverBackground)";
+
+export const menuLabelClassName =
+  "min-w-0 flex-[1_1_auto] truncate px-[2em] leading-none";
+
+export const menuCheckClassName =
+  "absolute inset-y-0 left-0 flex w-[2em] items-center justify-center";
+
+export const menuSeparatorClassName =
+  "my-[5px] block h-0 border-(--vsc-menu-separatorBackground) border-b first:hidden last:hidden [[data-slot$=separator]+&]:hidden";
+
+export const menuGroupLabelClassName =
+  "block truncate px-[1em] pt-[.7em] pb-[.1em] font-bold";
+
+export const Menu: typeof MenuPrimitive.Root = MenuPrimitive.Root;
 
 export const MenuCreateHandle: typeof MenuPrimitive.createHandle =
   MenuPrimitive.createHandle;
 
-export const Menu: typeof MenuPrimitive.Root = MenuPrimitive.Root;
-
 export const MenuPortal: typeof MenuPrimitive.Portal = MenuPrimitive.Portal;
+
+/** Keybindings as plain text (`⇧⌘P`), not key caps, right-aligned in their own column. */
+export function MenuShortcut({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<"span">): React.ReactElement {
+  return (
+    <span
+      className={cn(
+        "flex-[2_1_auto] shrink-0 whitespace-nowrap px-[2em] text-right leading-none opacity-70 in-data-disabled:opacity-40 in-data-highlighted:opacity-100",
+        className,
+      )}
+      data-slot="menu-shortcut"
+      {...props}
+    >
+      {typeof children === "string" ? normalizeKeyLabel(children) : children}
+    </span>
+  );
+}
+
+/** Splits an item's children into the label and a trailing `MenuShortcut`. */
+export function splitMenuItemChildren(
+  children: React.ReactNode,
+): [React.ReactNode[], React.ReactNode[]] {
+  const label: React.ReactNode[] = [];
+  const trailing: React.ReactNode[] = [];
+  for (const child of React.Children.toArray(children)) {
+    if (React.isValidElement(child) && child.type === MenuShortcut) {
+      trailing.push(child);
+    } else {
+      label.push(child);
+    }
+  }
+  return [label, trailing];
+}
+
+export function MenuItemContent({
+  children,
+}: {
+  children: React.ReactNode;
+}): React.ReactElement {
+  const [label, trailing] = splitMenuItemChildren(children);
+  return (
+    <>
+      <span className={menuLabelClassName} data-slot="menu-label-text">
+        {label}
+      </span>
+      {trailing}
+    </>
+  );
+}
 
 export function MenuTrigger({
   className,
@@ -31,12 +110,13 @@ export function MenuTrigger({
 export function MenuPopup({
   children,
   className,
-  sideOffset = 4,
-  align = "center",
+  sideOffset = 0,
+  align = "start",
   alignOffset,
   side = "bottom",
   anchor,
   portalProps,
+  submenu = false,
   ...props
 }: MenuPrimitive.Popup.Props & {
   align?: MenuPrimitive.Positioner.Props["align"];
@@ -45,6 +125,8 @@ export function MenuPopup({
   side?: MenuPrimitive.Positioner.Props["side"];
   anchor?: MenuPrimitive.Positioner.Props["anchor"];
   portalProps?: MenuPrimitive.Portal.Props;
+  /** Submenus open without the fade */
+  submenu?: boolean;
 }): React.ReactElement {
   return (
     <MenuPortal {...portalProps}>
@@ -53,21 +135,21 @@ export function MenuPopup({
         alignOffset={alignOffset}
         anchor={anchor}
         className="z-50"
+        collisionPadding={4}
         data-slot="menu-positioner"
         side={side}
         sideOffset={sideOffset}
       >
         <MenuPrimitive.Popup
           className={cn(
-            "relative flex not-[class*='w-']:min-w-32 origin-(--transform-origin) rounded-lg border bg-popover not-dark:bg-clip-padding shadow-lg/5 outline-none before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] focus:outline-none dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
+            menuPopupClassName,
+            !submenu && "animate-[fadeIn_83ms_linear]",
             className,
           )}
           data-slot="menu-popup"
           {...props}
         >
-          <div className="max-h-(--available-height) w-full overflow-y-auto p-1">
-            {children}
-          </div>
+          <div className={menuScrollClassName}>{children}</div>
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>
     </MenuPortal>
@@ -82,105 +164,56 @@ export function MenuGroup(
 
 export function MenuItem({
   className,
-  inset,
-  variant = "default",
+  children,
   ...props
-}: MenuPrimitive.Item.Props & {
-  inset?: boolean;
-  variant?: "default" | "destructive";
-}): React.ReactElement {
+}: MenuPrimitive.Item.Props): React.ReactElement {
   return (
     <MenuPrimitive.Item
-      className={cn(
-        "flex min-h-8 cursor-default select-none items-center gap-2 rounded-sm px-2 py-1 text-base text-foreground outline-none data-disabled:pointer-events-none data-highlighted:bg-accent data-inset:ps-8 data-[variant=destructive]:text-destructive-foreground data-highlighted:text-accent-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&>svg:not([class*='opacity-'])]:opacity-80 [&>svg:not([class*='size-'])]:size-4.5 sm:[&>svg:not([class*='size-'])]:size-4 [&>svg]:pointer-events-none [&>svg]:-mx-0.5 [&>svg]:shrink-0",
-        className,
-      )}
-      data-inset={inset}
+      className={cn(menuItemClassName, className)}
       data-slot="menu-item"
-      data-variant={variant}
       {...props}
-    />
+    >
+      <MenuItemContent>{children}</MenuItemContent>
+    </MenuPrimitive.Item>
   );
 }
 
 export function MenuLinkItem({
   className,
-  inset,
-  variant = "default",
+  children,
   closeOnClick = true,
   ...props
-}: MenuPrimitive.LinkItem.Props & {
-  inset?: boolean;
-  variant?: "default" | "destructive";
-}): React.ReactElement {
+}: MenuPrimitive.LinkItem.Props): React.ReactElement {
   return (
     <MenuPrimitive.LinkItem
-      className={cn(
-        "flex min-h-8 cursor-default select-none items-center gap-2 rounded-sm px-2 py-1 text-base text-foreground outline-none data-disabled:pointer-events-none data-highlighted:bg-accent data-inset:ps-8 data-[variant=destructive]:text-destructive-foreground data-highlighted:text-accent-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&>svg:not([class*='opacity-'])]:opacity-80 [&>svg:not([class*='size-'])]:size-4.5 sm:[&>svg:not([class*='size-'])]:size-4 [&>svg]:pointer-events-none [&>svg]:-mx-0.5 [&>svg]:shrink-0",
-        className,
-      )}
+      className={cn(menuItemClassName, className)}
       closeOnClick={closeOnClick}
-      data-inset={inset}
       data-slot="menu-link-item"
-      data-variant={variant}
       {...props}
-    />
+    >
+      <MenuItemContent>{children}</MenuItemContent>
+    </MenuPrimitive.LinkItem>
   );
 }
 
 export function MenuCheckboxItem({
   className,
   children,
-  checked,
-  variant = "default",
+  // VS Code menus close on every click, toggles included
+  closeOnClick = true,
   ...props
-}: MenuPrimitive.CheckboxItem.Props & {
-  variant?: "default" | "switch";
-}): React.ReactElement {
+}: MenuPrimitive.CheckboxItem.Props): React.ReactElement {
   return (
     <MenuPrimitive.CheckboxItem
-      checked={checked}
-      className={cn(
-        "grid min-h-8 in-data-[side=none]:min-w-[calc(var(--anchor-width)+1.25rem)] cursor-default items-center gap-2 rounded-sm py-1 ps-2 text-base text-foreground outline-none data-disabled:pointer-events-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
-        variant === "switch"
-          ? "grid-cols-[1fr_auto] gap-4 pe-1.5"
-          : "grid-cols-[.75rem_1fr] pe-4",
-        className,
-      )}
+      closeOnClick={closeOnClick}
+      className={cn(menuItemClassName, className)}
       data-slot="menu-checkbox-item"
       {...props}
     >
-      {variant === "switch" ? (
-        <>
-          <span className="col-start-1">{children}</span>
-          <MenuPrimitive.CheckboxItemIndicator
-            className="inset-shadow-[0_1px_--theme(--color-black/4%)] inline-flex h-[calc(var(--thumb-size)+2px)] w-[calc(var(--thumb-size)*2-2px)] shrink-0 items-center rounded-full p-px outline-none transition-[background-color,box-shadow] duration-200 [--thumb-size:--spacing(4)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background data-checked:bg-primary data-unchecked:bg-input data-disabled:opacity-64 sm:[--thumb-size:--spacing(3)]"
-            keepMounted
-          >
-            <span className="pointer-events-none block aspect-square h-full in-[[data-slot=menu-checkbox-item][data-checked]]:origin-[var(--thumb-size)_50%] origin-left in-[[data-slot=menu-checkbox-item][data-checked]]:translate-x-[calc(var(--thumb-size)-4px)] in-[[data-slot=menu-checkbox-item]:active]:not-data-disabled:scale-x-110 in-[[data-slot=menu-checkbox-item]:active]:rounded-[var(--thumb-size)/calc(var(--thumb-size)*1.10)] rounded-(--thumb-size) bg-background shadow-sm/5 will-change-transform [transition:translate_.15s,border-radius_.15s,scale_.1s_.1s,transform-origin_.15s]" />
-          </MenuPrimitive.CheckboxItemIndicator>
-        </>
-      ) : (
-        <>
-          <MenuPrimitive.CheckboxItemIndicator className="col-start-1 -ms-0.5">
-            <svg
-              aria-hidden="true"
-              fill="none"
-              height="24"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-              width="24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d="M5.252 12.7 10.2 18.63 18.748 5.37" />
-            </svg>
-          </MenuPrimitive.CheckboxItemIndicator>
-          <span className="col-start-2">{children}</span>
-        </>
-      )}
+      <MenuPrimitive.CheckboxItemIndicator className={menuCheckClassName}>
+        <Icon name="check" />
+      </MenuPrimitive.CheckboxItemIndicator>
+      <MenuItemContent>{children}</MenuItemContent>
     </MenuPrimitive.CheckboxItem>
   );
 }
@@ -194,52 +227,32 @@ export function MenuRadioGroup(
 export function MenuRadioItem({
   className,
   children,
+  // VS Code menus close on every click, toggles included
+  closeOnClick = true,
   ...props
 }: MenuPrimitive.RadioItem.Props): React.ReactElement {
   return (
     <MenuPrimitive.RadioItem
-      className={cn(
-        "grid min-h-8 in-data-[side=none]:min-w-[calc(var(--anchor-width)+1.25rem)] cursor-default grid-cols-[.75rem_1fr] items-center gap-2 rounded-sm py-1 ps-2 pe-4 text-base text-foreground outline-none data-disabled:pointer-events-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
-        className,
-      )}
+      closeOnClick={closeOnClick}
+      className={cn(menuItemClassName, className)}
       data-slot="menu-radio-item"
       {...props}
     >
-      <MenuPrimitive.RadioItemIndicator className="col-start-1 -ms-0.5">
-        <svg
-          aria-hidden="true"
-          fill="none"
-          height="24"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-          width="24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path d="M5.252 12.7 10.2 18.63 18.748 5.37" />
-        </svg>
+      <MenuPrimitive.RadioItemIndicator className={menuCheckClassName}>
+        <Icon name="check" />
       </MenuPrimitive.RadioItemIndicator>
-      <span className="col-start-2">{children}</span>
+      <MenuItemContent>{children}</MenuItemContent>
     </MenuPrimitive.RadioItem>
   );
 }
 
 export function MenuGroupLabel({
   className,
-  inset,
   ...props
-}: MenuPrimitive.GroupLabel.Props & {
-  inset?: boolean;
-}): React.ReactElement {
+}: MenuPrimitive.GroupLabel.Props): React.ReactElement {
   return (
     <MenuPrimitive.GroupLabel
-      className={cn(
-        "px-2 py-1.5 font-medium text-muted-foreground text-xs data-inset:ps-9 sm:data-inset:ps-8",
-        className,
-      )}
-      data-inset={inset}
+      className={cn(menuGroupLabelClassName, className)}
       data-slot="menu-label"
       {...props}
     />
@@ -252,24 +265,8 @@ export function MenuSeparator({
 }: MenuPrimitive.Separator.Props): React.ReactElement {
   return (
     <MenuPrimitive.Separator
-      className={cn("mx-2 my-1 h-px bg-border", className)}
+      className={cn(menuSeparatorClassName, className)}
       data-slot="menu-separator"
-      {...props}
-    />
-  );
-}
-
-export function MenuShortcut({
-  className,
-  ...props
-}: React.ComponentProps<"kbd">): React.ReactElement {
-  return (
-    <kbd
-      className={cn(
-        "ms-auto font-medium font-sans text-muted-foreground/72 text-xs tracking-widest",
-        className,
-      )}
-      data-slot="menu-shortcut"
       {...props}
     />
   );
@@ -281,26 +278,32 @@ export function MenuSub(
   return <MenuPrimitive.SubmenuRoot data-slot="menu-sub" {...props} />;
 }
 
+/** The submenu indicator: `chevron-right` in a 1.8em-padded column (menu.ts). */
+export function MenuSubmenuIndicator(): React.ReactElement {
+  return (
+    <span className="flex h-full flex-[2_1_auto] items-center justify-end ps-[1.8em] pe-[calc(1.8em-20px)] opacity-70 in-data-disabled:opacity-40">
+      <Icon name="chevron-right" />
+    </span>
+  );
+}
+
 export function MenuSubTrigger({
   className,
-  inset,
   children,
+  delay = 250,
+  closeDelay = 750,
   ...props
-}: MenuPrimitive.SubmenuTrigger.Props & {
-  inset?: boolean;
-}): React.ReactElement {
+}: MenuPrimitive.SubmenuTrigger.Props): React.ReactElement {
   return (
     <MenuPrimitive.SubmenuTrigger
-      className={cn(
-        "flex min-h-8 items-center gap-2 rounded-sm px-2 py-1 text-base text-foreground outline-none data-disabled:pointer-events-none data-highlighted:bg-accent data-popup-open:bg-accent data-inset:ps-8 data-highlighted:text-accent-foreground data-popup-open:text-accent-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&>svg:not(:last-child)]:-mx-0.5 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none",
-        className,
-      )}
-      data-inset={inset}
+      className={cn(menuItemClassName, className)}
+      closeDelay={closeDelay}
       data-slot="menu-sub-trigger"
+      delay={delay}
       {...props}
     >
-      {children}
-      <ChevronRightIcon className="ms-auto -me-0.5 opacity-80" />
+      <span className={menuLabelClassName}>{children}</span>
+      <MenuSubmenuIndicator />
     </MenuPrimitive.SubmenuTrigger>
   );
 }
@@ -316,16 +319,15 @@ export function MenuSubPopup({
   sideOffset?: MenuPrimitive.Positioner.Props["sideOffset"];
   alignOffset?: MenuPrimitive.Positioner.Props["alignOffset"];
 }): React.ReactElement {
-  const defaultAlignOffset = align !== "center" ? -5 : undefined;
-
   return (
     <MenuPopup
       align={align}
-      alignOffset={alignOffset ?? defaultAlignOffset}
+      alignOffset={alignOffset ?? -5}
       className={className}
       data-slot="menu-sub-content"
       side="inline-end"
       sideOffset={sideOffset}
+      submenu
       {...props}
     />
   );

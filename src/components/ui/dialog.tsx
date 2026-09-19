@@ -3,11 +3,14 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
-import { XIcon } from "lucide-react";
 import type React from "react";
+import { Icon } from "@/components/Icon";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
+// VS Code's modal dialog (base/browser/ui/dialog/dialog.css): a 50% black backdrop without
+// blur, a 12px-radius box at least 480px wide (clamped to the window), a toolbar row with the
+// close action, the message row, then right-aligned 26px buttons. Nothing animates.
 
 export const DialogCreateHandle: typeof DialogPrimitive.createHandle =
   DialogPrimitive.createHandle;
@@ -35,10 +38,7 @@ export function DialogBackdrop({
 }: DialogPrimitive.Backdrop.Props): React.ReactElement {
   return (
     <DialogPrimitive.Backdrop
-      className={cn(
-        "fixed inset-0 z-50 bg-black/32 backdrop-blur-sm transition-all duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0",
-        className,
-      )}
+      className={cn("fixed inset-0 z-50 bg-black/50", className)}
       data-slot="dialog-backdrop"
       {...props}
     />
@@ -52,7 +52,7 @@ export function DialogViewport({
   return (
     <DialogPrimitive.Viewport
       className={cn(
-        "fixed inset-0 z-50 grid grid-rows-[1fr_auto_3fr] justify-items-center p-4",
+        "fixed inset-0 z-50 flex items-center justify-center",
         className,
       )}
       data-slot="dialog-viewport"
@@ -61,56 +61,55 @@ export function DialogViewport({
   );
 }
 
+/** The dialog box; `className` is merged onto the box. */
+export const dialogBoxClassName =
+  "relative flex max-h-[90vh] min-h-[75px] w-min min-w-[min(480px,calc(100vw-16px))] max-w-[90vw] flex-col rounded-[12px] border border-(--vsc-widget-border) bg-(--vsc-editorWidget-background) p-2 text-(--vsc-editorWidget-foreground) outline-none [box-shadow:0_0_8px_var(--vsc-widget-shadow),var(--vsc-shadow-xl)]";
+
 export function DialogPopup({
   className,
   children,
   showCloseButton = true,
-  bottomStickOnMobile = true,
+  closeLabel = "Close Dialog",
   closeProps,
   portalProps,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean;
-  bottomStickOnMobile?: boolean;
+  closeLabel?: string;
   closeProps?: DialogPrimitive.Close.Props;
   portalProps?: DialogPrimitive.Portal.Props;
 }): React.ReactElement {
   return (
     <DialogPortal {...portalProps}>
       <DialogBackdrop />
-      <DialogViewport
-        className={cn(
-          bottomStickOnMobile &&
-            "max-sm:grid-rows-[1fr_auto] max-sm:p-0 max-sm:pt-12",
-        )}
-      >
+      <DialogViewport>
         <DialogPrimitive.Popup
-          className={cn(
-            "relative row-start-2 flex max-h-full min-h-0 w-full min-w-0 max-w-lg origin-center flex-col rounded-2xl border bg-popover not-dark:bg-clip-padding text-popover-foreground opacity-[calc(1-var(--nested-dialogs))] shadow-lg/5 outline-none transition-[scale,opacity,translate] duration-200 ease-in-out will-change-transform before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-2xl)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:opacity-0 data-starting-style:opacity-0 sm:scale-[calc(1-0.1*var(--nested-dialogs))] sm:data-ending-style:scale-98 sm:data-starting-style:scale-98 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
-            bottomStickOnMobile &&
-              "max-sm:max-w-none max-sm:origin-bottom max-sm:rounded-none max-sm:border-x-0 max-sm:border-t max-sm:border-b-0 max-sm:data-ending-style:translate-y-4 max-sm:data-starting-style:translate-y-4 max-sm:before:hidden max-sm:before:rounded-none",
-            className,
-          )}
+          className={cn(dialogBoxClassName, className)}
           data-slot="dialog-popup"
           {...props}
         >
+          <div
+            className="flex h-6 shrink-0 items-start justify-end pb-1"
+            data-slot="dialog-toolbar"
+          >
+            {showCloseButton && (
+              <DialogPrimitive.Close
+                aria-label={closeLabel}
+                render={<Button size="icon" variant="action" />}
+                {...closeProps}
+              >
+                <Icon name="close" />
+              </DialogPrimitive.Close>
+            )}
+          </div>
           {children}
-          {showCloseButton && (
-            <DialogPrimitive.Close
-              aria-label="Close"
-              className="absolute end-2 top-2"
-              render={<Button size="icon" variant="ghost" />}
-              {...closeProps}
-            >
-              <XIcon />
-            </DialogPrimitive.Close>
-          )}
         </DialogPrimitive.Popup>
       </DialogViewport>
     </DialogPortal>
   );
 }
 
+/** The message row: title and detail, indented to where VS Code's text starts. */
 export function DialogHeader({
   className,
   render,
@@ -118,7 +117,7 @@ export function DialogHeader({
 }: useRender.ComponentProps<"div">): React.ReactElement {
   const defaultProps = {
     className: cn(
-      "flex flex-col gap-2 p-6 in-[[data-slot=dialog-popup]:has([data-slot=dialog-panel])]:pb-3 max-sm:pb-4",
+      "flex min-h-0 shrink flex-col overflow-y-auto overflow-x-hidden pr-2 pl-6 select-text [overflow-wrap:break-word]",
       className,
     ),
     "data-slot": "dialog-header",
@@ -131,20 +130,15 @@ export function DialogHeader({
   });
 }
 
+/** The buttons row: right-aligned, wrapping instead of clipping in a narrow window. */
 export function DialogFooter({
   className,
-  variant = "default",
   render,
   ...props
-}: useRender.ComponentProps<"div"> & {
-  variant?: "default" | "bare";
-}): React.ReactElement {
+}: useRender.ComponentProps<"div">): React.ReactElement {
   const defaultProps = {
     className: cn(
-      "flex flex-col-reverse gap-2 px-6 sm:flex-row sm:justify-end sm:rounded-b-[calc(var(--radius-2xl)-1px)]",
-      variant === "default" && "border-t bg-muted/72 py-4",
-      variant === "bare" &&
-        "in-[[data-slot=dialog-popup]:has([data-slot=dialog-panel])]:pt-3 pt-4 pb-6",
+      "flex shrink-0 flex-wrap items-center justify-end pt-5 min-[496px]:ml-[67px] [&>*:focus-visible]:outline-offset-1 [&>*]:m-1 [&>*]:w-fit [&>*]:min-w-0 [&>*]:max-w-[calc(100%-8px)]",
       className,
     ),
     "data-slot": "dialog-footer",
@@ -164,7 +158,7 @@ export function DialogTitle({
   return (
     <DialogPrimitive.Title
       className={cn(
-        "font-heading font-semibold text-xl leading-none",
+        "mb-1 flex min-h-[22px] items-center font-semibold text-[14px] leading-[18.2px]",
         className,
       )}
       data-slot="dialog-title"
@@ -179,38 +173,29 @@ export function DialogDescription({
 }: DialogPrimitive.Description.Props): React.ReactElement {
   return (
     <DialogPrimitive.Description
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("whitespace-pre-wrap text-[13px] leading-5", className)}
       data-slot="dialog-description"
       {...props}
     />
   );
 }
 
+/** Rows under the message (inputs, checkbox), 15px apart as in VS Code. */
 export function DialogPanel({
   className,
-  scrollFade = true,
   render,
   ...props
-}: useRender.ComponentProps<"div"> & {
-  scrollFade?: boolean;
-}): React.ReactElement {
+}: useRender.ComponentProps<"div">): React.ReactElement {
   const defaultProps = {
-    className: cn(
-      "p-6 in-[[data-slot=dialog-popup]:has([data-slot=dialog-header])]:pt-1 in-[[data-slot=dialog-popup]:has([data-slot=dialog-footer]:not(.border-t))]:pb-1",
-      className,
-    ),
+    className: cn("flex min-h-0 flex-col pt-[15px] pr-2 pl-6", className),
     "data-slot": "dialog-panel",
   };
 
-  return (
-    <ScrollArea overscrollContain scrollFade={scrollFade}>
-      {useRender({
-        defaultTagName: "div",
-        props: mergeProps<"div">(defaultProps, props),
-        render,
-      })}
-    </ScrollArea>
-  );
+  return useRender({
+    defaultTagName: "div",
+    props: mergeProps<"div">(defaultProps, props),
+    render,
+  });
 }
 
 export {

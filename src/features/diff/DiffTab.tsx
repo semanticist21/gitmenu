@@ -1,25 +1,30 @@
 // The diff tab: one file's change between two sides (index ↔ worktree, HEAD ↔ index, a
 // commit's parent ↔ the commit). Blocks and selected lines can be staged, unstaged or
-// reverted; selecting lines also drives the panel's Line History.
+// reverted; selecting lines also drives the panel's Line History. Like VS Code's diff editor,
+// its actions sit in the editor title (the tab strip's toolbar) and the path in breadcrumbs.
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { emit } from '@tauri-apps/api/event'
-import { ArrowDownIcon, ArrowUpIcon, Columns2Icon, FileIcon, MinusIcon, PilcrowIcon, PlusIcon, RowsIcon, Undo2Icon, UserRoundIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { setContext } from '@/commands/context'
 import { registerHandler } from '@/commands/registry'
 import { showMessage } from '@/components/dialogs/dialogs'
+import { Icon } from '@/components/Icon'
 import { Button } from '@/components/ui/button'
-import { Spinner } from '@/components/ui/spinner'
+import { Menu, MenuCheckboxItem, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from '@/components/ui/menu'
+import { ProgressBar } from '@/components/ui/progress'
 import { toastManager } from '@/components/ui/toast'
-import { Toggle } from '@/components/ui/toggle'
-import type { DetailTabProps } from '@/routes/detail/DetailApp'
-import { t, useLocale, vs, vsb } from '@/i18n'
+import { Tooltip, TooltipPopup, TooltipTrigger } from '@/components/ui/tooltip'
+import { GitLensFilledIcon, GitLensIcon } from '@/features/graph/glicons'
+import { gl, t, useLocale, vs, vsb } from '@/i18n'
 import { type DiffResult, git, type Side } from '@/lib/git'
 import { errorMessage, ipc } from '@/lib/ipc'
 import { useUiState } from '@/lib/uiState'
+import { cn } from '@/lib/utils'
+import type { DetailTabProps } from '@/routes/detail/DetailApp'
+import { ActionButton, Breadcrumbs, EditorActions } from '@/routes/detail/EditorChrome'
 import { setSetting, useSetting } from '@/settings/settings'
 import { isDark } from '@/theme/theme'
-import { DiffView } from './DiffView'
+import { DiffView, type GutterAction } from './DiffView'
 import { buildPatch, type LineSelection, selectHunks } from './patch'
 
 export type DiffGroup = 'workingTree' | 'index' | 'untracked' | 'merge'
@@ -75,36 +80,70 @@ export function useDiff(root: string, path: string, original: string | null, lef
   })
 }
 
+/** Follows the light/dark switch (Shiki colors are per theme). */
+export function useDarkMode() {
+  const [dark, setDark] = useState(isDark)
+  useEffect(() => {
+    const observer = new MutationObserver(() => setDark(isDark()))
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+  return dark
+}
+
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+/**
+ * VS Code's editor placeholder (editorplaceholder.css): a 48px severity codicon, a 14px
+ * centered message and buttons, in the middle of the editor.
+ */
+export function EditorPlaceholder({ icon, message, detail, children }: { icon: 'info' | 'warning' | 'error'; message: string; detail?: string; children?: React.ReactNode }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2.5 px-4">
+      <Icon
+        name={icon}
+        className={cn(
+          'text-[48px]',
+          icon === 'error' && 'text-(--vsc-editorError-foreground)',
+          icon === 'warning' && 'text-(--vsc-editorWarning-foreground)',
+          icon === 'info' && 'text-(--vsc-editorInfo-foreground)',
+        )}
+      />
+      <div className="max-w-[450px] select-text break-words text-center text-[14px]">
+        {message}
+        {detail && <div className="mt-1 text-[13px] opacity-90">{detail}</div>}
+      </div>
+      {children && <div className="flex [&>*]:mx-[5px] [&>*]:my-1 [&>*]:w-fit">{children}</div>}
+    </div>
+  )
+}
+
 export function NonTextDiff({ result, path, root }: { result: DiffResult; path: string; root: string }) {
   useLocale()
   if (result.kind === 'image') {
+    // Two image previews side by side, each on the transparency grid, sizes underneath
     return (
-      <div className="grid h-full grid-cols-2 gap-4 overflow-auto p-4">
+      <div className="grid h-full grid-cols-2 overflow-auto">
         {(['left', 'right'] as const).map((side) => (
-          <figure key={side} className="flex flex-col items-center gap-2">
+          <figure key={side} className={cn('flex min-w-0 flex-col items-center justify-center gap-2 p-4', side === 'right' && 'border-(--vsc-editorGroupHeader-tabsBorder) border-l')}>
             {result[side].dataUrl ? (
               <img
                 src={result[side].dataUrl!}
                 alt={`${path} (${side === 'left' ? t('diff.before') : t('diff.after')})`}
-                className="max-h-[70vh] max-w-full rounded border bg-[repeating-conic-gradient(var(--muted)_0_25%,transparent_0_50%)] bg-[length:16px_16px] object-contain"
+                className="max-h-[70vh] max-w-full bg-[repeating-conic-gradient(#8080801a_0_25%,transparent_0_50%)] bg-size-[16px_16px] object-contain"
                 onLoad={(e) => {
                   const img = e.currentTarget
-                  img.dataset.dimensions = `${img.naturalWidth}×${img.naturalHeight}`
                   img.parentElement?.querySelector('[data-dims]')?.replaceChildren(`${img.naturalWidth}×${img.naturalHeight} · ${formatSize(result[side].size)}`)
                 }}
               />
             ) : (
-              <div className="flex h-40 w-full items-center justify-center rounded border border-dashed text-muted-foreground text-xs">
-                {result[side].exists ? formatSize(result[side].size) : t('diff.none')}
-              </div>
+              <span className="text-[13px] opacity-90">{t('diff.none')}</span>
             )}
-            <figcaption data-dims className="text-muted-foreground text-xs">
+            <figcaption data-dims className="text-[12px] opacity-90">
               {result[side].exists ? formatSize(result[side].size) : ''}
             </figcaption>
           </figure>
@@ -112,17 +151,14 @@ export function NonTextDiff({ result, path, root }: { result: DiffResult; path: 
       </div>
     )
   }
-  const message = result.kind === 'tooLarge' ? t('diff.tooLarge') : t('diff.binary')
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm">
-      <p>{message}</p>
-      <p className="text-muted-foreground text-xs">
-        {formatSize(result.left.size)} → {formatSize(result.right.size)}
-      </p>
-      <Button size="sm" variant="outline" onClick={() => void ipc.openPath(`${root}/${path}`)}>
-        {vs('command.openFile')}
-      </Button>
-    </div>
+    <EditorPlaceholder
+      icon={result.kind === 'tooLarge' ? 'warning' : 'info'}
+      message={result.kind === 'tooLarge' ? t('diff.tooLarge') : t('diff.binary')}
+      detail={`${formatSize(result.left.size)} → ${formatSize(result.right.size)}`}
+    >
+      <Button onClick={() => void ipc.openPath(`${root}/${path}`)}>{vs('command.openFile')}</Button>
+    </EditorPlaceholder>
   )
 }
 
@@ -141,16 +177,11 @@ export function DiffTab({ params }: DetailTabProps) {
   const sideBySide = useSetting<boolean>('diffEditor.renderSideBySide')
   const ignoreWs = useSetting<boolean>('diffEditor.ignoreTrimWhitespace')
   const [blameOn, setBlameOn] = useUiState<boolean>('diff.blame', false)
+  const [collapse, setCollapse] = useUiState<boolean>('diff.collapseUnchanged', false)
   const [selection, setSelection] = useState<LineSelection>(emptySelection)
   const [anchor, setAnchor] = useState<{ side: 'left' | 'right'; line: number } | null>(null)
   const [focusHunk, setFocusHunk] = useState<number | undefined>(undefined)
-  const [dark, setDark] = useState(isDark)
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => setDark(isDark()))
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
-    return () => observer.disconnect()
-  }, [])
+  const dark = useDarkMode()
 
   const blameRev = right.kind === 'commit' ? right.rev : 'HEAD'
   const blame = useQuery({
@@ -185,7 +216,8 @@ export function DiffTab({ params }: DetailTabProps) {
       if (mode === 'revert') {
         const answer = await showMessage({
           message: t('diff.revertQuestion'),
-          buttons: [{ label: vs('command.revertChange'), value: true, variant: 'destructive' }],
+          buttons: [{ label: vs('command.revertChange'), value: true }],
+          severity: 'warning',
         })
         if (!answer) return
       }
@@ -199,6 +231,11 @@ export function DiffTab({ params }: DetailTabProps) {
     },
     [result, path, original, root, refresh],
   )
+
+  const hunkCount = result?.hunks.length ?? 0
+  const previousChange = () => setFocusHunk((h) => Math.max((h ?? 1) - 1, 0))
+  const nextChange = () => setFocusHunk((h) => Math.min((h ?? -1) + 1, hunkCount - 1))
+  const hasSelection = selection.left.size + selection.right.size > 0
 
   // Commands act on the selection, or on the block under it when nothing is selected
   useEffect(() => {
@@ -227,6 +264,7 @@ export function DiffTab({ params }: DetailTabProps) {
     }
     setSelection(next)
     setAnchor({ side, line })
+    setFocusHunk(undefined)
     // The panel's Line History follows the selected lines of the current file
     const lines = [...next.right].sort((x, y) => x - y)
     if (side === 'right' && lines.length) {
@@ -234,84 +272,106 @@ export function DiffTab({ params }: DetailTabProps) {
     }
   }
 
-  const blockActions = (hunk: number) => {
-    if (!result) return null
+  // VS Code's diffEditor/gutter menus: Stage Block (git), Revert Block (arrow-right side by side, discard inline)
+  const hunkActions = (hunk: number, inline: boolean): GutterAction[] => {
+    if (!result) return []
     const only = selectHunks([result.hunks[hunk]])
-    const action = (label: string, Icon: typeof PlusIcon, mode: 'stage' | 'unstage' | 'revert') => (
-      <Button key={mode} size="icon-xs" variant="outline" className="bg-background" aria-label={label} title={label} onClick={() => void apply(only, mode)}>
-        <Icon />
-      </Button>
-    )
-    if (canStage) return [action(vs('command.stageChange'), PlusIcon, 'stage'), action(vs('command.revertChange'), Undo2Icon, 'revert')]
-    if (canUnstage) return [action(t('diff.unstageBlock'), MinusIcon, 'unstage')]
-    return null
+    if (canStage) {
+      return [
+        { icon: 'plus', label: vs('command.stageBlock'), run: () => void apply(only, 'stage') },
+        { icon: inline ? 'discard' : 'arrow-right', label: vs('command.revertChange'), run: () => void apply(only, 'revert') },
+      ]
+    }
+    if (canUnstage) return [{ icon: 'remove', label: t('diff.unstageBlock'), run: () => void apply(only, 'unstage') }]
+    return []
+  }
+  const selectionActions = (inline: boolean): GutterAction[] => {
+    if (canStage) {
+      return [
+        { icon: 'plus', label: vs('command.stageSelection'), run: () => void apply(selection, 'stage') },
+        { icon: inline ? 'discard' : 'arrow-right', label: vs('command.revertSelectedRanges'), run: () => void apply(selection, 'revert') },
+      ]
+    }
+    if (canUnstage) return [{ icon: 'remove', label: vs('command.unstageSelectedRanges'), run: () => void apply(selection, 'unstage') }]
+    return []
   }
 
   let body
-  if (isPending) body = <div className="flex h-full items-center justify-center"><Spinner /></div>
-  else if (error || !result) body = <p className="p-4 text-destructive-foreground text-sm">{errorMessage(error)}</p>
+  if (isPending) body = <ProgressBar className="absolute inset-x-0 top-0 z-10" />
+  else if (error || !result) body = <EditorPlaceholder icon="error" message={errorMessage(error)} />
   else if (result.kind !== 'text') body = <NonTextDiff result={result} path={path} root={root} />
   else if (result.hunks.length === 0 && result.left.text === result.right.text && result.left.exists === result.right.exists)
-    body = <p className="p-4 text-muted-foreground text-sm">{t('diff.identical')}</p>
+    body = <EditorPlaceholder icon="info" message={t('diff.identical')} />
   else
     body = (
       <DiffView
+        root={root}
         result={result}
         path={path}
         leftPath={original ?? path}
         sideBySide={sideBySide}
         dark={dark}
         selection={selection}
+        anchor={anchor}
         onSelectLine={onSelectLine}
-        blockActions={canStage || canUnstage ? blockActions : undefined}
+        hunkActions={canStage || canUnstage ? hunkActions : undefined}
+        selectionActions={canStage || canUnstage ? selectionActions : undefined}
         blame={blameOn ? blame.data : null}
         focusHunk={focusHunk}
+        collapseUnchanged={collapse}
       />
     )
 
-  const hunkCount = result?.hunks.length ?? 0
+  const blameLabel = gl('Toggle File Blame')
   return (
     <div className="flex h-full flex-col" data-context={JSON.stringify({ gitmenuDiffFocus: true, isInDiffEditor: true })}>
-      <div className="flex h-9 shrink-0 items-center gap-1 border-b px-2 text-[13px]">
-        <span className="min-w-0 flex-1 truncate text-muted-foreground" title={`${root}/${path}`}>
-          {original && original !== path ? `${original} → ${path}` : path}
-        </span>
-        {selection.left.size + selection.right.size > 0 && (
-          <>
+      <EditorActions>
+        {right.kind === 'worktree' && (
+          <ActionButton icon="go-to-file" label={vs('command.openFile')} onClick={() => void ipc.openPath(`${root}/${path}`)} />
+        )}
+        <ActionButton icon="arrow-up" label={t('diff.previousChange')} command="workbench.action.editor.previousChange" disabled={hunkCount === 0} onClick={previousChange} />
+        <ActionButton icon="arrow-down" label={t('diff.nextChange')} command="workbench.action.editor.nextChange" disabled={hunkCount === 0} onClick={nextChange} />
+        <ActionButton icon="whitespace" label={t('diff.showWhitespace')} pressed={!ignoreWs} onClick={() => void setSetting('diffEditor.ignoreTrimWhitespace', !ignoreWs)} />
+        <ActionButton icon="map" label="Toggle Collapse Unchanged Regions" pressed={collapse} onClick={() => setCollapse(!collapse)} />
+        <ActionButton
+          icon={blameOn ? <GitLensFilledIcon /> : <GitLensIcon />}
+          label={blameLabel}
+          command="gitlens.toggleFileBlame"
+          pressed={blameOn}
+          onClick={() => setBlameOn(!blameOn)}
+        />
+        <Menu>
+          <Tooltip>
+            <TooltipTrigger render={<MenuTrigger render={<Button size="icon" variant="action" aria-label={t('panel.more')} />} />}>
+              <Icon name="ellipsis" />
+            </TooltipTrigger>
+            <TooltipPopup>{t('panel.more')}</TooltipPopup>
+          </Tooltip>
+          <MenuPopup align="end">
+            <MenuCheckboxItem checked={!sideBySide} onCheckedChange={(v) => void setSetting('diffEditor.renderSideBySide', !v)}>
+              {t('diff.inline')}
+            </MenuCheckboxItem>
+            {(canStage || canUnstage) && <MenuSeparator />}
             {canStage && (
-              <Button size="xs" variant="outline" onClick={() => void apply(selection, 'stage')}>
+              <MenuItem disabled={!hasSelection} onClick={() => void apply(selection, 'stage')}>
                 {vs('command.stageSelectedRanges')}
-              </Button>
+              </MenuItem>
             )}
             {canUnstage && (
-              <Button size="xs" variant="outline" onClick={() => void apply(selection, 'unstage')}>
+              <MenuItem disabled={!hasSelection} onClick={() => void apply(selection, 'unstage')}>
                 {vs('command.unstageSelectedRanges')}
-              </Button>
+              </MenuItem>
             )}
-          </>
-        )}
-        <Button size="icon-xs" variant="ghost" disabled={hunkCount === 0} aria-label={t('diff.previousChange')} title={t('diff.previousChange')} onClick={() => setFocusHunk((h) => Math.max((h ?? 1) - 1, 0))}>
-          <ArrowUpIcon />
-        </Button>
-        <Button size="icon-xs" variant="ghost" disabled={hunkCount === 0} aria-label={t('diff.nextChange')} title={t('diff.nextChange')} onClick={() => setFocusHunk((h) => Math.min((h ?? -1) + 1, hunkCount - 1))}>
-          <ArrowDownIcon />
-        </Button>
-        <Toggle size="sm" pressed={ignoreWs} aria-label={t('diff.ignoreWhitespace')} title={t('diff.ignoreWhitespace')} onPressedChange={(v) => void setSetting('diffEditor.ignoreTrimWhitespace', v)}>
-          <PilcrowIcon />
-        </Toggle>
-        <Toggle size="sm" pressed={blameOn} aria-label={t('diff.blame')} title={t('diff.blame')} onPressedChange={setBlameOn}>
-          <UserRoundIcon />
-        </Toggle>
-        <Toggle size="sm" pressed={!sideBySide} aria-label={t('diff.inline')} title={t('diff.inline')} onPressedChange={(v) => void setSetting('diffEditor.renderSideBySide', !v)}>
-          {sideBySide ? <Columns2Icon /> : <RowsIcon />}
-        </Toggle>
-        {right.kind === 'worktree' && (
-          <Button size="icon-xs" variant="ghost" aria-label={vs('command.openFile')} title={vs('command.openFile')} onClick={() => void ipc.openPath(`${root}/${path}`)}>
-            <FileIcon />
-          </Button>
-        )}
-      </div>
-      <div className="min-h-0 flex-1">{body}</div>
+            {canStage && (
+              <MenuItem disabled={!hasSelection} onClick={() => void apply(selection, 'revert')}>
+                {vs('command.revertSelectedRanges')}
+              </MenuItem>
+            )}
+          </MenuPopup>
+        </Menu>
+      </EditorActions>
+      <Breadcrumbs path={path} />
+      <div className="relative min-h-0 flex-1">{body}</div>
     </div>
   )
 }

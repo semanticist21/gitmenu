@@ -1,13 +1,12 @@
 // Maps view ids to their components, and renders each view's title actions
-// (VS Code's `view/title` menu: `navigation` items as icons, the rest under "More").
-import { EllipsisIcon } from 'lucide-react'
+// (VS Code's `view/title` menu: `navigation` items as 20px icon actions, the rest under "…").
 import type { ComponentType } from 'react'
 import { MenuItems } from '@/commands/MenuItems'
 import { executeCommand, resolveMenu, title } from '@/commands/registry'
-import { Button } from '@/components/ui/button'
 import { Menu, MenuPopup, MenuTrigger } from '@/components/ui/menu'
 import { t, useLocale } from '@/i18n'
 import type { RepoInfo } from '@/lib/ipc'
+import { ActionButton, commandIcon } from './ActionButton'
 
 export interface ViewProps {
   repo: RepoInfo
@@ -19,9 +18,10 @@ export function registerView(id: string, component: ComponentType<ViewProps>) {
   components.set(id, component)
 }
 
+/** A view without a component yet: VS Code's tree message. */
 function EmptyView() {
   useLocale()
-  return <p className="px-3 py-2 text-muted-foreground text-xs">{t('view.empty')}</p>
+  return <p className="flex select-text py-1 ps-[18px] pe-3">{t('view.empty')}</p>
 }
 
 export function renderView(id: string, repo: RepoInfo) {
@@ -40,28 +40,22 @@ export function ViewActions({ view, repo }: { view: string; repo: RepoInfo }) {
   return (
     <>
       {inline.map((item) => {
-        const Icon = item.command?.icon
-        if (!item.command || !Icon) return null
-        const label = title(item.command.title)
+        const icon: unknown = item.command?.icon
+        if (!item.command || !icon) return null
         return (
-          <Button
+          <ActionButton
             key={item.id}
-            size="icon-xs"
-            variant="ghost"
-            aria-label={label}
-            title={label}
+            small
+            icon={commandIcon(icon)}
+            label={title(item.command.title)}
             disabled={!item.enabled}
             onClick={() => void executeCommand(item.command!.command, repo.root)}
-          >
-            <Icon />
-          </Button>
+          />
         )
       })}
       {hasMore && (
         <Menu>
-          <MenuTrigger render={<Button size="icon-xs" variant="ghost" aria-label={t('panel.more')} title={t('panel.more')} />}>
-            <EllipsisIcon />
-          </MenuTrigger>
+          <ActionButton small icon="ellipsis" label={t('panel.more')} render={<MenuTrigger />} />
           <MenuPopup align="end">
             <MenuItems menu={menu} context={context} args={[repo.root]} exclude={['navigation']} />
           </MenuPopup>

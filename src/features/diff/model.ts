@@ -1,4 +1,5 @@
-// Turns two texts and their hunks into display rows for side-by-side or inline diffs.
+// Turns two texts and their hunks into display rows for side-by-side or inline diffs, and folds
+// long unchanged runs the way VS Code's "Collapse Unchanged Regions" does.
 import type { Hunk } from './patch'
 
 export type RowKind = 'same' | 'change'
@@ -70,4 +71,42 @@ export function inlineRows(leftCount: number, rightCount: number, hunks: Hunk[])
     rows.push({ side: 'both', left: l < leftCount ? l++ : null, right: r < rightCount ? r++ : null, hunk: null, hunkStart: false })
   }
   return rows
+}
+
+/** A folded run of unchanged rows; `from` is the index of its first row before folding. */
+export interface HiddenRow {
+  hidden: number
+  from: number
+}
+
+// VS Code's diffEditor.hideUnchangedRegions defaults
+const CONTEXT_LINES = 3
+const MINIMUM_LINES = 3
+
+/**
+ * Folds runs of unchanged rows, keeping 3 lines of context next to each change. Runs listed
+ * in `expanded` (by their `from` index) stay open.
+ */
+export function collapseRows<T>(rows: T[], unchanged: (row: T) => boolean, expanded: ReadonlySet<number>): (T | HiddenRow)[] {
+  const result: (T | HiddenRow)[] = []
+  let i = 0
+  while (i < rows.length) {
+    if (!unchanged(rows[i])) {
+      result.push(rows[i++])
+      continue
+    }
+    let end = i
+    while (end < rows.length && unchanged(rows[end])) end++
+    const from = i === 0 ? 0 : i + CONTEXT_LINES
+    const to = end === rows.length ? end : end - CONTEXT_LINES
+    if (to - from >= MINIMUM_LINES && !expanded.has(from)) {
+      for (let k = i; k < from; k++) result.push(rows[k])
+      result.push({ hidden: to - from, from })
+      for (let k = to; k < end; k++) result.push(rows[k])
+    } else {
+      for (let k = i; k < end; k++) result.push(rows[k])
+    }
+    i = end
+  }
+  return result
 }

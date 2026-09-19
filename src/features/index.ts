@@ -1,5 +1,4 @@
 // Feature registrations: command contributions, handlers, views and detail tabs.
-import { SparklesIcon } from 'lucide-react'
 import { contribute, registerHandler } from '@/commands/registry'
 import { registerDetailTab } from '@/routes/detail/DetailApp'
 import { registerAiHandlers } from './ai/api'
@@ -30,7 +29,7 @@ contribute(scmContribution)
 contribute(diffContribution)
 contribute({
   commands: [
-    { command: 'gitmenu.generateCommitMessage', title: { app: 'ai.generate' }, category: { text: 'gitmenu' }, icon: SparklesIcon },
+    { command: 'gitmenu.generateCommitMessage', title: { app: 'ai.generate' }, category: { text: 'gitmenu' }, icon: 'sparkle' },
     { command: 'gitmenu.commitAndPush', title: { vsb: '{0} Commit & Push' } },
     { command: 'gitmenu.commitAndSync', title: { vsb: '{0} Commit & Sync' } },
   ],

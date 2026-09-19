@@ -2,7 +2,7 @@
 // `contributes` (commands, menus with group/order/when, keybindings with key/mac/when).
 // Features register handlers for the commands they own; menus, the palette and shortcuts
 // all read from here.
-import type { LucideIcon } from 'lucide-react'
+import type { ComponentType } from 'react'
 import { gl, t, vs, vsb } from '@/i18n'
 import type { AppKey } from '@/i18n/app/en'
 import { contextSnapshot } from './context'
@@ -22,11 +22,14 @@ export function title(value: Title): string {
   return value.text
 }
 
+/** A command icon: a codicon id (`'check'`), or a component for GitLens's own glyphs. */
+export type CommandIcon = string | ComponentType
+
 export interface CommandContribution {
   command: string
   title: Title
   category?: Title
-  icon?: LucideIcon
+  icon?: CommandIcon
   /** Command runs only when this holds (grays out in menus) */
   enablement?: string
 }
@@ -51,7 +54,7 @@ export interface KeybindingContribution {
 export interface SubmenuContribution {
   id: string
   label: Title
-  icon?: LucideIcon
+  icon?: CommandIcon
 }
 
 export interface Contribution {

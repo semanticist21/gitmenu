@@ -5,8 +5,11 @@ import { cva, type VariantProps } from "class-variance-authority";
 import type React from "react";
 import { cn } from "@/lib/utils";
 
+// Two VS Code toggles. `default`: a toolbar action that stays pressed (22px, 6px radius,
+// toolbar.activeBackground when on). `outline`: an option toggle like Match Case (3px radius,
+// inputOption.active* colors when on), which also fits a short text label.
 export const toggleVariants = cva(
-  "relative inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg border font-medium text-base text-foreground outline-none transition-shadow before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-64 data-pressed:bg-input/64 data-pressed:text-accent-foreground sm:text-sm [&_svg:not([class*='opacity-'])]:opacity-80 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:-mx-0.5 [&_svg]:shrink-0",
+  "relative inline-flex shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap border border-transparent text-inherit outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-(--vsc-focusBorder) disabled:cursor-default disabled:text-(--vsc-disabledForeground) [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     defaultVariants: {
       size: "default",
@@ -14,14 +17,15 @@ export const toggleVariants = cva(
     },
     variants: {
       size: {
-        default: "h-9 min-w-9 px-[calc(--spacing(2)-1px)] sm:h-8 sm:min-w-8",
-        lg: "h-10 min-w-10 px-[calc(--spacing(2.5)-1px)] sm:h-9 sm:min-w-9",
-        sm: "h-8 min-w-8 px-[calc(--spacing(1.5)-1px)] sm:h-7 sm:min-w-7",
+        default: "h-[22px] min-w-[22px] text-[12px]",
+        lg: "h-[22px] min-w-[22px] text-[12px]",
+        sm: "h-[22px] min-w-[22px] text-[12px]",
       },
       variant: {
-        default: "border-transparent",
+        default:
+          "rounded-[6px] px-[3px] not-disabled:hover:bg-(--vsc-toolbar-hoverBackground) data-pressed:bg-(--vsc-toolbar-activeBackground)",
         outline:
-          "border-input bg-background not-dark:bg-clip-padding shadow-xs/5 not-disabled:not-active:not-data-pressed:before:shadow-[0_1px_--theme(--color-black/4%)] dark:bg-input/32 dark:data-pressed:bg-input dark:hover:bg-input/64 dark:not-disabled:not-active:not-data-pressed:before:shadow-[0_-1px_--theme(--color-white/6%)] dark:not-disabled:not-data-pressed:before:shadow-[0_-1px_--theme(--color-white/2%)] [:disabled,:active,[data-pressed]]:shadow-none",
+          "rounded-[3px] px-1.5 not-disabled:hover:bg-(--vsc-inputOption-hoverBackground) focus-visible:outline-dashed data-pressed:border-(--vsc-inputOption-activeBorder) data-pressed:bg-(--vsc-inputOption-activeBackground) data-pressed:text-(--vsc-inputOption-activeForeground)",
       },
     },
   },

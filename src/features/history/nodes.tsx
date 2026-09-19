@@ -1,6 +1,7 @@
 // Tree nodes shared by the GitLens history views: commits (expanding to their files),
 // files in a commit, and "Load more".
-import { ArrowUpIcon } from 'lucide-react'
+import type { CSSProperties } from 'react'
+import { Icon } from '@/components/Icon'
 import { gl } from '@/i18n'
 import { type CommitFile, type CommitInfo, type FileStatus, git, type LogPage } from '@/lib/git'
 import { ipc } from '@/lib/ipc'
@@ -26,25 +27,38 @@ export interface FileArg {
 export const shortSha = (sha: string) => sha.slice(0, 7)
 
 const LETTER: Record<FileStatus, string> = { added: 'A', modified: 'M', deleted: 'D', renamed: 'R', copied: 'C', typeChanged: 'T' }
-const COLOR: Record<FileStatus, string> = {
+/** GitLens's `gitlens.decorations.*ForegroundColor` (the git decoration colors); `M` is left
+ * uncolored (viewDecorationProvider.ts) */
+const COLOR: Record<FileStatus, string | undefined> = {
   added: 'var(--git-added)',
-  modified: 'var(--git-modified)',
+  modified: undefined,
   deleted: 'var(--git-deleted)',
-  renamed: 'var(--git-untracked)',
-  copied: 'var(--git-added)',
-  typeChanged: 'var(--git-modified)',
+  renamed: 'var(--git-renamed)',
+  copied: 'var(--git-renamed)',
+  typeChanged: undefined,
 }
 
 export function statusLabel(status: FileStatus) {
   return gl({ added: 'Added', modified: 'Modified', deleted: 'Deleted', renamed: 'Renamed', copied: 'Copied', typeChanged: 'Type Changed' }[status])
 }
 
-export function StatusLetter({ status }: { status: FileStatus }) {
+/** The decoration badge of a custom tree row (`.monaco-icon-label::after`): 90%, semibold, .75
+ * opacity, 5px after the label and 4px before the actions; inherits the row color when the row
+ * is selected in a focused list. */
+export function DecorationBadge({ text, color, title }: { text: string; color?: string; title?: string }) {
   return (
-    <span className="w-3 shrink-0 text-center font-mono text-[11px] font-semibold" style={{ color: COLOR[status] }}>
-      {LETTER[status]}
+    <span
+      title={title}
+      className="ms-[5px] me-1 shrink-0 text-center font-semibold text-(--deco) text-[.9em] opacity-75 group-focus-within/list:group-aria-selected/row:text-inherit"
+      style={color ? ({ '--deco': color } as CSSProperties) : undefined}
+    >
+      {text}
     </span>
   )
+}
+
+export function StatusLetter({ status }: { status: FileStatus }) {
+  return <DecorationBadge text={LETTER[status]} color={COLOR[status]} title={statusLabel(status)} />
 }
 
 export function commitTooltip(commit: CommitInfo, locale: string) {
@@ -65,11 +79,14 @@ export function fileNode(root: string, sha: string, parent: string | null, file:
   const name = i === -1 ? file.path : file.path.slice(i + 1)
   const dir = i === -1 ? '' : file.path.slice(0, i)
   const arg: FileArg = { root, sha, parent, file }
+  // GitLens tints the whole label with the decoration color and shows the letter after it
   return {
     id: `${idPrefix}/${file.path}`,
-    label: <span style={{ color: COLOR[file.status] }} className={file.status === 'deleted' ? 'line-through opacity-70' : undefined}>{name}</span>,
+    label: name,
+    color: COLOR[file.status],
     ariaLabel: `${name}, ${statusLabel(file.status)}`,
-    description: file.originalPath ? `${file.originalPath} → ${dir}` : dir,
+    // `gitlens.views.formats.files.description`: `${directory}${  ←  originalPath}`
+    description: `${dir}${file.originalPath ? `  ←  ${file.originalPath}` : ''}`,
     tooltip: `${file.originalPath ? `${file.originalPath} → ` : ''}${file.path} • ${statusLabel(file.status)}`,
     contextValue: 'gitlens:file+committed',
     arg,
@@ -93,10 +110,12 @@ export function commitNode(root: string, commit: CommitInfo, options: CommitNode
     id: `${options.idPrefix}/${commit.id}`,
     label: commit.subject.trim() || gl('(no message)'),
     description: `${commit.author.name}, ${relativeTime(commit.author.time, options.locale)}`,
+    // GitLens: `arrow-up` for an unpublished commit, else the author's square avatar (none
+    // when avatars are off)
     icon: options.flags?.includes('unpublished') ? (
-      <ArrowUpIcon className="text-[var(--git-added)]" />
+      <Icon name="arrow-up" className="text-(--vsc-gitlens-unpublishedChangesIconColor)" />
     ) : (
-      <Avatar root={root} name={commit.author.name} email={commit.author.email} sha={commit.id} />
+      <Avatar root={root} name={commit.author.name} email={commit.author.email} sha={commit.id} shape="square" />
     ),
     tooltip: commitTooltip(commit, options.locale),
     contextValue: ['gitlens:commit', ...(options.flags ?? []).map((f) => `+${f}`)].join(''),

@@ -163,22 +163,28 @@ export function useCommandHotkeys() {
   )
 }
 
-/** macOS glyphs for display: `shift+cmd+p` → `⇧⌘P`. */
+/**
+ * VS Code's macOS label: modifier glyphs, then the key name (`shift+cmd+p` → `⇧⌘P`,
+ * `cmd+enter` → `⌘Enter`). Only the arrows become glyphs (usLayoutResolvedKeybinding.ts).
+ */
 export function formatKey(key: string): string {
   const glyphs: Record<string, string> = { ctrl: '⌃', alt: '⌥', shift: '⇧', cmd: '⌘' }
   const names: Record<string, string> = {
-    enter: '↩',
-    escape: '⎋',
+    enter: 'Enter',
+    escape: 'Escape',
     space: 'Space',
-    tab: '⇥',
-    backspace: '⌫',
-    delete: '⌦',
+    tab: 'Tab',
+    backspace: 'Backspace',
+    delete: 'Delete',
+    insert: 'Insert',
+    home: 'Home',
+    end: 'End',
     up: '↑',
     down: '↓',
     left: '←',
     right: '→',
-    pageup: '⇞',
-    pagedown: '⇟',
+    pageup: 'PageUp',
+    pagedown: 'PageDown',
   }
   return key
     .split(' ')

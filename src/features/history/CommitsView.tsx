@@ -1,12 +1,14 @@
-// GitLens's Commits view: the current branch as the root ("main • 0↓ 3↑"), with its
-// outgoing/incoming commits and a comparison against the upstream, then its commits a page
-// at a time. Unpublished commits are marked, like GitLens.
-import { ArrowDownIcon, CloudUploadIcon, GitBranchIcon, GitCompareIcon, MinusIcon } from 'lucide-react'
+// GitLens's Commits view for one repository: the branch's rows at the root (GitLens splats the
+// repository node and shows "main • 1↓ 2↑" as the view description): incoming and outgoing
+// commits, a comparison against the upstream, the "— on main • fetched …" separator, then the
+// commits a page at a time. Unpublished commits are marked, like GitLens.
+import { Icon } from '@/components/Icon'
 import { gl, useLocale } from '@/i18n'
 import { git } from '@/lib/git'
 import { errorMessage } from '@/lib/ipc'
 import { relativeTime } from '@/lib/time'
 import { useRepoStatus } from '../scm/api'
+import { useViewDescription } from '../views/description'
 import type { ViewProps } from '../views/registry'
 import { asyncChildren, loadMore, type TreeNode, ViewTree } from '../views/ViewTree'
 import { usePagedLog } from './api'
@@ -35,33 +37,34 @@ export function CommitsView({ repo }: ViewProps) {
 
   const children: TreeNode[] = []
   if (head?.branch && upstream) {
-    if (upstream.ahead > 0) {
-      children.push({
-        id: 'outgoing',
-        label: gl('Outgoing'),
-        description: gl('{0} to push to {1}', pluralCommits(upstream.ahead), upstream.remote),
-        icon: <CloudUploadIcon className="text-[var(--git-added)]" />,
-        contextValue: 'gitlens:status-branch:upstream+ahead',
-        arg,
-        loadChildren: range(['HEAD'], [upstream.name], 'outgoing', ['unpublished']),
-      })
-    }
+    // GitLens lists Incoming before Outgoing
     if (upstream.behind > 0) {
       children.push({
         id: 'incoming',
         label: gl('Incoming'),
         description: gl('{0} to pull from {1}', pluralCommits(upstream.behind), upstream.remote),
-        icon: <ArrowDownIcon className="text-[var(--git-modified)]" />,
+        icon: <Icon name="cloud-download" className="text-(--vsc-gitlens-unpulledChangesIconColor)" />,
         contextValue: 'gitlens:status-branch:upstream+behind',
         arg,
         loadChildren: range([upstream.name], ['HEAD'], 'incoming', []),
+      })
+    }
+    if (upstream.ahead > 0) {
+      children.push({
+        id: 'outgoing',
+        label: gl('Outgoing'),
+        description: gl('{0} to push to {1}', pluralCommits(upstream.ahead), upstream.remote),
+        icon: <Icon name="cloud-upload" className="text-(--vsc-gitlens-unpublishedChangesIconColor)" />,
+        contextValue: 'gitlens:status-branch:upstream+ahead',
+        arg,
+        loadChildren: range(['HEAD'], [upstream.name], 'outgoing', ['unpublished']),
       })
     }
     const compare: SearchCompareItem = { id: `compare:${head.branch}..${upstream.name}`, kind: 'compare', base: head.branch, head: upstream.name }
     children.push({
       id: 'compare',
       label: gl('Compare {0} with {1}', head.branch, upstream.name),
-      icon: <GitCompareIcon className="text-muted-foreground" />,
+      icon: <Icon name="git-compare" />,
       arg: { root, item: compare },
       loadChildren: asyncChildren({
         queryKey: ['repo', root, 'compare', head.branch, upstream.name],
@@ -74,13 +77,15 @@ export function CommitsView({ repo }: ViewProps) {
     })
   }
   if (head?.branch) {
+    // GitLens's CommitsCurrentBranchNode: an empty label with the description
+    // "—  on main • fetched 2 minutes ago", no icon
     const fetched = status?.fetchedAt ? gl('fetched {0}', relativeTime(status.fetchedAt, locale)) : null
     const published = upstream ? null : status && status.remotes.length > 0 ? gl("hasn't been published to {0}", status.remotes.includes('origin') ? 'origin' : status.remotes[0]) : null
+    const context = published ?? fetched
     children.push({
       id: 'branch-status',
-      label: [gl('on {0}', head.branch), published ?? fetched].filter(Boolean).join(' • '),
-      icon: <MinusIcon className="text-muted-foreground" />,
-      message: true,
+      label: '',
+      description: `\u2014\u00a0\u00a0 ${gl('on {0}', head.branch)}${context ? ` \u00a0\u2022\u00a0 ${context}` : ''}`,
     })
   }
 
@@ -92,20 +97,10 @@ export function CommitsView({ repo }: ViewProps) {
   }
   if (log.more) children.push(loadMore('log/more', log.loadingMore, log.loadMore))
 
-  const counts = upstream ? `${upstream.behind}↓ ${upstream.ahead}↑` : undefined
-  const nodes: TreeNode[] = head
-    ? [
-        {
-          id: 'branch',
-          label: head.branch ?? gl('detached'),
-          description: counts,
-          icon: <GitBranchIcon className="text-muted-foreground" />,
-          contextValue: `gitlens:branch+current${upstream ? '+tracking' : ''}`,
-          arg: { root, ref: { name: `refs/heads/${head.branch ?? 'HEAD'}`, short: head.branch ?? 'HEAD', kind: 'branch', commit: head.commit, time: null, subject: null } },
-          expanded: true,
-          children,
-        },
-      ]
-    : []
-  return <ViewTree viewId="gitmenu.views.commits" nodes={nodes} label={gl('Commits')} />
+  // The view description: the branch, then behind↓ ahead↑ when not in sync
+  const tracking = upstream && (upstream.ahead || upstream.behind) ? `${upstream.behind}↓ ${upstream.ahead}↑` : null
+  const branchLabel = head ? (head.branch ?? gl('detached')) : null
+  useViewDescription('commits', branchLabel ? [branchLabel, tracking].filter(Boolean).join(' \u2022 ') : undefined)
+
+  return <ViewTree viewId="gitmenu.views.commits" nodes={head ? children : []} label={gl('Commits')} />
 }

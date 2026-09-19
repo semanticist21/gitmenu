@@ -8,6 +8,7 @@ import { git } from '@/lib/git'
 import { toastManager } from '@/components/ui/toast'
 import { errorMessage, ipc } from '@/lib/ipc'
 import type { ViewProps } from '../views/registry'
+import { useViewDescription } from '../views/description'
 import { loadMore, type TreeNode, ViewTree } from '../views/ViewTree'
 import { usePagedLog } from './api'
 import { commitNode, messageNode } from './nodes'
@@ -46,14 +47,27 @@ export function FileHistoryView({ repo }: ViewProps) {
     return () => disposers.forEach((d) => d())
   }, [root, setTarget, setPinned])
 
+  // GitLens's FileHistoryNode: the file (expanded, its folder as the description) holds the
+  // commits, and the view description is the file name
+  const fileName = path ? (path.split('/').pop() ?? path) : undefined
+  useViewDescription('fileHistory', fileName)
   const nodes: TreeNode[] = []
   if (!path) nodes.push(messageNode('empty', gl('There are no editors open that can provide file history information.')))
   else {
-    nodes.push({ id: 'file', label: path.split('/').pop() ?? path, description: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : undefined, tooltip: path, message: false })
-    if (log.error) nodes.push(messageNode('error', errorMessage(log.error)))
-    else if (!log.isPending && log.commits.length === 0) nodes.push(messageNode('none', gl('No file history could be found.')))
-    for (const commit of log.commits) nodes.push(commitNode(root, commit, { idPrefix: 'fh', locale, file: true }))
-    if (log.more) nodes.push(loadMore('fh/more', log.loadingMore, log.loadMore))
+    const children: TreeNode[] = []
+    if (log.error) children.push(messageNode('error', errorMessage(log.error)))
+    else if (!log.isPending && log.commits.length === 0) children.push(messageNode('none', gl('No file history could be found.')))
+    for (const commit of log.commits) children.push(commitNode(root, commit, { idPrefix: 'fh', locale, file: true }))
+    if (log.more) children.push(loadMore('fh/more', log.loadingMore, log.loadMore))
+    nodes.push({
+      id: 'file',
+      label: fileName,
+      ariaLabel: path,
+      description: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : undefined,
+      tooltip: path,
+      expanded: true,
+      children,
+    })
   }
   return <ViewTree viewId="gitmenu.views.fileHistory" nodes={nodes} label={gl('File History')} />
 }

@@ -1,16 +1,19 @@
 // The Commit Graph tab (GitLens's Commit Graph): every branch's commits with lanes, ref
 // labels, search, and the selected commit's details. Rows load a page at a time as you scroll.
+// Drawn in VS Code's own styling: a 22px table with column headers, codicon ref labels in the
+// lane color, VS Code list selection, and a Commit Details side pane.
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ArchiveIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, CloudIcon, CopyIcon, GitBranchIcon, SearchIcon, TagIcon } from 'lucide-react'
 import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { MenuItems } from '@/commands/MenuItems'
+import { Icon } from '@/components/Icon'
 import { Button } from '@/components/ui/button'
 import { ContextMenu, ContextMenuPopup, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
-import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Spinner } from '@/components/ui/spinner'
-import { Toggle } from '@/components/ui/toggle'
+import { Menu, MenuCheckboxItem, MenuPopup, MenuTrigger } from '@/components/ui/menu'
+import { ProgressBar } from '@/components/ui/progress'
+import { Tooltip, TooltipPopup, TooltipTrigger } from '@/components/ui/tooltip'
+import { EditorPlaceholder, useDarkMode } from '@/features/diff/DiffTab'
 import { gl, useLocale } from '@/i18n'
 import { git, type GraphQuery, type GraphRef, type GraphRow, type RefInfo } from '@/lib/git'
 import { errorMessage, ipc } from '@/lib/ipc'
@@ -18,6 +21,8 @@ import { fullDate, relativeTime } from '@/lib/time'
 import { useUiState } from '@/lib/uiState'
 import { cn } from '@/lib/utils'
 import type { DetailTabProps } from '@/routes/detail/DetailApp'
+import { ActionButton, NativeSelect } from '@/routes/detail/EditorChrome'
+import { useSetting } from '@/settings/settings'
 import { Avatar } from '../avatars/Avatar'
 import { type CommitArg, fileNode, openFileChange, shortSha, StatusLetter } from '../history/nodes'
 import { parseSearch } from '../history/search'
@@ -34,13 +39,17 @@ export function graphLabel() {
   return gl('Commit Graph')
 }
 
-const REF_ICON: Record<GraphRef['kind'], typeof GitBranchIcon> = {
-  head: CheckIcon,
-  branch: GitBranchIcon,
-  remote: CloudIcon,
-  tag: TagIcon,
-  stash: ArchiveIcon,
+// Codicons of VS Code's graph ref labels (HEAD `target`, remote `cloud`, tag `tag`, stash `git-stash`)
+const REF_ICON: Record<GraphRef['kind'], string> = {
+  head: 'target',
+  branch: 'git-branch',
+  remote: 'cloud',
+  tag: 'tag',
+  stash: 'git-stash',
 }
+
+// Column widths (the graph column depends on the lane count; the message takes the rest)
+const COLUMNS = { refs: 150, author: 130, date: 130, sha: 72 }
 
 function refMenu(root: string, row: GraphRow, ref: GraphRef): { context: Record<string, unknown>; arg: unknown } | null {
   if (ref.kind === 'stash') {
@@ -56,27 +65,35 @@ function refMenu(root: string, row: GraphRow, ref: GraphRef): { context: Record<
   return { context: { view: 'gitmenu.views.graph', viewItem }, arg: { root, ref: info } satisfies RefArg }
 }
 
-function RefBadge({ root, row, gref }: { root: string; row: GraphRow; gref: GraphRef }) {
-  const Icon = REF_ICON[gref.kind]
-  const badge = (
+/**
+ * A ref label (scm.css `.label`): 18px, 10px radius, filled with the lane color and drawn in
+ * the panel background; tags and stashes use the badge colors. The first label names its
+ * ref; the rest collapse to icons with a count.
+ */
+function RefLabel({ root, row, refs, named, dark }: { root: string; row: GraphRow; refs: GraphRef[]; named: boolean; dark: boolean }) {
+  const ref = refs[0]
+  const colored = ref.kind !== 'tag' && ref.kind !== 'stash'
+  const label = (
     <span
-      className={cn(
-        'inline-flex max-w-full min-w-0 items-center gap-1 rounded-sm border px-1 text-[11px] leading-4',
-        gref.kind === 'head' && 'font-semibold',
-      )}
-      style={{ borderColor: laneColor(row.lane), color: gref.kind === 'tag' || gref.kind === 'stash' ? undefined : laneColor(row.lane) }}
-      title={gref.name}
+      className={cn('flex h-[18px] min-w-0 shrink-0 items-center rounded-[10px] text-[12px] leading-[18px]', ref.kind === 'head' && 'font-semibold')}
+      style={
+        colored
+          ? { backgroundColor: laneColor(row.lane, dark), color: 'var(--background)' }
+          : { backgroundColor: 'var(--vsc-badge-background)', color: 'var(--vsc-foreground)' }
+      }
+      title={refs.map((r) => r.name).join('\n')}
     >
-      <Icon className="size-3 shrink-0" />
-      <span className="truncate">{gref.name}</span>
+      {refs.length > 1 && <span className="ps-1">{refs.length}</span>}
+      <Icon name={REF_ICON[ref.kind]} className={ref.kind === 'branch' ? 'p-[3px] text-[12px]' : 'p-px'} />
+      {named && <span className="max-w-[100px] truncate pe-1">{ref.name}</span>}
     </span>
   )
-  const menu = refMenu(root, row, gref)
-  if (!menu) return badge
+  const menu = refMenu(root, row, ref)
+  if (!menu) return label
   return (
     <ContextMenu>
-      <ContextMenuTrigger render={<span className="min-w-0" />} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-        {badge}
+      <ContextMenuTrigger render={<span className="flex min-w-0" />} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        {label}
       </ContextMenuTrigger>
       <ContextMenuPopup>
         <MenuItems menu="view/item/context" kind="context" context={menu.context} args={[menu.arg]} />
@@ -85,54 +102,84 @@ function RefBadge({ root, row, gref }: { root: string; row: GraphRow; gref: Grap
   )
 }
 
+function RefLabels({ root, row, dark }: { root: string; row: GraphRow; dark: boolean }) {
+  if (row.refs.length === 0) return null
+  const [first, ...rest] = row.refs
+  // The rest group by kind, as VS Code groups labels by color and icon
+  const groups = new Map<string, GraphRef[]>()
+  for (const ref of rest) groups.set(ref.kind, [...(groups.get(ref.kind) ?? []), ref])
+  return (
+    <div className="flex min-w-0 items-center gap-1 overflow-hidden">
+      <RefLabel root={root} row={row} refs={[first]} named dark={dark} />
+      {[...groups.values()].map((refs) => (
+        <RefLabel key={refs[0].kind} root={root} row={row} refs={refs} named={false} dark={dark} />
+      ))}
+    </div>
+  )
+}
+
+/** The Commit Details pane: author, SHA, message and the changed files as a VS Code tree. */
 function Details({ root, row }: { root: string; row: GraphRow }) {
   const locale = useLocale()
   const { data, error } = useQuery({ queryKey: ['repo', root, 'commit', row.id], queryFn: () => git.commitDetails(root, row.id), staleTime: Infinity })
   const parent = row.parents[0] ?? null
   return (
-    <aside className="flex w-80 shrink-0 flex-col overflow-hidden border-s" aria-label={gl('Commit Details')}>
-      <div className="flex items-center gap-2 border-b px-3 py-2">
-        <Avatar root={root} name={row.author.name} email={row.author.email} sha={row.id} className="size-6 text-[9px]" />
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{row.author.name}</div>
-          <div className="truncate text-muted-foreground text-xs" title={fullDate(row.author.time, locale)}>
-            {row.author.email} · {relativeTime(row.author.time, locale)}
+    <aside
+      className="flex w-80 shrink-0 flex-col overflow-hidden border-(--vsc-sideBar-border) border-l bg-(--vsc-sideBar-background) text-(--vsc-sideBar-foreground)"
+      aria-label={gl('Commit Details')}
+    >
+      <div className="flex h-[22px] shrink-0 items-center truncate ps-5 pe-2 font-bold text-[11px] text-(--vsc-sideBarSectionHeader-foreground) uppercase">
+        {gl('Commit Details')}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="flex items-center gap-2 px-3 pt-2">
+          <Avatar root={root} name={row.author.name} email={row.author.email} sha={row.id} className="size-8 text-[11px]" />
+          <div className="min-w-0 flex-1 leading-[18px]">
+            <div className="truncate font-semibold">{row.author.name}</div>
+            <div className="truncate text-[12px] opacity-95 dark:opacity-70" title={fullDate(row.author.time, locale)}>
+              {relativeTime(row.author.time, locale)} ({fullDate(row.author.time, locale)})
+            </div>
           </div>
         </div>
-        <Button size="xs" variant="ghost" className="font-mono" title={gl('Copy SHA')} onClick={() => void ipc.clipboardWrite(row.id)}>
-          <CopyIcon />
-          {shortSha(row.id)}
-        </Button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto">
-        <p className="whitespace-pre-wrap break-words px-3 py-2 text-[13px]">{data?.message ?? row.subject}</p>
-        {error && <p className="px-3 text-destructive-foreground text-xs">{errorMessage(error)}</p>}
+        <div className="flex items-center gap-1 px-3 pt-2">
+          <Button size="small" variant="secondary" className="font-mono" onClick={() => void ipc.clipboardWrite(row.id)}>
+            <Icon name="git-commit" />
+            {shortSha(row.id)}
+          </Button>
+          <ActionButton icon="copy" label={gl('Copy SHA')} small onClick={() => void ipc.clipboardWrite(row.id)} />
+        </div>
+        <p className="select-text whitespace-pre-wrap break-words px-3 py-2">{data?.message ?? row.subject}</p>
+        {error && <p className="select-text px-3 text-(--vsc-errorForeground)">{errorMessage(error)}</p>}
         {data && (
           <>
-            <div className="px-3 pt-2 pb-1 font-semibold text-[11px] text-muted-foreground uppercase tracking-wide">
+            <div className="flex h-[22px] items-center border-(--vsc-sideBarSectionHeader-border) border-t ps-5 font-bold text-[11px] uppercase">
               {data.files.length === 1 ? gl('1 file changed') : gl('{0} files changed', data.files.length)}
             </div>
-            <ul>
+            <div role="tree" aria-label={gl('{0} files changed', data.files.length)}>
               {data.files.map((file) => {
                 const node = fileNode(root, row.id, parent, file, row.id)
                 return (
-                  <li key={file.path}>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-1.5 px-3 py-0.5 text-start text-[13px] hover:bg-accent/50"
-                      title={node.tooltip}
-                      onClick={() => openFileChange({ root, sha: row.id, parent, file })}
-                    >
-                      <span className="min-w-0 flex-1 truncate">
-                        {node.label}
-                        <span className="ms-1.5 text-muted-foreground text-xs">{node.description}</span>
-                      </span>
+                  <div
+                    key={file.path}
+                    role="treeitem"
+                    tabIndex={-1}
+                    className="flex h-[22px] cursor-default items-center ps-2 pe-3 leading-[22px] outline-none hover:bg-(--vsc-list-hoverBackground) focus:bg-(--vsc-list-activeSelectionBackground) focus:text-(--vsc-list-activeSelectionForeground) focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-(--vsc-list-focusOutline)"
+                    title={node.tooltip}
+                    onClick={() => openFileChange({ root, sha: row.id, parent, file })}
+                    onKeyDown={(e) => e.key === 'Enter' && openFileChange({ root, sha: row.id, parent, file })}
+                  >
+                    <Icon name="file" className="me-1.5" />
+                    <span className="min-w-0 flex-1 truncate">
+                      <span className="whitespace-pre">{node.label}</span>
+                      {node.description && <span className="ms-[.5em] whitespace-pre text-[.9em] opacity-95 dark:opacity-70">{node.description}</span>}
+                    </span>
+                    <span className="ms-[5px] me-[3px] inline-flex">
                       <StatusLetter status={file.status} />
-                    </button>
-                  </li>
+                    </span>
+                  </div>
                 )
               })}
-            </ul>
+            </div>
           </>
         )}
       </div>
@@ -142,6 +189,8 @@ function Details({ root, row }: { root: string; row: GraphRow }) {
 
 export function GraphTab({ params }: DetailTabProps) {
   const locale = useLocale()
+  const dark = useDarkMode()
+  const avatars = useSetting<boolean>('gitmenu.avatars.enabled')
   const root = params.get('repo') ?? ''
   const [options, setOptions] = useUiState<Options>('graph.options', DEFAULT_OPTIONS)
   const [selected, setSelected] = useState<string | null>(null)
@@ -158,10 +207,17 @@ export function GraphTab({ params }: DetailTabProps) {
   })
   const rows = useMemo(() => query.data?.pages.flatMap((p) => p.rows) ?? [], [query.data])
   const lanes = Math.min(query.data?.pages[0]?.lanes ?? 1, MAX_LANES_SHOWN)
-  const graphWidth = lanes * LANE_WIDTH + 8
+  const graphWidth = Math.max(64, lanes * LANE_WIDTH + 8)
   const matches = useMemo(() => new Set(results?.ids ?? []), [results])
 
-  const virtualizer = useVirtualizer({ count: rows.length, getScrollElement: () => scrollRef.current, estimateSize: () => ROW_HEIGHT, overscan: 20 })
+  // The column headers scroll sideways with the rows and stick to the top (22px above the list)
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    scrollMargin: ROW_HEIGHT,
+    overscan: 20,
+  })
   const items = virtualizer.getVirtualItems()
   const lastIndex = items[items.length - 1]?.index ?? 0
 
@@ -220,21 +276,62 @@ export function GraphTab({ params }: DetailTabProps) {
     } else if (event.key === 'ArrowUp') {
       event.preventDefault()
       select(Math.max(0, index - 1))
+    } else if (event.key === 'Escape' && selected) {
+      event.preventDefault()
+      setSelected(null)
     }
   }
 
+  // Column borders show while the table is hovered (table.css: 0.2s)
+  const columnBorder =
+    'border-l border-transparent first:border-l-0 group-hover/grid:border-(--vsc-tree-tableColumnsBorder) transition-[border-color] duration-200 ease-out motion-reduce:transition-none'
+  const header = cn('flex h-full shrink-0 items-center overflow-hidden truncate ps-2.5', columnBorder)
+  const columnHeaders = (
+    <div className="sticky top-0 z-10 flex h-[22px] min-w-[640px] border-(--vsc-editorGroupHeader-tabsBorder) border-b bg-(--vsc-editor-background) font-semibold text-[12px]" role="row">
+      <div role="columnheader" className={header} style={{ width: COLUMNS.refs }}>
+        {gl('Branch / Tag')}
+      </div>
+      <div role="columnheader" className={header} style={{ width: graphWidth }}>
+        {gl('Graph')}
+      </div>
+      <div role="columnheader" className={cn(header, 'min-w-0 flex-1 shrink')}>
+        {gl('Commit Message')}
+      </div>
+      <div role="columnheader" className={header} style={{ width: COLUMNS.author }}>
+        {gl('Author')}
+      </div>
+      <div role="columnheader" className={header} style={{ width: COLUMNS.date }}>
+        {gl('Commit Date / Time')}
+      </div>
+      <div role="columnheader" className={header} style={{ width: COLUMNS.sha }}>
+        {gl('SHA')}
+      </div>
+    </div>
+  )
+
   const selectedRow = rows.find((r) => r.id === selected)
+  const cell = cn('flex h-full shrink-0 items-center overflow-hidden ps-2.5', columnBorder)
   let body: ReactNode
-  if (query.isPending) body = <div className="flex h-full items-center justify-center"><Spinner /></div>
-  else if (query.error) body = <p className="p-4 text-destructive-foreground text-sm">{errorMessage(query.error)}</p>
-  else if (rows.length === 0) body = <p className="p-4 text-muted-foreground text-sm">{gl('No commits could be found.')}</p>
+  if (query.isPending) body = <ProgressBar className="absolute inset-x-0 top-0 z-10" />
+  else if (query.error) body = <EditorPlaceholder icon="error" message={errorMessage(query.error)} />
+  else if (rows.length === 0) body = <EditorPlaceholder icon="info" message={gl('No commits could be found.')} />
   else
     body = (
-      <div ref={scrollRef} role="grid" aria-label={graphLabel()} aria-rowcount={query.data?.pages[0]?.total} tabIndex={0} className="h-full overflow-auto outline-none" onKeyDown={onKeyDown}>
-        <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+      <div
+        ref={scrollRef}
+        role="grid"
+        aria-label={graphLabel()}
+        aria-rowcount={query.data?.pages[0]?.total}
+        tabIndex={0}
+        className="group/grid h-full overflow-auto outline-none [&::-webkit-scrollbar]:size-3.5"
+        onKeyDown={onKeyDown}
+      >
+        {columnHeaders}
+        <div className="relative min-w-[640px]" style={{ height: virtualizer.getTotalSize() }}>
           {items.map((item) => {
             const row = rows[item.index]
             const isSelected = row.id === selected
+            const isHead = row.refs.some((r) => r.kind === 'head')
             const arg: CommitArg = { root, commit: row }
             return (
               <ContextMenu key={row.id}>
@@ -245,40 +342,34 @@ export function GraphTab({ params }: DetailTabProps) {
                       aria-rowindex={item.index + 1}
                       aria-selected={isSelected}
                       className={cn(
-                        'absolute inset-x-0 top-0 flex cursor-default items-center text-[13px] hover:bg-accent/40',
-                        isSelected && 'bg-accent',
-                        matches.has(row.id) && !isSelected && 'bg-primary/10',
-                        !row.current && 'text-muted-foreground',
+                        'absolute inset-x-0 top-0 flex cursor-default items-center text-[13px]',
+                        isSelected
+                          ? 'bg-(--vsc-list-inactiveSelectionBackground) group-focus/grid:bg-(--vsc-list-activeSelectionBackground) group-focus/grid:text-(--vsc-list-activeSelectionForeground) group-focus/grid:outline-solid group-focus/grid:outline-1 group-focus/grid:-outline-offset-1 group-focus/grid:outline-(--vsc-list-focusAndSelectionOutline)'
+                          : matches.has(row.id)
+                            ? 'bg-[#ea5c0055]'
+                            : 'hover:bg-(--vsc-list-hoverBackground)',
                       )}
-                      style={{ transform: `translateY(${item.start}px)`, height: ROW_HEIGHT }}
+                      style={{ transform: `translateY(${item.start - ROW_HEIGHT}px)`, height: ROW_HEIGHT }}
                       onClick={() => setSelected(row.id)}
                     />
                   }
                 >
-                  <div role="gridcell" className="flex w-44 shrink-0 items-center gap-1 overflow-hidden px-2">
-                    {row.refs.slice(0, 1).map((ref) => (
-                      <RefBadge key={ref.name} root={root} row={row} gref={ref} />
-                    ))}
-                    {row.refs.length > 1 && (
-                      <span className="shrink-0 text-[11px] text-muted-foreground" title={row.refs.map((r) => r.name).join('\n')}>
-                        +{row.refs.length - 1}
-                      </span>
-                    )}
+                  <div role="gridcell" className={cn(cell, 'pe-1')} style={{ width: COLUMNS.refs }}>
+                    <RefLabels root={root} row={row} dark={dark} />
                   </div>
-                  <div role="gridcell" className="shrink-0 overflow-hidden ps-1" style={{ width: graphWidth }}>
-                    <Lanes row={row} width={graphWidth} selected={isSelected} />
+                  <div role="gridcell" className={cn('h-full shrink-0 overflow-hidden ps-1', columnBorder)} style={{ width: graphWidth }}>
+                    <Lanes root={root} row={row} width={graphWidth} dark={dark} avatars={avatars} />
                   </div>
-                  <div role="gridcell" className="min-w-0 flex-1 truncate px-2" title={row.subject}>
-                    {row.subject}
+                  <div role="gridcell" className={cn(cell, 'min-w-0 flex-1 shrink pe-2')} title={row.subject}>
+                    <span className={cn('truncate', isHead && 'font-semibold')}>{row.subject}</span>
                   </div>
-                  <div role="gridcell" className="flex w-40 shrink-0 items-center gap-1.5 truncate px-2 text-xs" title={`${row.author.name} <${row.author.email}>`}>
-                    <Avatar root={root} name={row.author.name} email={row.author.email} sha={row.id} />
+                  <div role="gridcell" className={cell} style={{ width: COLUMNS.author }} title={`${row.author.name} <${row.author.email}>`}>
                     <span className="truncate">{row.author.name}</span>
                   </div>
-                  <div role="gridcell" className="w-32 shrink-0 truncate px-2 text-muted-foreground text-xs" title={fullDate(row.author.time, locale)}>
-                    {relativeTime(row.author.time, locale)}
+                  <div role="gridcell" className={cell} style={{ width: COLUMNS.date }} title={fullDate(row.author.time, locale)}>
+                    <span className="truncate">{relativeTime(row.author.time, locale)}</span>
                   </div>
-                  <div role="gridcell" className="w-20 shrink-0 px-2 font-mono text-muted-foreground text-xs">
+                  <div role="gridcell" className={cn(cell, 'font-mono text-[12px]')} style={{ width: COLUMNS.sha }}>
                     {shortSha(row.id)}
                   </div>
                 </ContextMenuTrigger>
@@ -297,67 +388,79 @@ export function GraphTab({ params }: DetailTabProps) {
       </div>
     )
 
+  const filters = { remotes: gl('Remote Branches'), tags: gl('Tags'), stashes: gl('Stashes') }
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5">
-        <Select value={options.scope} onValueChange={(scope) => setOptions({ ...options, scope: scope as Options['scope'] })}>
-          <SelectTrigger size="sm" className="w-40">
-            <SelectValue>{options.scope === 'all' ? gl('All Branches') : gl('Current Branch')}</SelectValue>
-          </SelectTrigger>
-          <SelectPopup>
-            <SelectItem value="all">{gl('All Branches')}</SelectItem>
-            <SelectItem value="current">{gl('Current Branch')}</SelectItem>
-          </SelectPopup>
-        </Select>
-        {(['remotes', 'tags', 'stashes'] as const).map((key) => (
-          <Toggle key={key} size="sm" variant="outline" pressed={options[key]} onPressedChange={(on) => setOptions({ ...options, [key]: on })}>
-            {{ remotes: gl('Remote Branches'), tags: gl('Tags'), stashes: gl('Stashes') }[key]}
-          </Toggle>
-        ))}
+      {/* The graph's toolbar: branch scope, filters, then the commit search (a find widget) */}
+      <div className="flex h-[35px] shrink-0 items-center gap-1 border-(--vsc-editorGroupHeader-tabsBorder) border-b px-2">
+        <NativeSelect
+          compact
+          aria-label={gl('All Branches')}
+          className="w-36"
+          value={options.scope}
+          options={[
+            { value: 'all', label: gl('All Branches') },
+            { value: 'current', label: gl('Current Branch') },
+          ]}
+          onChange={(scope) => setOptions({ ...options, scope: scope as Options['scope'] })}
+        />
+        <Menu>
+          <Tooltip>
+            <TooltipTrigger render={<MenuTrigger render={<Button size="icon" variant="action" aria-label={gl('Graph Filtering')} />} />}>
+              <Icon name="filter" />
+            </TooltipTrigger>
+            <TooltipPopup>{gl('Graph Filtering')}</TooltipPopup>
+          </Tooltip>
+          <MenuPopup>
+            {(['remotes', 'tags', 'stashes'] as const).map((key) => (
+              <MenuCheckboxItem key={key} closeOnClick={false} checked={options[key]} onCheckedChange={(on) => setOptions({ ...options, [key]: on })}>
+                {filters[key]}
+              </MenuCheckboxItem>
+            ))}
+          </MenuPopup>
+        </Menu>
         <form
-          className="ms-auto flex items-center gap-1"
+          className="ms-auto flex min-w-0 items-center gap-0.5"
           onSubmit={(e) => {
             e.preventDefault()
             void runSearch()
           }}
         >
-          <InputGroup className="w-72">
+          <InputGroup className="w-72 min-w-0">
             <InputGroupInput
               placeholder={gl('Search commits (↵ to search)')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label={gl('Search Commits')}
             />
-            <InputGroupAddon>
-              <SearchIcon />
-            </InputGroupAddon>
+            {search && (
+              <InputGroupAddon align="inline-end">
+                <button
+                  type="button"
+                  aria-label={gl('Clear Results')}
+                  className="flex cursor-pointer rounded-[3px] text-inherit hover:bg-(--vsc-inputOption-hoverBackground)"
+                  onClick={() => {
+                    setSearch('')
+                    setResults(null)
+                  }}
+                >
+                  <Icon name="close" />
+                </button>
+              </InputGroupAddon>
+            )}
           </InputGroup>
           {results && (
-            <span className="min-w-14 text-center text-muted-foreground text-xs tabular-nums">
+            <span className="min-w-14 shrink-0 px-1 text-center text-[12px] tabular-nums">
               {results.ids.length ? `${results.index + 1} / ${results.ids.length}` : gl('No results')}
             </span>
           )}
-          <Button type="button" size="icon-sm" variant="ghost" aria-label={gl('Previous Match')} disabled={!results?.ids.length} onClick={() => step(-1)}>
-            <ChevronUpIcon />
-          </Button>
-          <Button type="button" size="icon-sm" variant="ghost" aria-label={gl('Next Match')} disabled={!results?.ids.length} onClick={() => step(1)}>
-            <ChevronDownIcon />
-          </Button>
+          <ActionButton icon="arrow-up" label={gl('Previous Match')} small disabled={!results?.ids.length} onClick={() => step(-1)} />
+          <ActionButton icon="arrow-down" label={gl('Next Match')} small disabled={!results?.ids.length} onClick={() => step(1)} />
         </form>
       </div>
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex shrink-0 border-b text-[11px] font-medium text-muted-foreground" role="row">
-            <div className="w-44 shrink-0 px-2 py-1">{gl('Branch / Tag')}</div>
-            <div className="shrink-0 ps-1 py-1" style={{ width: graphWidth }}>
-              {gl('Graph')}
-            </div>
-            <div className="min-w-0 flex-1 px-2 py-1">{gl('Commit Message')}</div>
-            <div className="w-40 shrink-0 px-2 py-1">{gl('Author')}</div>
-            <div className="w-32 shrink-0 px-2 py-1">{gl('Commit Date / Time')}</div>
-            <div className="w-20 shrink-0 px-2 py-1">{gl('SHA')}</div>
-          </div>
-          <div className="min-h-0 flex-1">{body}</div>
+          <div className="relative min-h-0 flex-1">{body}</div>
         </div>
         {selectedRow && <Details root={root} row={selectedRow} />}
       </div>

@@ -1,325 +1,424 @@
 "use client";
 
-import { Toast } from "@base-ui/react/toast";
-import {
-  CircleAlertIcon,
-  CircleCheckIcon,
-  InfoIcon,
-  LoaderCircleIcon,
-  TriangleAlertIcon,
-} from "lucide-react";
-import type React from "react";
+import * as React from "react";
+import { Icon } from "@/components/Icon";
+import { Button } from "@/components/ui/button";
+import { ProgressBar } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { buttonVariants } from "@/components/ui/button";
 
-const TOAST_ICONS = {
-  error: CircleAlertIcon,
-  info: InfoIcon,
-  loading: LoaderCircleIcon,
-  success: CircleCheckIcon,
-  warning: TriangleAlertIcon,
-} as const;
+// VS Code notification toasts (workbench/browser/parts/notifications): bottom-right, newest on
+// top, at most 3 on screen with the rest waiting, 4px-radius boxes with a severity codicon, the
+// message wrapping in full (gitmenu never truncates it), actions as 26px buttons (first
+// primary), a close action on hover. Auto-hide after 10s/12s/15s only while the window is
+// focused and the toast is neither hovered nor focused; errors with actions and toasts with
+// progress stay. They slide up 300ms on show and disappear at once.
 
-type SwipeDirection = "up" | "down" | "left" | "right";
+export type ToastType = "info" | "warning" | "error" | "success" | "loading";
+export type NotificationSeverity = "info" | "warning" | "error";
 
-type ToastData = {
-  rootProps?: Omit<
-    React.ComponentProps<typeof Toast.Root>,
-    "children" | "className" | "swipeDirection" | "toast"
-  >;
-  tooltipStyle?: boolean;
+export interface ToastAction
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  children?: React.ReactNode;
+}
+
+export interface ToastOptions {
+  id?: string;
+  /** `success` shows as info (VS Code has no success severity); `loading` adds progress */
+  type?: ToastType | (string & {});
+  title?: React.ReactNode;
+  description?: React.ReactNode;
+  /** Milliseconds; `0` keeps the toast until it is closed */
+  timeout?: number;
+  /** The primary action. Clicking an action closes the toast unless its handler calls `preventDefault()`. */
+  actionProps?: ToastAction;
+  /** Actions after the primary one, shown as secondary buttons */
+  actions?: ToastAction[];
+  /** Called once when the toast goes away for any reason other than an identical toast replacing it */
+  onClose?: () => void;
+  onRemove?: () => void;
+  priority?: "low" | "high";
+  data?: unknown;
+}
+
+export interface ToastObject extends ToastOptions {
+  id: string;
+}
+
+const MAX_VISIBLE = 3;
+const SPAM_INTERVAL = 800;
+const PURGE_TIMEOUT: Record<NotificationSeverity, number> = {
+  error: 15_000,
+  info: 10_000,
+  warning: 12_000,
 };
 
-function getSwipeDirection(position: ToastPosition): SwipeDirection[] {
-  const verticalDirection: SwipeDirection = position.startsWith("top")
-    ? "up"
-    : "down";
-
-  if (position.includes("center")) {
-    return [verticalDirection];
-  }
-
-  if (position.includes("left")) {
-    return ["left", verticalDirection];
-  }
-
-  return ["right", verticalDirection];
+export function toastSeverity(type: string | undefined): NotificationSeverity {
+  if (type === "error") return "error";
+  if (type === "warning") return "warning";
+  return "info";
 }
 
-function upsertReplayClassName(toast: {
-  type?: string;
-  updateKey?: number;
-}): string | undefined {
-  const k = toast.updateKey ?? 0;
-  if (k <= 0) return undefined;
-  const isEven = k % 2 === 0;
-  if (toast.type === "error") {
-    return isEven ? "animate-toast-error-even" : "animate-toast-error-odd";
-  }
-  return isEven ? "animate-toast-success-even" : "animate-toast-success-odd";
+function toastActions(toast: ToastOptions): ToastAction[] {
+  return [
+    ...(toast.actionProps ? [toast.actionProps] : []),
+    ...(toast.actions ?? []),
+  ];
 }
 
-function Toasts({
-  position,
-  portalProps,
-}: {
-  position: ToastPosition;
-  portalProps?: React.ComponentProps<typeof Toast.Portal>;
-}): React.ReactElement {
-  const { toasts } = Toast.useToastManager();
-  const swipeDirection = getSwipeDirection(position);
-
+function isSticky(toast: ToastObject): boolean {
   return (
-    <Toast.Portal data-slot="toast-portal" {...portalProps}>
-      <Toast.Viewport
-        className={cn(
-          "fixed z-60 mx-auto flex w-[calc(100%-var(--toast-inset)*2)] max-w-[450px] [--toast-inset:--spacing(2)]",
-          // Vertical positioning
-          "data-[position*=top]:top-(--toast-inset)",
-          "data-[position*=bottom]:bottom-(--toast-inset)",
-          // Horizontal positioning
-          "data-[position*=left]:left-(--toast-inset)",
-          "data-[position*=right]:right-(--toast-inset)",
-          "data-[position*=center]:left-1/2 data-[position*=center]:-translate-x-1/2",
-        )}
-        data-position={position}
-        data-slot="toast-viewport"
-      >
-        {toasts.map((toast) => {
-          const Icon = toast.type
-            ? TOAST_ICONS[toast.type as keyof typeof TOAST_ICONS]
-            : null;
-          const toastData = toast.data as ToastData | undefined;
-
-          return (
-            <Toast.Root
-              key={toast.id}
-              className={cn(
-                "absolute z-[calc(9999-var(--toast-index))] h-(--toast-calc-height) w-full select-none rounded-lg border bg-[color-mix(in_srgb,var(--popover),var(--color-black)_calc(1%*max(0,var(--toast-index,0))))] not-dark:bg-clip-padding text-popover-foreground shadow-lg/5 [transition:transform_.5s_cubic-bezier(.22,1,.36,1),opacity_.5s,height_.15s,background-color_.5s] before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] data-expanded:bg-popover dark:bg-[color-mix(in_srgb,var(--popover),var(--color-black)_calc(6%*max(0,var(--toast-index,0))))] dark:data-expanded:bg-popover dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
-                // Base positioning using data-position
-                "data-[position*=right]:right-0 data-[position*=right]:left-auto",
-                "data-[position*=left]:right-auto data-[position*=left]:left-0",
-                "data-[position*=center]:right-0 data-[position*=center]:left-0",
-                "data-[position*=top]:top-0 data-[position*=top]:bottom-auto data-[position*=top]:origin-[50%_calc(50%-50%*min(var(--toast-index,0),1))]",
-                "data-[position*=bottom]:top-auto data-[position*=bottom]:bottom-0 data-[position*=bottom]:origin-[50%_calc(50%+50%*min(var(--toast-index,0),1))]",
-                // Gap fill for hover
-                "after:absolute after:left-0 after:h-[calc(var(--toast-gap)+1px)] after:w-full",
-                "data-[position*=top]:after:top-full",
-                "data-[position*=bottom]:after:bottom-full",
-                // Define some variables
-                "[--toast-calc-height:var(--toast-frontmost-height,var(--toast-height))] [--toast-gap:--spacing(3)] [--toast-peek:--spacing(3)] [--toast-scale:calc(max(0,1-(var(--toast-index)*.1)))] [--toast-shrink:calc(1-var(--toast-scale))]",
-                // Define offset-y variable
-                "data-[position*=top]:[--toast-calc-offset-y:calc(var(--toast-offset-y)+var(--toast-index)*var(--toast-gap)+var(--toast-swipe-movement-y))]",
-                "data-[position*=bottom]:[--toast-calc-offset-y:calc(var(--toast-offset-y)*-1+var(--toast-index)*var(--toast-gap)*-1+var(--toast-swipe-movement-y))]",
-                // Default state transform
-                "data-[position*=top]:transform-[translateX(var(--toast-swipe-movement-x))_translateY(calc(var(--toast-swipe-movement-y)+(var(--toast-index)*var(--toast-peek))+(var(--toast-shrink)*var(--toast-calc-height))))_scale(var(--toast-scale))]",
-                "data-[position*=bottom]:transform-[translateX(var(--toast-swipe-movement-x))_translateY(calc(var(--toast-swipe-movement-y)-(var(--toast-index)*var(--toast-peek))-(var(--toast-shrink)*var(--toast-calc-height))))_scale(var(--toast-scale))]",
-                // Limited state
-                "data-limited:opacity-0",
-                // Expanded state
-                "data-expanded:h-(--toast-height)",
-                "data-position:data-expanded:transform-[translateX(var(--toast-swipe-movement-x))_translateY(var(--toast-calc-offset-y))]",
-                // Starting and ending animations
-                "data-[position*=top]:data-starting-style:transform-[translateY(calc(-100%-var(--toast-inset)))]",
-                "data-[position*=bottom]:data-starting-style:transform-[translateY(calc(100%+var(--toast-inset)))]",
-                "data-ending-style:opacity-0",
-                // Ending animations (direction-aware)
-                "data-[position*=top]:data-ending-style:not-data-limited:not-data-swipe-direction:transform-[translateY(calc(-100%-var(--toast-inset)))]",
-                "data-[position*=bottom]:data-ending-style:not-data-limited:not-data-swipe-direction:transform-[translateY(calc(100%+var(--toast-inset)))]",
-                "data-ending-style:data-[swipe-direction=left]:transform-[translateX(calc(var(--toast-swipe-movement-x)-100%-var(--toast-inset)))_translateY(var(--toast-calc-offset-y))]",
-                "data-ending-style:data-[swipe-direction=right]:transform-[translateX(calc(var(--toast-swipe-movement-x)+100%+var(--toast-inset)))_translateY(var(--toast-calc-offset-y))]",
-                "data-ending-style:data-[swipe-direction=up]:transform-[translateY(calc(var(--toast-swipe-movement-y)-100%-var(--toast-inset)))]",
-                "data-ending-style:data-[swipe-direction=down]:transform-[translateY(calc(var(--toast-swipe-movement-y)+100%+var(--toast-inset)))]",
-                // Ending animations (expanded)
-                "data-expanded:data-ending-style:data-[swipe-direction=left]:transform-[translateX(calc(var(--toast-swipe-movement-x)-100%-var(--toast-inset)))_translateY(var(--toast-calc-offset-y))]",
-                "data-expanded:data-ending-style:data-[swipe-direction=right]:transform-[translateX(calc(var(--toast-swipe-movement-x)+100%+var(--toast-inset)))_translateY(var(--toast-calc-offset-y))]",
-                "data-expanded:data-ending-style:data-[swipe-direction=up]:transform-[translateY(calc(var(--toast-swipe-movement-y)-100%-var(--toast-inset)))]",
-                "data-expanded:data-ending-style:data-[swipe-direction=down]:transform-[translateY(calc(var(--toast-swipe-movement-y)+100%+var(--toast-inset)))]",
-                upsertReplayClassName(toast),
-              )}
-              {...toastData?.rootProps}
-              data-position={position}
-              swipeDirection={swipeDirection}
-              toast={toast}
-            >
-              <Toast.Content className="pointer-events-auto flex items-start justify-between gap-1.5 overflow-hidden px-2.5 py-2 text-xs transition-opacity duration-250 data-behind:not-data-expanded:pointer-events-none data-behind:opacity-0 data-expanded:opacity-100">
-                <div className="flex min-w-0 gap-2">
-                  {Icon && (
-                    <div
-                      className="[&>svg]:h-lh [&>svg]:w-4 [&_svg]:pointer-events-none [&_svg]:shrink-0"
-                      data-slot="toast-icon"
-                    >
-                      <Icon className="in-data-[type=loading]:animate-spin in-data-[type=error]:text-destructive in-data-[type=info]:text-info in-data-[type=success]:text-success in-data-[type=warning]:text-warning in-data-[type=loading]:opacity-80" />
-                    </div>
-                  )}
-
-                  <div className="flex min-w-0 flex-col gap-0.5 [overflow-wrap:anywhere]">
-                    <Toast.Title
-                      className="line-clamp-3 font-medium"
-                      data-slot="toast-title"
-                    />
-                    <Toast.Description
-                      className="line-clamp-3 text-muted-foreground"
-                      data-slot="toast-description"
-                    />
-                  </div>
-                </div>
-                {toast.actionProps && (
-                  <Toast.Action
-                    className={buttonVariants({ size: "xs" })}
-                    data-slot="toast-action"
-                  >
-                    {toast.actionProps.children}
-                  </Toast.Action>
-                )}
-              </Toast.Content>
-            </Toast.Root>
-          );
-        })}
-      </Toast.Viewport>
-    </Toast.Portal>
+    toast.timeout === 0 ||
+    toast.type === "loading" ||
+    (toastSeverity(toast.type) === "error" && toastActions(toast).length > 0)
   );
 }
 
-function AnchoredToasts({
-  portalProps,
-}: {
-  portalProps?: React.ComponentProps<typeof Toast.Portal>;
-}): React.ReactElement {
-  const { toasts } = Toast.useToastManager();
+interface Entry {
+  timer?: number;
+  hovered: boolean;
+  focused: boolean;
+  waitingForFocus: boolean;
+}
 
+let toasts: ToastObject[] = []; // newest first
+const entries = new Map<string, Entry>();
+const listeners = new Set<() => void>();
+let recentAdds: number[] = [];
+let counter = 0;
+
+function emit() {
+  for (const listener of listeners) listener();
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function getSnapshot(): ToastObject[] {
+  return toasts;
+}
+
+function schedule(id: string) {
+  const entry = entries.get(id);
+  const toast = toasts.find((t) => t.id === id);
+  if (!entry || !toast) return;
+  window.clearTimeout(entry.timer);
+  const delay =
+    toast.timeout && toast.timeout > 0
+      ? toast.timeout
+      : PURGE_TIMEOUT[toastSeverity(toast.type)];
+  entry.timer = window.setTimeout(() => {
+    const current = toasts.find((t) => t.id === id);
+    if (!current || !entries.has(id)) return;
+    // Never hide while the window is in the background: wait for it to come back
+    if (!document.hasFocus()) {
+      if (!entry.waitingForFocus) {
+        entry.waitingForFocus = true;
+        const onFocus = () => {
+          window.removeEventListener("focus", onFocus);
+          entry.waitingForFocus = false;
+          schedule(id);
+        };
+        window.addEventListener("focus", onFocus);
+      }
+      return;
+    }
+    if (isSticky(current) || entry.hovered || entry.focused) {
+      schedule(id);
+      return;
+    }
+    remove(id);
+  }, delay);
+}
+
+function remove(id: string, notify = true) {
+  const toast = toasts.find((t) => t.id === id);
+  if (!toast) return;
+  const entry = entries.get(id);
+  if (entry) window.clearTimeout(entry.timer);
+  entries.delete(id);
+  toasts = toasts.filter((t) => t.id !== id);
+  emit();
+  if (notify) toast.onClose?.();
+  toast.onRemove?.();
+}
+
+function sameContent(a: ToastOptions, b: ToastOptions): boolean {
   return (
-    <Toast.Portal data-slot="toast-portal-anchored" {...portalProps}>
-      <Toast.Viewport
-        className="outline-none"
-        data-slot="toast-viewport-anchored"
-      >
-        {toasts.map((toast) => {
-          const Icon = toast.type
-            ? TOAST_ICONS[toast.type as keyof typeof TOAST_ICONS]
-            : null;
-          const toastData = toast.data as ToastData | undefined;
-          const tooltipStyle = toastData?.tooltipStyle ?? false;
-          const positionerProps = toast.positionerProps;
+    toastSeverity(a.type) === toastSeverity(b.type) &&
+    typeof a.title === "string" &&
+    a.title === b.title &&
+    (a.description ?? "") === (b.description ?? "") &&
+    toastActions(a).length === 0 &&
+    toastActions(b).length === 0
+  );
+}
 
-          if (!positionerProps?.anchor) {
-            return null;
-          }
+function add(options: ToastOptions): string {
+  const id = options.id ?? `toast-${++counter}`;
+  const now = Date.now();
+  // VS Code drops a burst of more than 3 toasts in 800ms
+  recentAdds = recentAdds.filter((time) => now - time < SPAM_INTERVAL);
+  recentAdds.push(now);
+  if (recentAdds.length > MAX_VISIBLE) return id;
+  // An identical toast is replaced by the new one on top
+  for (const duplicate of toasts.filter(
+    (t) => t.id === id || sameContent(t, options),
+  )) {
+    remove(duplicate.id, false);
+  }
+  toasts = [{ ...options, id }, ...toasts];
+  entries.set(id, { focused: false, hovered: false, waitingForFocus: false });
+  emit();
+  schedule(id);
+  return id;
+}
 
-          return (
-            <Toast.Positioner
-              key={toast.id}
-              className="z-60 max-w-[min(--spacing(64),var(--available-width))]"
-              data-slot="toast-positioner"
-              sideOffset={positionerProps.sideOffset ?? 4}
-              toast={toast}
-            >
-              <Toast.Root
-                className={cn(
-                  "relative text-balance border bg-popover not-dark:bg-clip-padding text-popover-foreground text-xs transition-[scale,opacity] before:pointer-events-none before:absolute before:inset-0 before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
-                  tooltipStyle
-                    ? "rounded-md shadow-md/5 before:rounded-[calc(var(--radius-md)-1px)]"
-                    : "rounded-lg shadow-lg/5 before:rounded-[calc(var(--radius-lg)-1px)]",
-                  upsertReplayClassName(toast),
-                )}
-                {...toastData?.rootProps}
-                data-slot="toast-popup"
-                toast={toast}
+function close(id?: string) {
+  if (id === undefined) {
+    for (const toast of [...toasts]) remove(toast.id);
+    return;
+  }
+  remove(id);
+}
+
+function update(id: string, options: Partial<ToastOptions>) {
+  if (!toasts.some((t) => t.id === id)) return;
+  toasts = toasts.map((t) => (t.id === id ? { ...t, ...options, id } : t));
+  emit();
+  schedule(id);
+}
+
+async function promise<T>(
+  value: Promise<T>,
+  options: {
+    loading: ToastOptions | string;
+    success: ToastOptions | string | ((result: T) => ToastOptions | string);
+    error: ToastOptions | string | ((error: unknown) => ToastOptions | string);
+  },
+): Promise<T> {
+  const asOptions = (o: ToastOptions | string): ToastOptions =>
+    typeof o === "string" ? { title: o } : o;
+  const id = add({ ...asOptions(options.loading), type: "loading" });
+  try {
+    const result = await value;
+    const next =
+      typeof options.success === "function"
+        ? options.success(result)
+        : options.success;
+    update(id, { type: "success", ...asOptions(next) });
+    return result;
+  } catch (error) {
+    const next =
+      typeof options.error === "function" ? options.error(error) : options.error;
+    update(id, { type: "error", ...asOptions(next) });
+    throw error;
+  }
+}
+
+export const toastManager = { add, close, promise, update };
+
+function setInteraction(id: string, key: "hovered" | "focused", value: boolean) {
+  const entry = entries.get(id);
+  if (entry) entry[key] = value;
+}
+
+const SEVERITY_COLOR: Record<NotificationSeverity, string> = {
+  error: "text-(--vsc-notificationsErrorIcon-foreground)",
+  info: "text-(--vsc-notificationsInfoIcon-foreground)",
+  warning: "text-(--vsc-notificationsWarningIcon-foreground)",
+};
+
+export interface NotificationCardProps
+  extends Omit<React.ComponentProps<"div">, "title"> {
+  severity: NotificationSeverity;
+  title?: React.ReactNode;
+  description?: React.ReactNode;
+  actions?: ToastAction[];
+  /** Called after an action ran, unless its handler called `preventDefault()` */
+  onActionDone?: () => void;
+  /** Shows the close action (on hover or focus) */
+  onClose?: () => void;
+  closeLabel?: string;
+  progress?: boolean;
+}
+
+/** One VS Code notification: severity icon, wrapping message, close action, buttons. */
+export function NotificationCard({
+  severity,
+  title,
+  description,
+  actions = [],
+  onActionDone,
+  onClose,
+  closeLabel = "Clear Notification",
+  progress = false,
+  className,
+  ...props
+}: NotificationCardProps): React.ReactElement {
+  return (
+    <div
+      className={cn(
+        "group/notification relative rounded-[4px] border border-(--vsc-notificationToast-border) bg-(--vsc-notifications-background) text-(--vsc-notifications-foreground) [box-shadow:var(--vsc-shadow-lg)]",
+        className,
+      )}
+      data-severity={severity}
+      data-slot="notification"
+      {...props}
+    >
+      <div className="flex flex-col px-[5px] py-2.5">
+        <div className="flex">
+          <Icon
+            className={cn(
+              "mx-1 flex h-[22px] flex-[0_0_16px] items-center justify-center text-[18px]",
+              SEVERITY_COLOR[severity],
+            )}
+            name={severity}
+          />
+          <div
+            className="max-h-[calc(100vh-80px)] min-w-0 flex-1 select-text overflow-y-auto whitespace-normal text-[12px] leading-[22px] [overflow-wrap:anywhere] min-[480px]:text-[13px] [&_a]:text-(--vsc-notificationLink-foreground)"
+            data-slot="notification-message"
+          >
+            {title}
+            {description != null && description !== "" && (
+              <span className="block">{description}</span>
+            )}
+          </div>
+          {onClose && !progress && (
+            <div className="hidden h-[22px] shrink-0 group-focus-within/notification:block group-hover/notification:block">
+              <Button
+                aria-label={closeLabel}
+                className="mr-1"
+                onClick={onClose}
+                size="icon"
+                variant="action"
               >
-                {tooltipStyle ? (
-                  <Toast.Content className="pointer-events-auto px-2 py-1">
-                    <Toast.Title data-slot="toast-title" />
-                  </Toast.Content>
-                ) : (
-                  <Toast.Content className="pointer-events-auto flex items-start justify-between gap-1.5 overflow-hidden px-2.5 py-2 text-xs">
-                    <div className="flex min-w-0 gap-2">
-                      {Icon && (
-                        <div
-                          className="[&>svg]:h-lh [&>svg]:w-4 [&_svg]:pointer-events-none [&_svg]:shrink-0"
-                          data-slot="toast-icon"
-                        >
-                          <Icon className="in-data-[type=loading]:animate-spin in-data-[type=error]:text-destructive in-data-[type=info]:text-info in-data-[type=success]:text-success in-data-[type=warning]:text-warning in-data-[type=loading]:opacity-80" />
-                        </div>
-                      )}
-
-                      <div className="flex min-w-0 flex-col gap-0.5 [overflow-wrap:anywhere]">
-                        <Toast.Title
-                          className="font-medium"
-                          data-slot="toast-title"
-                        />
-                        <Toast.Description
-                          className="text-muted-foreground"
-                          data-slot="toast-description"
-                        />
-                      </div>
-                    </div>
-                    {toast.actionProps && (
-                      <Toast.Action
-                        className={buttonVariants({ size: "xs" })}
-                        data-slot="toast-action"
-                      >
-                        {toast.actionProps.children}
-                      </Toast.Action>
-                    )}
-                  </Toast.Content>
-                )}
-              </Toast.Root>
-            </Toast.Positioner>
-          );
-        })}
-      </Toast.Viewport>
-    </Toast.Portal>
+                <Icon name="close" />
+              </Button>
+            </div>
+          )}
+        </div>
+        {actions.length > 0 && (
+          <div className="flex flex-wrap items-center justify-end pl-[5px]">
+            {actions.map(({ children, onClick, className: actionClass, ...action }, i) => (
+              <Button
+                key={i}
+                className={cn("mx-[5px] my-1 w-fit min-w-0 max-w-full", actionClass)}
+                title={typeof children === "string" ? children : undefined}
+                variant={i === 0 ? "primary" : "secondary"}
+                {...action}
+                onClick={(event) => {
+                  onClick?.(event);
+                  if (!event.defaultPrevented) onActionDone?.();
+                }}
+              >
+                <span className="truncate">{children}</span>
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
+      {progress && (
+        <ProgressBar className="absolute inset-x-0 bottom-0 overflow-hidden rounded-b-[4px]" />
+      )}
+    </div>
   );
 }
 
-export const toastManager: ReturnType<typeof Toast.createToastManager> =
-  Toast.createToastManager();
+function ToastView({ toast }: { toast: ToastObject }): React.ReactElement {
+  const [shown, setShown] = React.useState(false);
+  React.useEffect(() => {
+    const frame = requestAnimationFrame(() => setShown(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  const severity = toastSeverity(toast.type);
+  return (
+    <NotificationCard
+      actions={toastActions(toast)}
+      className={cn(
+        "pointer-events-auto m-1 w-[min(450px,calc(100vw-16px))] shrink-0 transition-[translate,opacity] duration-300 ease-out motion-reduce:duration-0",
+        shown ? "translate-y-0 opacity-100" : "translate-y-full opacity-0",
+      )}
+      data-type={toast.type}
+      description={toast.description}
+      onActionDone={() => close(toast.id)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setInteraction(toast.id, "focused", false);
+        }
+      }}
+      onClose={() => close(toast.id)}
+      onFocus={() => setInteraction(toast.id, "focused", true)}
+      onMouseEnter={() => setInteraction(toast.id, "hovered", true)}
+      onMouseLeave={() => setInteraction(toast.id, "hovered", false)}
+      progress={toast.type === "loading"}
+      role={severity === "info" ? "status" : "alert"}
+      severity={severity}
+      title={toast.title}
+    />
+  );
+}
 
-export const anchoredToastManager: ReturnType<typeof Toast.createToastManager> =
-  Toast.createToastManager();
+/** Sum of the heights of bars pinned to the window bottom (`data-bottom-bar`), like OpsBar. */
+function useBottomBarInset(active: boolean): number {
+  const [inset, setInset] = React.useState(0);
+  React.useEffect(() => {
+    if (!active) return;
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      let height = 0;
+      for (const bar of document.querySelectorAll<HTMLElement>(
+        "[data-bottom-bar]",
+      )) {
+        height += bar.getBoundingClientRect().height;
+      }
+      setInset(height);
+    };
+    const request = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+    const observer = new MutationObserver(request);
+    observer.observe(document.body, { childList: true, subtree: true });
+    request();
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [active]);
+  return inset;
+}
 
-export type ToastPosition =
-  | "top-left"
-  | "top-center"
-  | "top-right"
-  | "bottom-left"
-  | "bottom-center"
-  | "bottom-right";
-
-export interface ToastProviderProps extends Toast.Provider.Props {
-  position?: ToastPosition;
-  portalProps?: React.ComponentProps<typeof Toast.Portal>;
+function Toasts(): React.ReactElement | null {
+  const all = React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  // The oldest three are on screen; newer ones wait until one of them goes away
+  const visible = all.slice(-MAX_VISIBLE);
+  const inset = useBottomBarInset(visible.length > 0);
+  if (visible.length === 0) return null;
+  return (
+    <section
+      aria-label="Notifications"
+      className="pointer-events-none fixed right-[3px] z-40 flex flex-col items-end"
+      data-slot="toast-viewport"
+      style={{ bottom: 3 + inset, maxHeight: `calc(100vh - ${6 + inset}px)` }}
+    >
+      {visible.map((toast) => (
+        <ToastView key={toast.id} toast={toast} />
+      ))}
+    </section>
+  );
 }
 
 export function ToastProvider({
   children,
-  position = "bottom-right",
-  portalProps,
-  ...props
-}: ToastProviderProps): React.ReactElement {
+}: {
+  children?: React.ReactNode;
+}): React.ReactElement {
   return (
-    <Toast.Provider toastManager={toastManager} {...props}>
+    <>
       {children}
-      <Toasts portalProps={portalProps} position={position} />
-    </Toast.Provider>
+      <Toasts />
+    </>
   );
 }
-
-export interface AnchoredToastProviderProps extends Toast.Provider.Props {
-  portalProps?: React.ComponentProps<typeof Toast.Portal>;
-}
-
-export function AnchoredToastProvider({
-  children,
-  portalProps,
-  ...props
-}: AnchoredToastProviderProps): React.ReactElement {
-  return (
-    <Toast.Provider toastManager={anchoredToastManager} {...props}>
-      {children}
-      <AnchoredToasts portalProps={portalProps} />
-    </Toast.Provider>
-  );
-}
-
-export { Toast as ToastPrimitive };

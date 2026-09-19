@@ -1,6 +1,9 @@
 // Author avatars. Rows ask as they render (only visible rows mount), requests in the same
 // frame go to Rust in one call, and a failed image (Gravatar's 404) falls back to initials.
+// GitLens tree rows use `shape="square"`: a 16px square image (VS Code draws tree icons
+// unclipped), no icon when avatars are off, and the `account` codicon when none loads.
 import { useEffect, useState } from 'react'
+import { Icon } from '@/components/Icon'
 import { git } from '@/lib/git'
 import { cn } from '@/lib/utils'
 import { useSetting } from '@/settings/settings'
@@ -67,7 +70,21 @@ function hue(text: string) {
   return h
 }
 
-export function Avatar({ root, name, email, sha, className }: { root: string; name: string; email: string; sha?: string | null; className?: string }) {
+export function Avatar({
+  root,
+  name,
+  email,
+  sha,
+  className,
+  shape = 'circle',
+}: {
+  root: string
+  name: string
+  email: string
+  sha?: string | null
+  className?: string
+  shape?: 'circle' | 'square'
+}) {
   const enabled = useSetting<boolean>('gitmenu.avatars.enabled')
   const [url, setUrl] = useState(() => resolved.get(email))
   const [broken, setBroken] = useState(() => failed.has(email))
@@ -77,13 +94,16 @@ export function Avatar({ root, name, email, sha, className }: { root: string; na
     return request(root, email, sha ?? null, setUrl)
   }, [enabled, url, root, email, sha])
 
-  const size = cn('size-4 shrink-0 rounded-full', className)
+  const square = shape === 'square'
+  const size = cn('size-4 shrink-0', !square && 'rounded-full', className)
+  // GitLens shows no icon on a commit when avatars are off
+  if (square && !enabled) return null
   if (enabled && url && !broken) {
     return (
       <img
         src={url}
         alt=""
-        className={cn(size, 'bg-muted')}
+        className={cn(size, !square && 'bg-muted')}
         loading="lazy"
         draggable={false}
         onError={() => {
@@ -93,6 +113,7 @@ export function Avatar({ root, name, email, sha, className }: { root: string; na
       />
     )
   }
+  if (square) return <Icon name="account" className={className} />
   return (
     <span
       aria-hidden

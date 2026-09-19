@@ -1,21 +1,11 @@
-import { cva, type VariantProps } from "class-variance-authority";
+import type { VariantProps } from "class-variance-authority";
+import { cva } from "class-variance-authority";
 import type React from "react";
 import { cn } from "@/lib/utils";
 
-const emptyMediaVariants = cva(
-  "flex shrink-0 items-center justify-center [&_svg]:pointer-events-none [&_svg]:shrink-0",
-  {
-    defaultVariants: {
-      variant: "default",
-    },
-    variants: {
-      variant: {
-        default: "bg-transparent",
-        icon: "relative flex size-9 shrink-0 items-center justify-center rounded-md border bg-card not-dark:bg-clip-padding text-foreground shadow-sm/5 before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-md)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] dark:before:shadow-[0_-1px_--theme(--color-white/6%)] [&_svg:not([class*='size-'])]:size-4.5",
-      },
-    },
-  },
-);
+// VS Code's welcome view (workbench/browser/parts/views/media/views.css): plain 13px
+// paragraphs and full-width buttons (at most 300px) stacked 1em apart, padded 0 20px 1em.
+// No illustration, icon box, card or heading.
 
 export function Empty({
   className,
@@ -24,7 +14,7 @@ export function Empty({
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-1 flex-col items-center justify-center gap-6 text-balance px-6 py-12 text-center md:py-20",
+        "flex w-full min-w-0 flex-col items-center px-5 pb-[1em] text-(--vsc-foreground) text-[13px] *:mt-[1em] *:mb-0 [&>[data-slot=button]]:w-full [&>[data-slot=button]]:max-w-[300px] [&_a]:text-(--vsc-textLink-foreground) [&>p]:w-full",
         className,
       )}
       data-slot="empty"
@@ -39,16 +29,19 @@ export function EmptyHeader({
 }: React.ComponentProps<"div">): React.ReactElement {
   return (
     <div
-      className={cn(
-        "flex max-w-sm flex-col items-center text-center",
-        className,
-      )}
+      className={cn("flex w-full flex-col gap-[1em]", className)}
       data-slot="empty-header"
       {...props}
     />
   );
 }
 
+const emptyMediaVariants = cva("hidden", {
+  defaultVariants: { variant: "default" },
+  variants: { variant: { default: "", icon: "" } },
+});
+
+/** Kept for API compatibility; welcome views have no illustration, so nothing renders. */
 export function EmptyMedia({
   className,
   variant = "default",
@@ -57,47 +50,20 @@ export function EmptyMedia({
   VariantProps<typeof emptyMediaVariants>): React.ReactElement {
   return (
     <div
-      className={cn("relative mb-6", className)}
+      aria-hidden
+      className={cn(emptyMediaVariants({ variant }), className)}
       data-slot="empty-media"
-      data-variant={variant}
       {...props}
-    >
-      {variant === "icon" && (
-        <>
-          <div
-            aria-hidden="true"
-            className={cn(
-              emptyMediaVariants({ className, variant }),
-              "pointer-events-none absolute bottom-px origin-bottom-left -translate-x-0.5 -rotate-10 scale-84 shadow-none",
-            )}
-          />
-          <div
-            aria-hidden="true"
-            className={cn(
-              emptyMediaVariants({ className, variant }),
-              "pointer-events-none absolute bottom-px origin-bottom-right translate-x-0.5 rotate-10 scale-84 shadow-none",
-            )}
-          />
-        </>
-      )}
-      <div
-        className={cn(emptyMediaVariants({ className, variant }))}
-        {...props}
-      />
-    </div>
+    />
   );
 }
 
 export function EmptyTitle({
   className,
   ...props
-}: React.ComponentProps<"div">): React.ReactElement {
+}: React.ComponentProps<"p">): React.ReactElement {
   return (
-    <div
-      className={cn("font-heading font-semibold text-xl", className)}
-      data-slot="empty-title"
-      {...props}
-    />
+    <p className={cn("w-full", className)} data-slot="empty-title" {...props} />
   );
 }
 
@@ -106,11 +72,8 @@ export function EmptyDescription({
   ...props
 }: React.ComponentProps<"p">): React.ReactElement {
   return (
-    <div
-      className={cn(
-        "text-muted-foreground text-sm [&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4 [[data-slot=empty-title]+&]:mt-1",
-        className,
-      )}
+    <p
+      className={cn("w-full [&_a]:text-(--vsc-textLink-foreground)", className)}
       data-slot="empty-description"
       {...props}
     />
@@ -124,7 +87,7 @@ export function EmptyContent({
   return (
     <div
       className={cn(
-        "flex w-full min-w-0 max-w-sm flex-col items-center gap-4 text-balance text-sm",
+        "flex w-full min-w-0 max-w-[300px] flex-col items-stretch gap-2 [&>[data-slot=button]]:w-full",
         className,
       )}
       data-slot="empty-content"

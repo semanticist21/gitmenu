@@ -4,18 +4,18 @@ import { mergeProps } from "@base-ui/react/merge-props";
 import { Select as SelectPrimitive } from "@base-ui/react/select";
 import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
-import {
-  ChevronDownIcon,
-  ChevronsUpDownIcon,
-  ChevronUpIcon,
-} from "lucide-react";
 import type * as React from "react";
+import { Icon } from "@/components/Icon";
 import { cn } from "@/lib/utils";
+
+// VS Code's select box (base/browser/ui/selectBox): 26px, 4px radius, dropdown colors, a
+// chevron-down codicon at the right. The list drops below the box: 8px radius, 22px rows,
+// the focused row in quickInputList.focusBackground, hover in list.hoverBackground.
 
 export const Select: typeof SelectPrimitive.Root = SelectPrimitive.Root;
 
 export const selectTriggerVariants = cva(
-  "relative inline-flex min-h-9 w-full min-w-36 select-none items-center justify-between gap-2 rounded-lg border border-input bg-background not-dark:bg-clip-padding px-[calc(--spacing(3)-1px)] text-left text-base text-foreground shadow-xs/5 outline-none ring-ring/24 transition-shadow before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] not-data-disabled:not-focus-visible:not-aria-invalid:not-data-pressed:before:shadow-[0_1px_--theme(--color-black/4%)] pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 focus-visible:border-ring focus-visible:ring-[3px] aria-invalid:border-destructive/36 focus-visible:aria-invalid:border-destructive/64 focus-visible:aria-invalid:ring-destructive/16 data-disabled:pointer-events-none data-disabled:opacity-64 sm:min-h-8 sm:text-sm dark:bg-input/32 dark:aria-invalid:ring-destructive/24 dark:not-data-disabled:not-focus-visible:not-aria-invalid:not-data-pressed:before:shadow-[0_-1px_--theme(--color-white/6%)] [&_svg:not([class*='opacity-'])]:opacity-80 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0 [[data-disabled],:focus-visible,[aria-invalid],[data-pressed]]:shadow-none",
+  "relative inline-flex h-[26px] w-full min-w-0 cursor-pointer select-none items-center rounded-[4px] border border-(--vsc-dropdown-border) bg-(--vsc-dropdown-background) py-0.5 ps-1.5 pe-6 text-left text-(--vsc-dropdown-foreground) text-[13px] outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-(--vsc-focusBorder) data-popup-open:outline-solid data-popup-open:outline-1 data-popup-open:-outline-offset-1 data-popup-open:outline-(--vsc-focusBorder) data-disabled:cursor-default data-disabled:opacity-40",
   {
     defaultVariants: {
       size: "default",
@@ -23,14 +23,15 @@ export const selectTriggerVariants = cva(
     variants: {
       size: {
         default: "",
-        lg: "min-h-10 sm:min-h-9",
-        sm: "min-h-8 gap-1.5 px-[calc(--spacing(2.5)-1px)] sm:min-h-7",
+        lg: "",
+        sm: "",
       },
     },
   },
 );
 
-export const selectTriggerIconClassName = "-me-1 size-4.5 opacity-80 sm:size-4";
+const selectIconClassName =
+  "pointer-events-none absolute end-1 top-1/2 -translate-y-1/2";
 
 export interface SelectButtonProps extends useRender.ComponentProps<"button"> {
   size?: VariantProps<typeof selectTriggerVariants>["size"];
@@ -49,13 +50,11 @@ export function SelectButton({
   const defaultProps = {
     children: (
       <>
-        <span className="flex-1 truncate in-data-placeholder:text-muted-foreground/72">
-          {children}
-        </span>
-        <ChevronsUpDownIcon className={selectTriggerIconClassName} />
+        <span className="flex-1 truncate">{children}</span>
+        <Icon className={selectIconClassName} name="chevron-down" />
       </>
     ),
-    className: cn(selectTriggerVariants({ size }), "min-w-0", className),
+    className: cn(selectTriggerVariants({ size }), className),
     "data-slot": "select-button",
     type: typeValue,
   };
@@ -81,8 +80,8 @@ export function SelectTrigger({
       {...props}
     >
       {children}
-      <SelectPrimitive.Icon data-slot="select-icon">
-        <ChevronsUpDownIcon className={selectTriggerIconClassName} />
+      <SelectPrimitive.Icon className={selectIconClassName} data-slot="select-icon">
+        <Icon name="chevron-down" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );
@@ -95,7 +94,7 @@ export function SelectValue({
   return (
     <SelectPrimitive.Value
       className={cn(
-        "flex-1 truncate data-placeholder:text-muted-foreground",
+        "min-w-0 flex-1 truncate data-placeholder:text-(--vsc-input-placeholderForeground)",
         className,
       )}
       data-slot="select-value"
@@ -108,10 +107,10 @@ export function SelectPopup({
   className,
   children,
   side = "bottom",
-  sideOffset = 4,
+  sideOffset = 0,
   align = "start",
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  alignItemWithTrigger = false,
   anchor,
   portalProps,
   ...props
@@ -132,38 +131,25 @@ export function SelectPopup({
         alignOffset={alignOffset}
         anchor={anchor}
         className="z-50 select-none"
+        collisionPadding={4}
         data-slot="select-positioner"
         side={side}
         sideOffset={sideOffset}
       >
         <SelectPrimitive.Popup
-          className="origin-(--transform-origin) text-foreground outline-none"
+          className="min-w-(--anchor-width) max-w-[calc(100vw-8px)] overflow-hidden rounded-[8px] border border-(--vsc-dropdown-border) bg-(--vsc-dropdown-listBackground) text-(--vsc-dropdown-foreground) text-[13px] outline-none [box-shadow:var(--vsc-shadow-lg)]"
           data-slot="select-popup"
           {...props}
         >
-          <SelectPrimitive.ScrollUpArrow
-            className="top-0 z-50 flex h-6 w-full cursor-default items-center justify-center before:pointer-events-none before:absolute before:inset-x-px before:top-px before:h-[200%] before:rounded-t-[calc(var(--radius-lg)-1px)] before:bg-linear-to-b before:from-50% before:from-popover"
-            data-slot="select-scroll-up-arrow"
+          <SelectPrimitive.List
+            className={cn(
+              "max-h-[min(var(--available-height),400px)] overflow-y-auto py-0.5 outline-none",
+              className,
+            )}
+            data-slot="select-list"
           >
-            <ChevronUpIcon className="relative size-4.5 sm:size-4" />
-          </SelectPrimitive.ScrollUpArrow>
-          <div className="relative h-full min-w-(--anchor-width) rounded-lg border bg-popover not-dark:bg-clip-padding shadow-lg/5 before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] dark:before:shadow-[0_-1px_--theme(--color-white/6%)]">
-            <SelectPrimitive.List
-              className={cn(
-                "max-h-(--available-height) overflow-y-auto p-1",
-                className,
-              )}
-              data-slot="select-list"
-            >
-              {children}
-            </SelectPrimitive.List>
-          </div>
-          <SelectPrimitive.ScrollDownArrow
-            className="bottom-0 z-50 flex h-6 w-full cursor-default items-center justify-center before:pointer-events-none before:absolute before:inset-x-px before:bottom-px before:h-[200%] before:rounded-b-[calc(var(--radius-lg)-1px)] before:bg-linear-to-t before:from-50% before:from-popover"
-            data-slot="select-scroll-down-arrow"
-          >
-            <ChevronDownIcon className="relative size-4.5 sm:size-4" />
-          </SelectPrimitive.ScrollDownArrow>
+            {children}
+          </SelectPrimitive.List>
         </SelectPrimitive.Popup>
       </SelectPrimitive.Positioner>
     </SelectPrimitive.Portal>
@@ -178,29 +164,13 @@ export function SelectItem({
   return (
     <SelectPrimitive.Item
       className={cn(
-        "grid min-h-8 in-data-[side=none]:min-w-[calc(var(--anchor-width)+1.25rem)] cursor-default grid-cols-[1rem_minmax(0,1fr)] items-center gap-2 rounded-sm py-1 ps-2 pe-4 text-base outline-none data-disabled:pointer-events-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "flex h-[22px] cursor-default items-center ps-0.5 outline-none hover:bg-(--vsc-list-hoverBackground) data-disabled:text-(--vsc-disabledForeground) data-highlighted:bg-(--vsc-quickInputList-focusBackground) data-highlighted:text-(--vsc-quickInputList-focusForeground)",
         className,
       )}
       data-slot="select-item"
       {...props}
     >
-      <SelectPrimitive.ItemIndicator className="col-start-1">
-        <svg
-          aria-hidden="true"
-          fill="none"
-          height="24"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-          width="24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path d="M5.252 12.7 10.2 18.63 18.748 5.37" />
-        </svg>
-      </SelectPrimitive.ItemIndicator>
-      <SelectPrimitive.ItemText className="wrap-anywhere col-start-2 min-w-0">
+      <SelectPrimitive.ItemText className="min-w-0 flex-1 truncate ps-1.5 pe-2">
         {children}
       </SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
@@ -213,7 +183,10 @@ export function SelectSeparator({
 }: SelectPrimitive.Separator.Props): React.ReactElement {
   return (
     <SelectPrimitive.Separator
-      className={cn("mx-2 my-1 h-px bg-border", className)}
+      className={cn(
+        "my-[5px] h-0 border-(--vsc-menu-separatorBackground) border-b",
+        className,
+      )}
       data-slot="select-separator"
       {...props}
     />
@@ -232,10 +205,7 @@ export function SelectLabel({
 }: SelectPrimitive.Label.Props): React.ReactElement {
   return (
     <SelectPrimitive.Label
-      className={cn(
-        "not-in-data-[slot=field]:mb-2 inline-flex cursor-default items-center gap-2 font-medium text-base/4.5 text-foreground sm:text-sm/4",
-        className,
-      )}
+      className={cn("mb-1 inline-flex cursor-default text-[13px]", className)}
       data-slot="select-label"
       {...props}
     />
@@ -247,7 +217,7 @@ export function SelectGroupLabel(
 ): React.ReactElement {
   return (
     <SelectPrimitive.GroupLabel
-      className="px-2 py-1.5 font-medium text-muted-foreground text-xs"
+      className="truncate px-2 pt-1 font-semibold text-[11px]"
       data-slot="select-group-label"
       {...props}
     />

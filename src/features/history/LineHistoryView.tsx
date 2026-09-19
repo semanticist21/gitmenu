@@ -4,6 +4,7 @@ import { gl, useLocale } from '@/i18n'
 import { git } from '@/lib/git'
 import { errorMessage } from '@/lib/ipc'
 import type { ViewProps } from '../views/registry'
+import { useViewDescription } from '../views/description'
 import { loadMore, type TreeNode, ViewTree } from '../views/ViewTree'
 import { usePagedLog } from './api'
 import { commitNode, messageNode } from './nodes'
@@ -20,18 +21,31 @@ export function LineHistoryView({ repo }: ViewProps) {
     active !== null,
   )
 
+  // GitLens's LineHistoryNode: `file:lines` (expanded, its folder as the description) holds the
+  // commits, and the view description is that label
+  const name = active ? (active.path.split('/').pop() ?? active.path) : ''
+  const lines = active ? (active.start === active.end ? `${active.start}` : `${active.start}-${active.end}`) : ''
+  useViewDescription('lineHistory', active ? `${name}:${lines}` : undefined)
   const nodes: TreeNode[] = []
   if (!active) nodes.push(messageNode('empty', gl('There are no editors open that can provide line history information.')))
   else {
-    const name = active.path.split('/').pop() ?? active.path
-    const lines = active.start === active.end ? `${active.start}` : `${active.start}-${active.end}`
-    nodes.push({ id: 'file', label: `${name}:${lines}`, description: active.rev ? active.rev.slice(0, 7) : undefined, tooltip: `${active.path}:${lines}` })
-    if (log.error) nodes.push(messageNode('error', errorMessage(log.error)))
-    else if (!log.isPending && log.commits.length === 0) nodes.push(messageNode('none', gl('No line history could be found.')))
+    const children: TreeNode[] = []
+    if (log.error) children.push(messageNode('error', errorMessage(log.error)))
+    else if (!log.isPending && log.commits.length === 0) children.push(messageNode('none', gl('No line history could be found.')))
     for (const commit of log.commits) {
-      nodes.push(commitNode(root, { ...commit, path: active.path, status: 'modified' }, { idPrefix: 'lh', locale, file: true }))
+      children.push(commitNode(root, { ...commit, path: active.path, status: 'modified' }, { idPrefix: 'lh', locale, file: true }))
     }
-    if (log.more) nodes.push(loadMore('lh/more', log.loadingMore, log.loadMore))
+    if (log.more) children.push(loadMore('lh/more', log.loadingMore, log.loadMore))
+    const folder = active.path.includes('/') ? active.path.slice(0, active.path.lastIndexOf('/')) : undefined
+    nodes.push({
+      id: 'file',
+      label: `${name}:${lines}`,
+      ariaLabel: `${active.path}:${lines}`,
+      description: [folder, active.rev?.slice(0, 7)].filter(Boolean).join(' ') || undefined,
+      tooltip: `${active.path}:${lines}`,
+      expanded: true,
+      children,
+    })
   }
   return <ViewTree viewId="gitmenu.views.lineHistory" nodes={nodes} label={gl('Line History')} />
 }

@@ -1,6 +1,34 @@
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
+// VS Code's keybinding label (base/browser/ui/keybindingLabel/keybindingLabel.css): one
+// 18px cap per macOS modifier in ⌃ ⇧ ⌥ ⌘ order, then the key, with a 6px gap between chords.
+
+const MODIFIERS = ["⌃", "⇧", "⌥", "⌘"];
+
+/** Splits `⌘⇧P ⌘K` into chords of caps, modifiers reordered to ⌃ ⇧ ⌥ ⌘. */
+export function splitKeyLabel(label: string): string[][] {
+  return label
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((chord) => {
+      const chars = Array.from(chord);
+      const mods = chars.filter((c) => MODIFIERS.includes(c));
+      const key = chars.filter((c) => !MODIFIERS.includes(c)).join("");
+      mods.sort((a, b) => MODIFIERS.indexOf(a) - MODIFIERS.indexOf(b));
+      return key ? [...mods, key] : mods;
+    });
+}
+
+/** The plain-text form menus show: `⇧⌘P`, chords separated by a space. */
+export function normalizeKeyLabel(label: string): string {
+  return splitKeyLabel(label)
+    .map((caps) => caps.join(""))
+    .join(" ");
+}
+
+/** One key cap. */
 export function Kbd({
   className,
   ...props
@@ -8,7 +36,7 @@ export function Kbd({
   return (
     <kbd
       className={cn(
-        "pointer-events-none inline-flex h-5 min-w-5 select-none items-center justify-center gap-1 rounded-[.25rem] bg-muted px-1 font-medium font-sans text-muted-foreground text-xs [&_svg:not([class*='size-'])]:size-3",
+        "pointer-events-none mx-0.5 inline-flex h-[18px] min-w-[24px] select-none items-center justify-center rounded-[3px] border border-(--vsc-keybindingLabel-border) border-b-(--vsc-keybindingLabel-bottomBorder) bg-(--vsc-keybindingLabel-background) px-[5px] py-[3px] font-sans text-(--vsc-keybindingLabel-foreground) text-[11px] leading-[10px] shadow-[inset_0_-1px_0_var(--vsc-widget-shadow)] first:ms-0 last:me-0",
         className,
       )}
       data-slot="kbd"
@@ -17,15 +45,45 @@ export function Kbd({
   );
 }
 
+/** Caps for one chord, as given by the caller. */
 export function KbdGroup({
   className,
   ...props
-}: React.ComponentProps<"kbd">): React.ReactElement {
+}: React.ComponentProps<"span">): React.ReactElement {
   return (
-    <kbd
-      className={cn("inline-flex items-center gap-1", className)}
+    <span
+      className={cn("inline-flex items-center leading-[10px]", className)}
       data-slot="kbd-group"
       {...props}
     />
+  );
+}
+
+/** A whole keybinding (`⌘K ⌘S`) rendered as VS Code caps. */
+export function Keybinding({
+  value,
+  className,
+  ...props
+}: Omit<React.ComponentProps<"span">, "children"> & {
+  value: string;
+}): React.ReactElement {
+  const chords = splitKeyLabel(value);
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 text-(--vsc-keybindingLabel-foreground) leading-[10px]",
+        className,
+      )}
+      data-slot="keybinding"
+      {...props}
+    >
+      {chords.map((caps, i) => (
+        <KbdGroup key={i}>
+          {caps.map((cap, j) => (
+            <Kbd key={j}>{cap}</Kbd>
+          ))}
+        </KbdGroup>
+      ))}
+    </span>
   );
 }

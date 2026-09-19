@@ -1,23 +1,33 @@
 "use client";
 
+import { Autocomplete as AutocompletePrimitive } from "@base-ui/react/autocomplete";
 import { Dialog as CommandDialogPrimitive } from "@base-ui/react/dialog";
-import { SearchIcon } from "lucide-react";
-import type * as React from "react";
+import * as React from "react";
+import { Keybinding } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
-import {
-  Autocomplete,
-  AutocompleteCollection,
-  AutocompleteEmpty,
-  AutocompleteGroup,
-  AutocompleteGroupLabel,
-  AutocompleteInput,
-  AutocompleteItem,
-  AutocompleteList,
-  AutocompleteSeparator,
-} from "@/components/ui/autocomplete";
 
-export const CommandDialog: typeof CommandDialogPrimitive.Root =
-  CommandDialogPrimitive.Root;
+// VS Code's quick input (platform/quickinput/browser): a 12px-radius widget 6px below the top
+// edge, full width minus 8px margins in a narrow window, no backdrop. Header with a 26px filter
+// input, 22px rows (44px with a detail line) with a 3px radius, bold match highlights, key caps
+// on the right. Opens and closes without animation; Escape or a click outside cancels.
+
+export const quickInputWidgetClassName =
+  "fixed top-1.5 left-1/2 z-50 flex max-h-[calc(100vh-12px)] w-[calc(100vw-16px)] -translate-x-1/2 flex-col rounded-[12px] border border-(--vsc-widget-border) bg-(--vsc-quickInput-background) text-(--vsc-quickInput-foreground) text-[13px] leading-[normal] outline-none [box-shadow:var(--vsc-shadow-xl)] min-[600px]:w-[min(62vw,600px)]";
+
+/** The filter/input box: 26px, 6px radius, input colors, focusBorder outline. */
+export const quickInputBoxClassName =
+  "h-[26px] w-full min-w-0 rounded-[6px] border border-(--vsc-input-border) bg-(--vsc-input-background) px-1.5 py-1 text-(--vsc-input-foreground) text-[13px] text-ellipsis leading-4 outline-none focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-(--vsc-focusBorder) data-[severity=error]:border-(--vsc-inputValidation-errorBorder) data-[severity=error]:outline-(--vsc-inputValidation-errorBorder) data-[severity=info]:border-(--vsc-inputValidation-infoBorder) data-[severity=info]:outline-(--vsc-inputValidation-infoBorder) data-[severity=warning]:border-(--vsc-inputValidation-warningBorder) data-[severity=warning]:outline-(--vsc-inputValidation-warningBorder)";
+
+/** A list row: 22px (or two 22px lines), 3px radius, focus and hover colors. */
+export const quickInputRowClassName =
+  "group/quick-row flex min-h-[22px] cursor-default select-none items-center rounded-[3px] px-1.5 leading-[22px] outline-none hover:bg-(--vsc-list-hoverBackground) data-disabled:text-(--vsc-disabledForeground) data-highlighted:bg-(--vsc-quickInputList-focusBackground) data-highlighted:text-(--vsc-quickInputList-focusForeground)";
+
+export function CommandDialog({
+  modal = false,
+  ...props
+}: CommandDialogPrimitive.Root.Props): React.ReactElement {
+  return <CommandDialogPrimitive.Root modal={modal} {...props} />;
+}
 
 export const CommandDialogPortal: typeof CommandDialogPrimitive.Portal =
   CommandDialogPrimitive.Portal;
@@ -36,38 +46,7 @@ export function CommandDialogTrigger(
   );
 }
 
-export function CommandDialogBackdrop({
-  className,
-  ...props
-}: CommandDialogPrimitive.Backdrop.Props): React.ReactElement {
-  return (
-    <CommandDialogPrimitive.Backdrop
-      className={cn(
-        "fixed inset-0 z-50 bg-black/32 backdrop-blur-sm transition-all duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0",
-        className,
-      )}
-      data-slot="command-dialog-backdrop"
-      {...props}
-    />
-  );
-}
-
-export function CommandDialogViewport({
-  className,
-  ...props
-}: CommandDialogPrimitive.Viewport.Props): React.ReactElement {
-  return (
-    <CommandDialogPrimitive.Viewport
-      className={cn(
-        "fixed inset-0 z-50 flex flex-col items-center px-4 py-[max(--spacing(4),4vh)] sm:py-[10vh]",
-        className,
-      )}
-      data-slot="command-dialog-viewport"
-      {...props}
-    />
-  );
-}
-
+/** The quick input widget. */
 export function CommandDialogPopup({
   className,
   children,
@@ -78,31 +57,155 @@ export function CommandDialogPopup({
 }): React.ReactElement {
   return (
     <CommandDialogPortal {...portalProps}>
-      <CommandDialogBackdrop />
-      <CommandDialogViewport>
-        <CommandDialogPrimitive.Popup
-          className={cn(
-            "relative row-start-2 flex max-h-105 min-h-0 w-full min-w-0 max-w-xl -translate-y-[calc(1.25rem*var(--nested-dialogs))] scale-[calc(1-0.1*var(--nested-dialogs))] flex-col rounded-2xl border bg-popover not-dark:bg-clip-padding text-popover-foreground opacity-[calc(1-0.1*var(--nested-dialogs))] shadow-lg/5 outline-none transition-[scale,opacity,translate] duration-200 ease-in-out will-change-transform before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-2xl)-1px)] before:bg-muted/72 before:shadow-[0_1px_--theme(--color-black/4%)] data-nested:data-ending-style:translate-y-8 data-nested:data-starting-style:translate-y-8 data-nested-dialog-open:origin-top data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 **:data-[slot=scroll-area-viewport]:data-has-overflow-y:pe-1 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
-            className,
-          )}
-          data-slot="command-dialog-popup"
-          {...props}
-        >
-          {children}
-        </CommandDialogPrimitive.Popup>
-      </CommandDialogViewport>
+      <CommandDialogPrimitive.Popup
+        className={cn(quickInputWidgetClassName, className)}
+        data-slot="command-dialog-popup"
+        {...props}
+      >
+        {children}
+      </CommandDialogPrimitive.Popup>
     </CommandDialogPortal>
+  );
+}
+
+/** Title bar, shown only when the input has a title. */
+export function QuickInputTitle({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<"div">): React.ReactElement {
+  return (
+    <div
+      className={cn(
+        "flex items-center rounded-t-[11px] bg-(--vsc-quickInputTitle-background)",
+        className,
+      )}
+      data-slot="quick-input-title"
+      {...props}
+    >
+      <div className="min-w-0 flex-1 truncate py-[3px] text-center">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function QuickInputHeader({
+  className,
+  ...props
+}: React.ComponentProps<"div">): React.ReactElement {
+  return (
+    <div
+      className={cn("flex flex-col px-1.5 pt-1.5 pb-1", className)}
+      data-slot="quick-input-header"
+      {...props}
+    />
+  );
+}
+
+/**
+ * The line under an input box: the prompt, or a validation message boxed in the
+ * inputValidation colors.
+ */
+export function QuickInputMessage({
+  severity,
+  className,
+  ...props
+}: React.ComponentProps<"div"> & {
+  severity?: "error" | "warning" | "info";
+}): React.ReactElement {
+  return (
+    <div
+      className={cn(
+        "-mt-px select-text p-[5px] leading-[1.4em] [overflow-wrap:break-word]",
+        severity === "error" &&
+          "-mb-0.5 border border-(--vsc-inputValidation-errorBorder) bg-(--vsc-inputValidation-errorBackground)",
+        severity === "warning" &&
+          "-mb-0.5 border border-(--vsc-inputValidation-warningBorder) bg-(--vsc-inputValidation-warningBackground)",
+        severity === "info" &&
+          "-mb-0.5 border border-(--vsc-inputValidation-infoBorder) bg-(--vsc-inputValidation-infoBackground)",
+        className,
+      )}
+      data-slot="quick-input-message"
+      role={severity ? "alert" : undefined}
+      {...props}
+    />
+  );
+}
+
+const matcher = new Intl.Collator(undefined, {
+  ignorePunctuation: true,
+  sensitivity: "base",
+  usage: "search",
+});
+
+/** Bolds the part of `text` that matched the filter query (same matching as the filter). */
+export function QuickInputHighlight({
+  text,
+  query,
+}: {
+  text: string;
+  query: string;
+}): React.ReactElement {
+  const q = query.trim();
+  if (q) {
+    for (let i = 0; i <= text.length - q.length; i += 1) {
+      if (matcher.compare(text.slice(i, i + q.length), q) === 0) {
+        return (
+          <>
+            {text.slice(0, i)}
+            <span className="font-bold text-(--vsc-list-highlightForeground) group-data-highlighted/quick-row:text-(--vsc-quickInputList-focusHighlightForeground)">
+              {text.slice(i, i + q.length)}
+            </span>
+            {text.slice(i + q.length)}
+          </>
+        );
+      }
+    }
+  }
+  return <>{text}</>;
+}
+
+/** A row's label with its description on one line, cut by one trailing ellipsis. */
+export function QuickInputLabel({
+  label,
+  description,
+  query = "",
+  className,
+}: {
+  label: string;
+  description?: string;
+  query?: string;
+  className?: string;
+}): React.ReactElement {
+  return (
+    <span
+      className={cn("min-w-0 flex-1 truncate", className)}
+      data-slot="quick-input-label"
+    >
+      <span className="whitespace-pre">
+        <QuickInputHighlight query={query} text={label} />
+      </span>
+      {description && (
+        <span className="ms-[.5em] whitespace-pre text-[.9em] opacity-95 group-data-highlighted/quick-row:opacity-100 dark:opacity-70">
+          <QuickInputHighlight query={query} text={description} />
+        </span>
+      )}
+    </span>
   );
 }
 
 export function Command({
   autoHighlight = "always",
   keepHighlight = true,
+  // Hovering shows list.hoverBackground; only the keyboard moves the focused row
+  highlightItemOnHover = false,
   ...props
-}: React.ComponentProps<typeof Autocomplete>): React.ReactElement {
+}: React.ComponentProps<typeof AutocompletePrimitive.Root>): React.ReactElement {
   return (
-    <Autocomplete
+    <AutocompletePrimitive.Root
       autoHighlight={autoHighlight}
+      highlightItemOnHover={highlightItemOnHover}
       inline
       keepHighlight={keepHighlight}
       open
@@ -113,62 +216,59 @@ export function Command({
 
 export function CommandInput({
   className,
-  placeholder = undefined,
   ...props
-}: React.ComponentProps<typeof AutocompleteInput>): React.ReactElement {
+}: AutocompletePrimitive.Input.Props): React.ReactElement {
   return (
-    <div className="px-2.5 py-1.5">
-      <AutocompleteInput
+    <QuickInputHeader>
+      <AutocompletePrimitive.Input
         autoFocus
-        className={cn(
-          "border-transparent! bg-transparent! shadow-none before:hidden has-focus-visible:ring-0",
-          className,
-        )}
-        placeholder={placeholder}
-        size="lg"
-        startAddon={<SearchIcon />}
+        className={cn(quickInputBoxClassName, className)}
+        data-slot="command-input"
         {...props}
       />
-    </div>
+    </QuickInputHeader>
   );
 }
 
 export function CommandList({
   className,
   ...props
-}: React.ComponentProps<typeof AutocompleteList>): React.ReactElement {
+}: AutocompletePrimitive.List.Props): React.ReactElement {
   return (
-    <AutocompleteList
-      className={cn("not-empty:scroll-py-2 not-empty:p-2", className)}
+    <AutocompletePrimitive.List
+      className={cn(
+        "max-h-[min(440px,40vh)] overflow-y-auto px-1.5 pb-[7px] empty:pb-0",
+        className,
+      )}
       data-slot="command-list"
       {...props}
     />
   );
 }
 
+/** The "No matching …" row. */
 export function CommandEmpty({
   className,
   ...props
-}: React.ComponentProps<typeof AutocompleteEmpty>): React.ReactElement {
+}: AutocompletePrimitive.Empty.Props): React.ReactElement {
   return (
-    <AutocompleteEmpty
-      className={cn("not-empty:py-6", className)}
+    <AutocompletePrimitive.Empty
+      className={cn("px-3 pb-[7px] leading-[22px] empty:hidden", className)}
       data-slot="command-empty"
       {...props}
     />
   );
 }
 
+/** Kept for the coss API: the list sits directly in the widget. */
 export function CommandPanel({
   className,
   ...props
 }: React.ComponentProps<"div">): React.ReactElement {
   return (
     <div
-      className={cn(
-        "relative -mx-px not-has-[+[data-slot=command-footer]]:-mb-px min-h-0 rounded-t-xl not-has-[+[data-slot=command-footer]]:rounded-b-2xl border border-b-0 bg-popover bg-clip-padding shadow-xs/5 [clip-path:inset(0_1px)] not-has-[+[data-slot=command-footer]]:[clip-path:inset(0_1px_1px_1px_round_0_0_calc(var(--radius-2xl)-1px)_calc(var(--radius-2xl)-1px))] before:pointer-events-none before:absolute before:inset-0 before:rounded-t-[calc(var(--radius-xl)-1px)] **:data-[slot=scroll-area-scrollbar]:mt-2",
-        className,
-      )}
+      className={cn("flex min-h-0 flex-col", className)}
+      data-slot="command-panel"
       {...props}
     />
   );
@@ -177,9 +277,9 @@ export function CommandPanel({
 export function CommandGroup({
   className,
   ...props
-}: React.ComponentProps<typeof AutocompleteGroup>): React.ReactElement {
+}: AutocompletePrimitive.Group.Props): React.ReactElement {
   return (
-    <AutocompleteGroup
+    <AutocompletePrimitive.Group
       className={className}
       data-slot="command-group"
       {...props}
@@ -187,28 +287,33 @@ export function CommandGroup({
   );
 }
 
+/** A group's label, right-aligned on its first row in pickerGroup.foreground. */
 export function CommandGroupLabel({
   className,
   ...props
-}: React.ComponentProps<typeof AutocompleteGroupLabel>): React.ReactElement {
+}: AutocompletePrimitive.GroupLabel.Props): React.ReactElement {
   return (
-    <AutocompleteGroupLabel
-      className={className}
+    <AutocompletePrimitive.GroupLabel
+      className={cn(
+        "border-(--vsc-pickerGroup-border) border-t px-1.5 text-right text-(--vsc-pickerGroup-foreground) text-[11px] leading-[22px] [[data-slot=command-group]:first-child_&]:border-t-0",
+        className,
+      )}
       data-slot="command-group-label"
       {...props}
     />
   );
 }
 
-export const CommandCollection = AutocompleteCollection;
+export const CommandCollection: typeof AutocompletePrimitive.Collection =
+  AutocompletePrimitive.Collection;
 
 export function CommandItem({
   className,
   ...props
-}: React.ComponentProps<typeof AutocompleteItem>): React.ReactElement {
+}: AutocompletePrimitive.Item.Props): React.ReactElement {
   return (
-    <AutocompleteItem
-      className={cn("py-1.5", className)}
+    <AutocompletePrimitive.Item
+      className={cn(quickInputRowClassName, className)}
       data-slot="command-item"
       {...props}
     />
@@ -218,27 +323,32 @@ export function CommandItem({
 export function CommandSeparator({
   className,
   ...props
-}: React.ComponentProps<typeof AutocompleteSeparator>): React.ReactElement {
+}: AutocompletePrimitive.Separator.Props): React.ReactElement {
   return (
-    <AutocompleteSeparator
-      className={cn("my-2", className)}
+    <AutocompletePrimitive.Separator
+      className={cn("my-0 h-0 border-(--vsc-pickerGroup-border) border-t", className)}
       data-slot="command-separator"
       {...props}
     />
   );
 }
 
+/** Key caps at the right of a row; on the focused or hovered row they lose their fill. */
 export function CommandShortcut({
   className,
+  children,
   ...props
-}: React.ComponentProps<"kbd">): React.ReactElement {
+}: Omit<React.ComponentProps<"span">, "children"> & {
+  children: string;
+}): React.ReactElement {
   return (
-    <kbd
+    <Keybinding
       className={cn(
-        "ms-auto font-medium font-sans text-muted-foreground/72 text-xs tracking-widest",
+        "ms-2 me-2 shrink-0 [[data-highlighted]_&_[data-slot=kbd]]:border-[color-mix(in_srgb,currentColor_30%,transparent)] [[data-highlighted]_&_[data-slot=kbd]]:bg-transparent [[data-slot=command-item]:hover_&_[data-slot=kbd]]:border-[color-mix(in_srgb,currentColor_30%,transparent)] [[data-slot=command-item]:hover_&_[data-slot=kbd]]:bg-transparent [[data-highlighted]_&]:text-inherit",
         className,
       )}
       data-slot="command-shortcut"
+      value={children}
       {...props}
     />
   );
@@ -250,10 +360,7 @@ export function CommandFooter({
 }: React.ComponentProps<"div">): React.ReactElement {
   return (
     <div
-      className={cn(
-        "flex items-center justify-between gap-2 rounded-b-[calc(var(--radius-2xl)-1px)] border-t px-5 py-3 text-muted-foreground text-xs",
-        className,
-      )}
+      className={cn("px-1.5 pb-1.5 text-[12px]", className)}
       data-slot="command-footer"
       {...props}
     />

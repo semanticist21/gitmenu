@@ -1,20 +1,19 @@
 // A file at HEAD or at a revision (VS Code's "Open File (HEAD)", GitLens's "Open File at
-// Revision"), with blame. Selecting lines drives the panel's Line History.
+// Revision"), with GitLens's file blame. Selecting lines drives the panel's Line History.
 import { useQuery } from '@tanstack/react-query'
 import { emit } from '@tauri-apps/api/event'
-import { UserRoundIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { registerHandler } from '@/commands/registry'
-import { Spinner } from '@/components/ui/spinner'
-import { Toggle } from '@/components/ui/toggle'
-import { t, useLocale } from '@/i18n'
+import { ProgressBar } from '@/components/ui/progress'
+import { GitLensFilledIcon, GitLensIcon } from '@/features/graph/glicons'
+import { gl, t, useLocale, vs } from '@/i18n'
 import { git, type Side } from '@/lib/git'
-import { errorMessage } from '@/lib/ipc'
+import { errorMessage, ipc } from '@/lib/ipc'
 import { useUiState } from '@/lib/uiState'
 import type { DetailTabProps } from '@/routes/detail/DetailApp'
+import { ActionButton, Breadcrumbs, EditorActions } from '@/routes/detail/EditorChrome'
 import { useSetting } from '@/settings/settings'
-import { isDark } from '@/theme/theme'
-import { NonTextDiff } from './DiffTab'
+import { EditorPlaceholder, NonTextDiff, useDarkMode } from './DiffTab'
 import { DiffView } from './DiffView'
 import type { LineSelection } from './patch'
 
@@ -44,6 +43,7 @@ export function FileTab({ params }: DetailTabProps) {
   })
   const [selection, setSelection] = useState<LineSelection>({ left: new Set(), right: new Set() })
   const [anchor, setAnchor] = useState<number | null>(null)
+  const dark = useDarkMode()
 
   useEffect(() => registerHandler('gitlens.toggleFileBlame', () => setBlameOn(!blameOn)), [blameOn, setBlameOn])
 
@@ -57,20 +57,22 @@ export function FileTab({ params }: DetailTabProps) {
   }
 
   let body
-  if (isPending) body = <div className="flex h-full items-center justify-center"><Spinner /></div>
-  else if (error || !data) body = <p className="p-4 text-destructive-foreground text-sm">{errorMessage(error)}</p>
-  else if (!data.right.exists) body = <p className="p-4 text-muted-foreground text-sm">{t('diff.notInRevision')}</p>
+  if (isPending) body = <ProgressBar className="absolute inset-x-0 top-0 z-10" />
+  else if (error || !data) body = <EditorPlaceholder icon="error" message={errorMessage(error)} />
+  else if (!data.right.exists) body = <EditorPlaceholder icon="info" message={t('diff.notInRevision')} />
   else if (data.kind !== 'text') body = <NonTextDiff result={data} path={path} root={root} />
   else
     body = (
       <DiffView
+        root={root}
         result={data}
         path={path}
         leftPath={path}
         sideBySide={false}
         single
-        dark={isDark()}
+        dark={dark}
         selection={selection}
+        anchor={anchor === null ? null : { side: 'right', line: anchor }}
         onSelectLine={onSelectLine}
         blame={blameOn ? blame.data : null}
       />
@@ -78,15 +80,18 @@ export function FileTab({ params }: DetailTabProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-9 shrink-0 items-center gap-1 border-b px-2 text-[13px]">
-        <span className="min-w-0 flex-1 truncate text-muted-foreground">
-          {path} · {ref}
-        </span>
-        <Toggle size="sm" pressed={blameOn} aria-label={t('diff.blame')} title={t('diff.blame')} onPressedChange={setBlameOn}>
-          <UserRoundIcon />
-        </Toggle>
-      </div>
-      <div className="min-h-0 flex-1">{body}</div>
+      <EditorActions>
+        <ActionButton icon="go-to-file" label={vs('command.openFile')} onClick={() => void ipc.openPath(`${root}/${path}`)} />
+        <ActionButton
+          icon={blameOn ? <GitLensFilledIcon /> : <GitLensIcon />}
+          label={gl('Toggle File Blame')}
+          command="gitlens.toggleFileBlame"
+          pressed={blameOn}
+          onClick={() => setBlameOn(!blameOn)}
+        />
+      </EditorActions>
+      <Breadcrumbs path={path} />
+      <div className="relative min-h-0 flex-1">{body}</div>
     </div>
   )
 }

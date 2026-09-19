@@ -1,6 +1,6 @@
 // GitLens's Search & Compare view: commit searches and branch/tag/commit comparisons, kept
 // per repository until dismissed.
-import { GitCompareIcon, SearchIcon } from 'lucide-react'
+import { Icon } from '@/components/Icon'
 import { type QuickPickItem, showQuickPick } from '@/components/dialogs/dialogs'
 import { gl, useLocale } from '@/i18n'
 import { git, type RefInfo } from '@/lib/git'
@@ -51,7 +51,7 @@ export function SearchCompareView({ repo }: ViewProps) {
       return {
         id: item.id,
         label: gl('Results for {0}', `"${item.query}"`),
-        icon: <SearchIcon className="text-muted-foreground" />,
+        icon: <Icon name="search" />,
         contextValue: 'gitlens:search:results',
         arg,
         expanded: true,
@@ -68,7 +68,7 @@ export function SearchCompareView({ repo }: ViewProps) {
     return {
       id: item.id,
       label: gl('Comparing {0} with {1}', refLabel(item.head), refLabel(item.base)),
-      icon: <GitCompareIcon className="text-muted-foreground" />,
+      icon: <Icon name="git-compare" />,
       contextValue: 'gitlens:compare:results',
       arg,
       expanded: true,

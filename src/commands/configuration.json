@@ -54,7 +54,6 @@
   "scm.defaultViewSortKey": { "type": "string", "enum": ["name", "path", "status"], "default": "path" },
   "gitmenu.language": { "type": "string", "enum": ["en", "auto", "ko", "ja", "zh-cn", "zh-tw", "de", "fr", "es", "pt-br", "ru"], "default": "en" },
   "gitmenu.theme.mode": { "type": "string", "enum": ["system", "light", "dark"], "default": "system" },
-  "gitmenu.theme.preset": { "type": "string", "enum": ["neutral", "stone", "zinc", "slate", "blue", "green", "orange", "rose", "violet"], "default": "neutral" },
   "gitmenu.terminal.app": { "type": "string", "default": "Terminal" },
   "gitmenu.panel.globalShortcut": { "type": ["string", "null"], "default": null },
   "gitmenu.crashReports.enabled": { "type": "boolean", "default": false },

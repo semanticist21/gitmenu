@@ -1,40 +1,64 @@
-// Keyboard Shortcuts tab (VS Code's): every command with its keybinding, `when` and source.
-// Changes are written to keybindings.json the way VS Code writes them: a new entry for the
-// new key, and a `-command` entry that removes the default it replaces.
-import { useHotkeyRecorder } from '@tanstack/react-hotkeys'
+// Keyboard Shortcuts tab (VS Code's keybindings editor, keybindingsEditor.css + table.css): a
+// search box, then a table with one row per keybinding (Command, Keybinding, When, Source) and
+// an edit/add action on the hovered or selected row. Defining a key opens VS Code's "Press
+// desired key combination and then press ENTER" widget. Changes are written to
+// keybindings.json the way VS Code writes them: a new entry for the new key, and a `-command`
+// entry that removes the default it replaces.
 import { useQuery } from '@tanstack/react-query'
-import { FileJsonIcon, PencilIcon, RotateCcwIcon, SearchIcon, XIcon } from 'lucide-react'
-import { useState } from 'react'
-import { formatKey, keybindingsQuery, normalizeKey, type UserKeybinding, useEffectiveBindings } from '@/commands/keybindings'
+import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { formatKey, keybindingsQuery, type EffectiveBinding, normalizeKey, type UserKeybinding, useEffectiveBindings } from '@/commands/keybindings'
 import { allCommands, paletteLabel } from '@/commands/registry'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogPanel, DialogPopup, DialogTitle } from '@/components/ui/dialog'
+import { Icon } from '@/components/Icon'
+import { ContextMenu, ContextMenuItem, ContextMenuPopup, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
-import { Kbd } from '@/components/ui/kbd'
+import { Keybinding } from '@/components/ui/kbd'
 import { toastManager } from '@/components/ui/toast'
+import { Tooltip, TooltipPopup, TooltipTrigger } from '@/components/ui/tooltip'
 import { t, useLocale } from '@/i18n'
 import { errorMessage, ipc } from '@/lib/ipc'
+import { cn } from '@/lib/utils'
+import { ActionButton, EditorActions } from '@/routes/detail/EditorChrome'
 
-/** TanStack's recorded `Meta+Shift+K` → VS Code's `cmd+shift+k`. */
-function toVscodeKey(hotkey: string): string {
-  const names: Record<string, string> = {
-    ArrowUp: 'up',
-    ArrowDown: 'down',
-    ArrowLeft: 'left',
-    ArrowRight: 'right',
-    Enter: 'enter',
-    Escape: 'escape',
-    Space: 'space',
-    Tab: 'tab',
-    Backspace: 'backspace',
-    Delete: 'delete',
-    PageUp: 'pageup',
-    PageDown: 'pagedown',
-  }
-  const parts = hotkey.split('+')
-  const key = parts.pop() ?? ''
-  const mods = parts.map((p) => ({ Mod: 'cmd', Meta: 'cmd', Command: 'cmd', Cmd: 'cmd', Control: 'ctrl', Ctrl: 'ctrl', Alt: 'alt', Option: 'alt', Shift: 'shift' })[p] ?? p.toLowerCase())
-  return normalizeKey([...mods, names[key] ?? key.toLowerCase()].join('+'))
+// KeyboardEvent.code → the key names keybindings.json uses
+const CODE_NAMES: Record<string, string> = {
+  ArrowUp: 'up',
+  ArrowDown: 'down',
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+  Enter: 'enter',
+  Escape: 'escape',
+  Space: 'space',
+  Tab: 'tab',
+  Backspace: 'backspace',
+  Delete: 'delete',
+  Home: 'home',
+  End: 'end',
+  PageUp: 'pageup',
+  PageDown: 'pagedown',
+  Insert: 'insert',
+  Minus: '-',
+  Equal: '=',
+  BracketLeft: '[',
+  BracketRight: ']',
+  Backslash: '\\',
+  Semicolon: ';',
+  Quote: "'",
+  Comma: ',',
+  Period: '.',
+  Slash: '/',
+  Backquote: '`',
+}
+const MODIFIER_KEYS = new Set(['Meta', 'Control', 'Alt', 'Shift'])
+
+/** One chord from a keydown (`cmd+shift+k`); a lone modifier gives an incomplete chord (`cmd+`). */
+function chordOf(event: globalThis.KeyboardEvent): { chord: string; complete: boolean } {
+  const mods = [event.ctrlKey && 'ctrl', event.shiftKey && 'shift', event.altKey && 'alt', event.metaKey && 'cmd'].filter(Boolean) as string[]
+  if (MODIFIER_KEYS.has(event.key)) return { chord: `${mods.join('+')}+`, complete: false }
+  const code = event.code
+  const key =
+    CODE_NAMES[code] ??
+    (/^Key[A-Z]$/.test(code) ? code.slice(3).toLowerCase() : /^Digit\d$/.test(code) ? code.slice(5) : /^Numpad/.test(code) ? code.toLowerCase() : /^F\d+$/.test(code) ? code.toLowerCase() : event.key.toLowerCase())
+  return { chord: normalizeKey([...mods, key].join('+')), complete: true }
 }
 
 async function save(bindings: UserKeybinding[]) {
@@ -45,31 +69,98 @@ async function save(bindings: UserKeybinding[]) {
   }
 }
 
-function RecordDialog({ command, onClose, onSave }: { command: string; onClose: () => void; onSave: (key: string) => void }) {
-  useLocale()
-  const [recorded, setRecorded] = useState<string | null>(null)
-  const recorder = useHotkeyRecorder({ onRecord: (hotkey) => setRecorded(toVscodeKey(String(hotkey))), onCancel: onClose })
-  if (!recorder.isRecording && recorded === null) recorder.startRecording()
+interface Row {
+  id: string
+  command: string
+  label: string
+  binding: EffectiveBinding | null
+}
+
+/**
+ * VS Code's DefineKeybindingWidget: a 400px box in the middle of the editor with the message,
+ * an input that records up to two chords, the keybinding as key caps, and how many commands
+ * already use it. Enter accepts, Escape clears (then cancels), leaving the input cancels.
+ */
+function DefineKeybindingWidget({ existing, onAccept, onCancel, onShowExisting }: { existing: (key: string) => number; onAccept: (key: string) => void; onCancel: () => void; onShowExisting: (key: string) => void }) {
+  const [chords, setChords] = useState<{ chord: string; complete: boolean }[]>([])
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    const timer = setTimeout(() => inputRef.current?.focus(), 0)
+    return () => clearTimeout(timer)
+  }, [])
+  const key = chords.every((c) => c.complete) ? chords.map((c) => c.chord).join(' ') : ''
+  const count = key ? existing(key) : 0
+
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    // Nothing reaches the window's shortcuts while recording
+    event.preventDefault()
+    event.stopPropagation()
+    if (event.key === 'Enter' && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+      if (key) onAccept(key)
+      else onCancel()
+      return
+    }
+    if (event.key === 'Escape') {
+      if (chords.length) setChords([])
+      else onCancel()
+      return
+    }
+    const next = chordOf(event.nativeEvent)
+    setChords((current) => {
+      const last = current[current.length - 1]
+      if (last && !last.complete) return [...current.slice(0, -1), next]
+      return current.length === 2 ? [next] : [...current, next]
+    })
+  }
+
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogPopup showCloseButton={false}>
-        <DialogHeader>
-          <DialogTitle>{paletteLabel(command)}</DialogTitle>
-          <DialogDescription>{t('keys.pressKeys')}</DialogDescription>
-        </DialogHeader>
-        <DialogPanel className="flex justify-center py-4">
-          <Kbd className="text-base">{recorded ? formatKey(recorded) : recorder.recordedHotkey ? formatKey(toVscodeKey(String(recorder.recordedHotkey))) : '…'}</Kbd>
-        </DialogPanel>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
-            {t('prompt.cancel')}
-          </Button>
-          <Button disabled={!recorded} onClick={() => recorded && onSave(recorded)}>
-            {t('prompt.save')}
-          </Button>
-        </DialogFooter>
-      </DialogPopup>
-    </Dialog>
+    <div className="absolute inset-0 z-40 flex items-center justify-center" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+      <div className="w-[420px] max-w-[calc(100%-16px)] rounded-[8px] border border-(--vsc-editorWidget-border) bg-(--vsc-editorWidget-background) p-2.5 text-(--vsc-editorWidget-foreground) [box-shadow:var(--vsc-shadow-lg)]">
+        <div className="text-center">Press desired key combination and then press ENTER.</div>
+        <input
+          ref={inputRef}
+          readOnly
+          aria-label="Press desired key combination and then press ENTER."
+          value={chords.map((c) => c.chord).join(' ')}
+          className="mt-2.5 block h-[26px] w-full rounded-[4px] border border-(--vsc-input-border) bg-(--vsc-input-background) px-1.5 text-center text-(--vsc-input-foreground) outline-none focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-(--vsc-focusBorder)"
+          onKeyDown={onKeyDown}
+          onBlur={onCancel}
+        />
+        <div className="mt-2.5 flex min-h-[18px] items-center justify-center gap-1">
+          {chords.map((c, i) => (
+            <span key={i} className="flex items-center gap-1">
+              {i > 0 && <span>chord to</span>}
+              <Keybinding value={formatKey(c.chord.replace(/\+$/, ''))} className="mx-1" />
+            </span>
+          ))}
+        </div>
+        <div className="mt-2.5 min-h-[18px] text-center">
+          {count > 0 && (
+            <button
+              type="button"
+              className="cursor-pointer text-inherit underline"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => onShowExisting(key)}
+            >
+              {count === 1 ? '1 existing command has this keybinding' : `${count} existing commands have this keybinding`}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Bold highlight of the search term (list.highlightForeground). */
+function Highlight({ text, query }: { text: string; query: string }) {
+  const at = query ? text.toLowerCase().indexOf(query) : -1
+  if (at === -1) return <>{text}</>
+  return (
+    <>
+      {text.slice(0, at)}
+      <span className="font-bold text-(--vsc-list-highlightForeground) in-data-selected:text-inherit">{text.slice(at, at + query.length)}</span>
+      {text.slice(at + query.length)}
+    </>
   )
 }
 
@@ -78,104 +169,248 @@ export function KeybindingsTab() {
   const bindings = useEffectiveBindings()
   const { data: user = [] } = useQuery(keybindingsQuery)
   const [query, setQuery] = useState('')
-  const [editing, setEditing] = useState<string | null>(null)
+  const [recording, setRecording] = useState(false)
+  const [selected, setSelected] = useState<string | null>(null)
+  const [editing, setEditing] = useState<Row | null>(null)
+  const tableRef = useRef<HTMLDivElement>(null)
 
-  const rows = allCommands()
-    .map((c) => ({ command: c.command, label: paletteLabel(c.command), bindings: bindings.filter((b) => b.command === c.command) }))
-    .sort((a, b) => a.label.localeCompare(b.label))
-  const q = query.trim().toLowerCase()
-  const visible = rows.filter(
-    (r) => !q || r.label.toLowerCase().includes(q) || r.command.toLowerCase().includes(q) || r.bindings.some((b) => b.key.includes(q) || formatKey(b.key).toLowerCase().includes(q)),
-  )
+  // One row per keybinding, plus one for each command without any (VS Code's model)
+  const rows = useMemo<Row[]>(() => {
+    const result: Row[] = []
+    for (const command of allCommands()) {
+      const label = paletteLabel(command.command)
+      const own = bindings.filter((b) => b.command === command.command)
+      if (own.length === 0) result.push({ id: command.command, command: command.command, label, binding: null })
+      own.forEach((binding, i) => result.push({ id: `${command.command}#${i}`, command: command.command, label, binding }))
+    }
+    // Bound commands first, then alphabetically
+    return result.sort((a, b) => Number(!a.binding) - Number(!b.binding) || a.label.localeCompare(b.label))
+  }, [bindings])
 
-  const setKey = async (command: string, key: string) => {
-    const defaults = bindings.filter((b) => b.command === command && b.source === 'default')
-    const kept = user.filter((u) => u.command !== command && u.command !== `-${command}`)
-    const removals = defaults.map((d) => ({ key: d.key, command: `-${command}`, ...(d.when ? { when: d.when } : {}) }))
-    const when = defaults[0]?.when
-    await save([...kept, ...removals, { key, command, ...(when ? { when } : {}) }])
+  const raw = query.trim()
+  const quoted = /^".*"$/.test(raw) ? normalizeKey(raw.slice(1, -1)) : null
+  const q = raw.toLowerCase()
+  const visible = rows.filter((r) => {
+    if (quoted !== null) return r.binding?.key === quoted
+    return (
+      !q ||
+      r.label.toLowerCase().includes(q) ||
+      r.command.toLowerCase().includes(q) ||
+      (r.binding && (r.binding.key.includes(q) || formatKey(r.binding.key).toLowerCase().includes(q) || r.binding.when?.toLowerCase().includes(q)))
+    )
+  })
+
+  const setKey = async (row: Row, key: string) => {
+    const binding = row.binding
+    let next = user
+    if (binding?.source === 'user') {
+      next = user.filter((u) => !(u.command === row.command && normalizeKey(u.key) === binding.key && u.when === binding.when))
+    } else if (binding) {
+      next = [...user, { key: binding.key, command: `-${row.command}`, ...(binding.when ? { when: binding.when } : {}) }]
+    }
+    await save([...next, { key, command: row.command, ...(binding?.when ? { when: binding.when } : {}) }])
     setEditing(null)
   }
 
-  const remove = async (command: string) => {
-    const defaults = bindings.filter((b) => b.command === command && b.source === 'default')
-    const kept = user.filter((u) => u.command !== command && u.command !== `-${command}`)
-    await save([...kept, ...defaults.map((d) => ({ key: d.key, command: `-${command}`, ...(d.when ? { when: d.when } : {}) }))])
+  const remove = async (row: Row) => {
+    const binding = row.binding
+    if (!binding) return
+    if (binding.source === 'user') {
+      await save(user.filter((u) => !(u.command === row.command && normalizeKey(u.key) === binding.key && u.when === binding.when)))
+    } else {
+      await save([...user, { key: binding.key, command: `-${row.command}`, ...(binding.when ? { when: binding.when } : {}) }])
+    }
   }
 
   const reset = async (command: string) => save(user.filter((u) => u.command !== command && u.command !== `-${command}`))
 
+  const onTableKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const index = visible.findIndex((r) => r.id === selected)
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      const next = visible[Math.min(visible.length - 1, Math.max(0, index + (event.key === 'ArrowDown' ? 1 : -1)))]
+      if (!next) return
+      setSelected(next.id)
+      tableRef.current?.querySelector(`[data-row="${CSS.escape(next.id)}"]`)?.scrollIntoView({ block: 'nearest' })
+    } else if (event.key === 'Enter' && index >= 0) {
+      event.preventDefault()
+      setEditing(visible[index])
+    }
+  }
+
+  // Column weights (keybindingsEditor.ts): actions 40px, then .3 / .2 / .35 / .15 of the rest
+  const column = (weight: number) => ({ flex: `${weight} 1 0%` })
+  const columnBorder =
+    'border-l border-transparent group-hover/table:border-(--vsc-tree-tableColumnsBorder) transition-[border-color] duration-200 ease-out motion-reduce:transition-none'
+  const cell = cn('flex min-w-0 items-center overflow-hidden ps-2.5', columnBorder)
+
+  const header = (
+    <div role="row" className="sticky top-0 z-10 flex h-[30px] bg-(--vsc-editor-background) font-semibold">
+      <div className="flex h-full w-full bg-(--vsc-tree-tableOddRowsBackground)">
+        <div role="columnheader" className="w-10 shrink-0" />
+        <div role="columnheader" className={cell} style={column(0.3)}>
+          <span className="truncate">{t('keys.command')}</span>
+        </div>
+        <div role="columnheader" className={cell} style={column(0.2)}>
+          <span className="truncate">{t('keys.keybinding')}</span>
+        </div>
+        <div role="columnheader" className={cell} style={column(0.35)}>
+          <span className="truncate">{t('keys.when')}</span>
+        </div>
+        <div role="columnheader" className={cell} style={column(0.15)}>
+          <span className="truncate">{t('keys.source')}</span>
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderRow = (row: Row, index: number): ReactNode => {
+    const isSelected = row.id === selected
+    const customized = user.some((u) => u.command === row.command || u.command === `-${row.command}`)
+    const idMatched = q && quoted === null && row.command.toLowerCase().includes(q)
+    const binding = row.binding
+    return (
+      <ContextMenu key={row.id}>
+        <ContextMenuTrigger
+          render={
+            <div
+              role="row"
+              data-row={row.id}
+              data-selected={isSelected || undefined}
+              aria-selected={isSelected}
+              className={cn(
+                'group/row flex cursor-default',
+                idMatched ? 'h-10' : 'h-6',
+                isSelected
+                  ? 'bg-(--vsc-list-inactiveSelectionBackground) group-focus/table:bg-(--vsc-list-activeSelectionBackground) group-focus/table:text-(--vsc-list-activeSelectionForeground) group-focus/table:outline-solid group-focus/table:outline-1 group-focus/table:-outline-offset-1 group-focus/table:outline-(--vsc-list-focusAndSelectionOutline)'
+                  : cn('hover:bg-(--vsc-list-hoverBackground)', index % 2 === 1 && 'bg-(--vsc-tree-tableOddRowsBackground)'),
+              )}
+              onClick={() => setSelected(row.id)}
+              onDoubleClick={() => setEditing(row)}
+            />
+          }
+        >
+          <div className="flex w-10 shrink-0 items-center justify-center">
+            <span className={cn('hidden group-hover/row:flex', isSelected && 'flex')}>
+              <ActionButton
+                small
+                icon={binding ? 'edit' : 'add'}
+                label={binding ? t('keys.change') : 'Add Keybinding'}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setEditing(row)
+                }}
+              />
+            </span>
+          </div>
+          <div className={cn(cell, 'flex-col items-start justify-center')} style={column(0.3)} title={`${row.label} (${row.command})`}>
+            <span className="max-w-full truncate">
+              <Highlight text={row.label} query={quoted === null ? q : ''} />
+            </span>
+            {idMatched && (
+              <span className="mt-0.5 max-w-full truncate font-mono text-[90%]">
+                <Highlight text={row.command} query={q} />
+              </span>
+            )}
+          </div>
+          <div className={cell} style={column(0.2)}>
+            {binding && <Keybinding value={formatKey(binding.key)} />}
+          </div>
+          <div className={cell} style={column(0.35)} title={binding?.when}>
+            {binding?.when ? <span className="truncate font-mono text-[90%]">{binding.when}</span> : <span className="ps-1">-</span>}
+          </div>
+          <div className={cell} style={column(0.15)}>
+            <span className="truncate">{binding ? (binding.source === 'user' ? t('keys.user') : t('keys.default')) : '-'}</span>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuPopup>
+          <ContextMenuItem onClick={() => void ipc.clipboardWrite(row.command)}>Copy Command ID</ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={() => setEditing(row)}>{binding ? `${t('keys.change')}...` : 'Add Keybinding...'}</ContextMenuItem>
+          {binding && <ContextMenuItem onClick={() => void remove(row)}>{t('keys.remove')}</ContextMenuItem>}
+          <ContextMenuItem disabled={!customized} onClick={() => void reset(row.command)}>
+            {t('keys.reset')}
+          </ContextMenuItem>
+        </ContextMenuPopup>
+      </ContextMenu>
+    )
+  }
+
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2">
-        <InputGroup className="max-w-md flex-1">
-          <InputGroupInput placeholder={t('keys.search')} value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t('keys.search')} />
-          <InputGroupAddon>
-            <SearchIcon />
+    <div className="relative flex h-full flex-col ps-[27px] pt-[11px]">
+      <EditorActions>
+        <ActionButton icon="go-to-file" label={t('keys.openJson')} onClick={() => void ipc.settingsFilePaths().then(([, keys]) => ipc.openPath(keys))} />
+      </EditorActions>
+      <div className="shrink-0 pe-2.5 pb-[11px]">
+        <InputGroup>
+          <InputGroupInput
+            placeholder={recording ? 'Recording Keys. Press Escape to exit' : t('keys.search')}
+            value={query}
+            onChange={(e) => !recording && setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (!recording) return
+              // Recording: keys become a quoted keybinding search; Escape stops recording
+              e.preventDefault()
+              e.stopPropagation()
+              if (e.key === 'Escape') setRecording(false)
+              else if (!MODIFIER_KEYS.has(e.key)) setQuery(`"${chordOf(e.nativeEvent).chord}"`)
+            }}
+            aria-label={t('keys.search')}
+          />
+          <InputGroupAddon align="inline-end">
+            {recording && (
+              <span className="me-2 rounded-[2px] bg-(--vsc-badge-background) px-[3px] py-0.5 text-(--vsc-badge-foreground) text-[11px] leading-none">Recording Keys</span>
+            )}
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    aria-label="Record Keys"
+                    aria-pressed={recording}
+                    className="flex size-5 cursor-pointer items-center justify-center rounded-[3px] border border-transparent text-inherit hover:bg-(--vsc-inputOption-hoverBackground) aria-pressed:border-(--vsc-inputOption-activeBorder) aria-pressed:bg-(--vsc-inputOption-activeBackground) aria-pressed:text-(--vsc-inputOption-activeForeground)"
+                    onClick={() => setRecording(!recording)}
+                  />
+                }
+              >
+                <Icon name="record-keys" />
+              </TooltipTrigger>
+              <TooltipPopup>Record Keys</TooltipPopup>
+            </Tooltip>
+            <button
+              type="button"
+              aria-label="Clear Keybindings Search Input"
+              disabled={!query}
+              className="flex size-5 cursor-pointer items-center justify-center rounded-[3px] text-inherit hover:bg-(--vsc-inputOption-hoverBackground) disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
+              onClick={() => setQuery('')}
+            >
+              <Icon name="clear-all" />
+            </button>
           </InputGroupAddon>
         </InputGroup>
-        <Button size="sm" variant="ghost" onClick={() => void ipc.settingsFilePaths().then(([, keys]) => ipc.openPath(keys))}>
-          <FileJsonIcon />
-          {t('keys.openJson')}
-        </Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">
-        <table className="w-full text-[13px]">
-          <thead className="sticky top-0 bg-background text-muted-foreground text-xs">
-            <tr className="border-b text-start">
-              <th className="px-4 py-1.5 text-start font-medium">{t('keys.command')}</th>
-              <th className="px-2 py-1.5 text-start font-medium">{t('keys.keybinding')}</th>
-              <th className="px-2 py-1.5 text-start font-medium">{t('keys.when')}</th>
-              <th className="px-2 py-1.5 text-start font-medium">{t('keys.source')}</th>
-              <th className="w-24" />
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((row) => {
-              const customized = user.some((u) => u.command === row.command || u.command === `-${row.command}`)
-              return (
-                <tr key={row.command} className="group border-b border-border/50 hover:bg-accent/40">
-                  <td className="px-4 py-1.5">
-                    <div>{row.label}</div>
-                    <div className="text-muted-foreground text-xs">{row.command}</div>
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <div className="flex flex-wrap gap-1">
-                      {row.bindings.map((b) => (
-                        <Kbd key={b.key + (b.when ?? '')}>{formatKey(b.key)}</Kbd>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="max-w-64 truncate px-2 py-1.5 font-mono text-muted-foreground text-xs" title={row.bindings.map((b) => b.when).filter(Boolean).join('\n')}>
-                    {row.bindings[0]?.when ?? ''}
-                  </td>
-                  <td className="px-2 py-1.5 text-muted-foreground text-xs">
-                    {row.bindings.length ? (row.bindings.some((b) => b.source === 'user') ? t('keys.user') : t('keys.default')) : ''}
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <div className="flex justify-end gap-0.5 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100">
-                      <Button size="icon-xs" variant="ghost" aria-label={t('keys.change')} title={t('keys.change')} onClick={() => setEditing(row.command)}>
-                        <PencilIcon />
-                      </Button>
-                      {row.bindings.length > 0 && (
-                        <Button size="icon-xs" variant="ghost" aria-label={t('keys.remove')} title={t('keys.remove')} onClick={() => void remove(row.command)}>
-                          <XIcon />
-                        </Button>
-                      )}
-                      {customized && (
-                        <Button size="icon-xs" variant="ghost" aria-label={t('keys.reset')} title={t('keys.reset')} onClick={() => void reset(row.command)}>
-                          <RotateCcwIcon />
-                        </Button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+      <div
+        ref={tableRef}
+        role="grid"
+        tabIndex={0}
+        aria-label={t('detail.keybindings')}
+        className="group/table min-h-0 flex-1 overflow-y-auto overflow-x-hidden whitespace-nowrap outline-none"
+        onKeyDown={onTableKeyDown}
+      >
+        {header}
+        {visible.map(renderRow)}
       </div>
-      {editing && <RecordDialog command={editing} onClose={() => setEditing(null)} onSave={(key) => void setKey(editing, key)} />}
+      {editing && (
+        <DefineKeybindingWidget
+          existing={(key) => bindings.filter((b) => b.key === key).length}
+          onAccept={(key) => void setKey(editing, key)}
+          onCancel={() => setEditing(null)}
+          onShowExisting={(key) => {
+            setQuery(`"${key}"`)
+            setEditing(null)
+          }}
+        />
+      )}
     </div>
   )
 }

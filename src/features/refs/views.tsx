@@ -1,13 +1,13 @@
 // GitLens's Branches, Remotes, Tags, Stashes, Worktrees and Contributors views.
 import { useQuery } from '@tanstack/react-query'
-import { ArchiveIcon, CheckIcon, CloudIcon, FolderGit2Icon, GitBranchIcon, TagIcon } from 'lucide-react'
+import { Icon } from '@/components/Icon'
 import { gl, useLocale } from '@/i18n'
 import { type BranchInfo, type Contributor, git, type RefInfo, type StashInfo, type Upstream, type WorktreeInfo } from '@/lib/git'
 import { errorMessage } from '@/lib/ipc'
 import { relativeTime } from '@/lib/time'
 import { Avatar } from '../avatars/Avatar'
 import { pluralCommits } from '../history/CommitsView'
-import { commitChildren, fileNode, messageNode, shortSha } from '../history/nodes'
+import { commitChildren, DecorationBadge, fileNode, messageNode, shortSha } from '../history/nodes'
 import { providerFor, type RemoteSetting } from '../remote/providers'
 import { useSetting } from '@/settings/settings'
 import type { ViewProps } from '../views/registry'
@@ -45,11 +45,27 @@ function useRepoQuery<T>(root: string, name: string, fn: () => Promise<T>) {
   return useQuery({ queryKey: ['repo', root, name], queryFn: fn, staleTime: Infinity })
 }
 
-function trackingDescription(upstream: Upstream | null): string | undefined {
+/** GitLens's branch description: `1↓ 2↑  ⇄  origin/main  •  2 days ago` (`⚠` when the upstream
+ * is missing; the counts only when ahead or behind). */
+function branchDescription(branch: BranchInfo, locale: string): string | undefined {
+  const parts: string[] = []
+  const up = branch.upstream
+  if (up) {
+    const counts = !up.gone && (up.ahead || up.behind) ? `${up.behind}↓ ${up.ahead}↑\u00a0 ` : ''
+    parts.push(`${counts}${up.gone ? '\u26a0' : '\u21c4'}\u00a0 ${up.name}`)
+  }
+  if (branch.time) parts.push(relativeTime(branch.time, locale))
+  return parts.length ? parts.join('\u00a0\u00a0\u2022\u00a0\u00a0') : undefined
+}
+
+/** GitLens's branch decoration color: ahead, behind, diverged or missing upstream. */
+function branchColor(upstream: Upstream | null): string | undefined {
   if (!upstream) return undefined
-  if (upstream.gone) return gl('{0} (missing)', upstream.name)
-  const counts = [upstream.behind ? `${upstream.behind}↓` : '', upstream.ahead ? `${upstream.ahead}↑` : ''].filter(Boolean).join(' ')
-  return counts ? `${counts}  ${upstream.name}` : upstream.name
+  if (upstream.gone) return 'var(--vsc-gitlens-branchMissingUpstream)'
+  if (upstream.ahead && upstream.behind) return 'var(--vsc-gitlens-branchDiverged)'
+  if (upstream.ahead) return 'var(--vsc-gitlens-branchAhead)'
+  if (upstream.behind) return 'var(--vsc-gitlens-branchBehind)'
+  return undefined
 }
 
 function status(nodes: TreeNode[], query: { isPending: boolean; error: unknown }, empty: string, count: number) {
@@ -65,12 +81,17 @@ export function BranchesView({ repo }: ViewProps) {
   const branches = [...(query.data ?? [])].sort((a, b) => Number(b.current) - Number(a.current) || (b.time ?? 0) - (a.time ?? 0))
   const leaf = (branch: BranchInfo, label: string): TreeNode => {
     const flags = [branch.current && '+current', branch.upstream && '+tracking', branch.upstream?.ahead && '+ahead', branch.upstream?.behind && '+behind'].filter(Boolean).join('')
+    const color = branchColor(branch.upstream)
+    // The current branch gets GitLens's ◎ badge; a missing upstream ⚠
+    const badge = branch.current ? '\u25ce' : branch.upstream?.gone ? '\u26a0' : null
     return {
       id: `branch:${branch.name}`,
-      label: branch.current ? <span className="font-medium">{label}</span> : label,
-      ariaLabel: label,
-      description: trackingDescription(branch.upstream),
-      icon: branch.current ? <CheckIcon /> : <GitBranchIcon className="text-muted-foreground" />,
+      label,
+      description: branchDescription(branch, locale),
+      // GitLens's ahead/behind/diverged branch icons are its own SVGs; the codicon takes their color
+      icon: <Icon name="git-branch" style={color ? { color } : undefined} />,
+      color,
+      decoration: badge ? <DecorationBadge text={badge} color={color} title={branch.current ? gl('Current') : undefined} /> : undefined,
       tooltip: [branch.short, branch.upstream && gl('Tracking {0}', branch.upstream.name), branch.subject].filter(Boolean).join('\n'),
       contextValue: `gitlens:branch${flags}`,
       arg: { root, ref: branch } satisfies RefArg,
@@ -94,7 +115,7 @@ export function RemotesView({ repo }: ViewProps) {
       id: `remote-branch:${ref.name}`,
       label,
       description: ref.time ? relativeTime(ref.time, locale) : undefined,
-      icon: <GitBranchIcon className="text-muted-foreground" />,
+      icon: <Icon name="git-branch" />,
       tooltip: [ref.short, ref.subject].filter(Boolean).join('\n'),
       contextValue: 'gitlens:branch+remote',
       arg: { root, ref } satisfies RefArg,
@@ -104,7 +125,7 @@ export function RemotesView({ repo }: ViewProps) {
       id: `remote:${remote.name}`,
       label: remote.name,
       description: provider ? `${provider.name} · ${provider.path}` : (remote.fetchUrl ?? undefined),
-      icon: <CloudIcon className="text-muted-foreground" />,
+      icon: <Icon name="cloud" />,
       tooltip: [remote.fetchUrl, remote.pushUrl !== remote.fetchUrl ? remote.pushUrl : null].filter(Boolean).join('\n'),
       contextValue: `gitlens:remote${provider ? '+provider' : ''}`,
       arg: { root, remote: remote.name, url: remote.fetchUrl } satisfies RemoteArg,
@@ -126,7 +147,6 @@ export function TagsView({ repo }: ViewProps) {
     id: `tag:${tag.name}`,
     label,
     description: tag.time ? relativeTime(tag.time, locale) : undefined,
-    icon: <TagIcon className="text-muted-foreground" />,
     tooltip: [tag.short, tag.commit && shortSha(tag.commit), tag.subject].filter(Boolean).join('\n'),
     contextValue: 'gitlens:tag',
     arg: { root, ref: tag } satisfies RefArg,
@@ -151,7 +171,6 @@ export function StashesView({ repo }: ViewProps) {
       id: `stash:${stash.commit}`,
       label: stashLabel(stash.message) || gl('(no message)'),
       description: `stash@{${stash.index}}, ${relativeTime(stash.time, locale)}`,
-      icon: <ArchiveIcon className="text-muted-foreground" />,
       tooltip: stash.message,
       contextValue: 'gitlens:stash',
       arg: { root, stash } satisfies StashArg,
@@ -180,10 +199,11 @@ export function WorktreesView({ repo }: ViewProps) {
     const label = worktree.branch ?? (worktree.commit ? gl('{0} (detached)', shortSha(worktree.commit)) : gl('(unknown)'))
     return {
       id: `worktree:${worktree.path}`,
-      label: worktree.current ? <span className="font-medium">{label}</span> : label,
-      ariaLabel: label,
+      label,
       description: tildePath(worktree.path) + (worktree.missing ? ` · ${gl('missing')}` : worktree.locked ? ` · ${gl('locked')}` : ''),
-      icon: worktree.current ? <CheckIcon /> : <FolderGit2Icon className="text-muted-foreground" />,
+      // GitLens: `check` for the current worktree, `git-branch` for others, `git-commit` detached
+      icon: <Icon name={worktree.current ? 'check' : worktree.branch ? 'git-branch' : 'git-commit'} />,
+      decoration: worktree.missing ? <DecorationBadge text={'\u26a0'} color="var(--vsc-gitlens-branchMissingUpstream)" /> : undefined,
       tooltip: worktree.path,
       contextValue: `gitlens:worktree${flags}`,
       arg: { root, worktree } satisfies WorktreeArg,
@@ -204,7 +224,7 @@ export function ContributorsView({ repo }: ViewProps) {
       id: `contributor:${contributor.email}`,
       label: contributor.name,
       description: pluralCommits(contributor.commits),
-      icon: <Avatar root={root} name={contributor.name} email={contributor.email} sha={contributor.latest} />,
+      icon: <Avatar root={root} name={contributor.name} email={contributor.email} sha={contributor.latest} shape="square" />,
       tooltip: `${contributor.name} <${contributor.email}>\n${pluralCommits(contributor.commits)}, ${gl('last commit {0}', relativeTime(contributor.latestTime, locale))}`,
       contextValue: 'gitlens:contributor',
       arg: { root, contributor } satisfies ContributorArg,

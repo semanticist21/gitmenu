@@ -2,7 +2,7 @@
 
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
-import { ChevronRight, MoreHorizontal } from "lucide-react";
+import { Icon } from "@/components/Icon";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +47,7 @@ export function BreadcrumbLink({
   ...props
 }: useRender.ComponentProps<"a">): React.ReactElement {
   const defaultProps = {
-    className: cn("transition-colors hover:text-foreground", className),
+    className: cn("hover:text-foreground", className),
     "data-slot": "breadcrumb-link",
   };
 
@@ -85,7 +85,7 @@ export function BreadcrumbSeparator({
       role="presentation"
       {...props}
     >
-      {children ?? <ChevronRight />}
+      {children ?? <Icon name="chevron-right" />}
     </li>
   );
 }
@@ -102,7 +102,7 @@ export function BreadcrumbEllipsis({
       role="presentation"
       {...props}
     >
-      <MoreHorizontal className="size-4" />
+      <Icon name="ellipsis" className="size-4" />
       <span className="sr-only">More</span>
     </span>
   );

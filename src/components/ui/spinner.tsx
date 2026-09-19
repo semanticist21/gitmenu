@@ -1,16 +1,18 @@
-import { Loader2Icon } from "lucide-react";
 import type React from "react";
-import { cn } from "@/lib/utils";
+import { Icon } from "@/components/Icon";
 
+/** VS Code's progress glyph: codicon `loading` spinning in 30 steps per 1.5s. */
 export function Spinner({
   className,
   ...props
-}: React.ComponentProps<typeof Loader2Icon>): React.ReactElement {
+}: Omit<React.ComponentProps<"span">, "children">): React.ReactElement {
   return (
-    <Loader2Icon
+    <Icon
       aria-label="Loading"
-      className={cn("animate-spin", className)}
+      className={className}
+      name="loading"
       role="status"
+      spin
       {...props}
     />
   );

@@ -1,8 +1,51 @@
 "use client";
 
 import { Progress as ProgressPrimitive } from "@base-ui/react/progress";
-import type React from "react";
+import * as React from "react";
 import { cn } from "@/lib/utils";
+
+// VS Code's progress bar (base/browser/ui/progressbar/progressbar.css): a 2px track with a
+// 2%-wide bit. Infinite progress slides the bit across in 4s (throttled to steps(100) after
+// 10s); discrete progress grows its width in 100ms.
+
+export function ProgressBar({
+  value,
+  className,
+  ...props
+}: Omit<React.ComponentProps<"div">, "children"> & {
+  /** 0-100 for discrete progress; leave out for infinite */
+  value?: number;
+}): React.ReactElement {
+  const infinite = value === undefined;
+  const [longRunning, setLongRunning] = React.useState(false);
+  React.useEffect(() => {
+    if (!infinite) return;
+    const timer = window.setTimeout(() => setLongRunning(true), 10_000);
+    return () => window.clearTimeout(timer);
+  }, [infinite]);
+  return (
+    <div
+      aria-valuemax={infinite ? undefined : 100}
+      aria-valuemin={infinite ? undefined : 0}
+      aria-valuenow={infinite ? undefined : value}
+      className={cn("relative h-0.5 w-full overflow-hidden", className)}
+      data-slot="progress-bar"
+      role="progressbar"
+      {...props}
+    >
+      <div
+        className={cn(
+          "absolute left-0 h-0.5 bg-(--vsc-progressBar-background)",
+          infinite
+            ? "w-[2%] animate-[progress_4s_linear_infinite]"
+            : "transition-[width] duration-100 ease-linear",
+          infinite && longRunning && "[animation-timing-function:steps(100)]",
+        )}
+        style={infinite ? undefined : { width: `${value}%` }}
+      />
+    </div>
+  );
+}
 
 export function Progress({
   className,
@@ -11,7 +54,7 @@ export function Progress({
 }: ProgressPrimitive.Root.Props): React.ReactElement {
   return (
     <ProgressPrimitive.Root
-      className={cn("flex w-full flex-col gap-2", className)}
+      className={cn("flex w-full flex-col gap-1", className)}
       data-slot="progress"
       {...props}
     >
@@ -32,7 +75,7 @@ export function ProgressLabel({
 }: ProgressPrimitive.Label.Props): React.ReactElement {
   return (
     <ProgressPrimitive.Label
-      className={cn("font-medium text-sm", className)}
+      className={cn("text-[13px]", className)}
       data-slot="progress-label"
       {...props}
     />
@@ -45,10 +88,7 @@ export function ProgressTrack({
 }: ProgressPrimitive.Track.Props): React.ReactElement {
   return (
     <ProgressPrimitive.Track
-      className={cn(
-        "block h-1.5 w-full overflow-hidden rounded-full bg-input",
-        className,
-      )}
+      className={cn("relative block h-0.5 w-full overflow-hidden", className)}
       data-slot="progress-track"
       {...props}
     />
@@ -61,7 +101,10 @@ export function ProgressIndicator({
 }: ProgressPrimitive.Indicator.Props): React.ReactElement {
   return (
     <ProgressPrimitive.Indicator
-      className={cn("bg-primary transition-all duration-500", className)}
+      className={cn(
+        "h-0.5 bg-(--vsc-progressBar-background) transition-[width] duration-100 ease-linear",
+        className,
+      )}
       data-slot="progress-indicator"
       {...props}
     />
@@ -74,7 +117,7 @@ export function ProgressValue({
 }: ProgressPrimitive.Value.Props): React.ReactElement {
   return (
     <ProgressPrimitive.Value
-      className={cn("text-sm tabular-nums", className)}
+      className={cn("text-[12px] tabular-nums", className)}
       data-slot="progress-value"
       {...props}
     />

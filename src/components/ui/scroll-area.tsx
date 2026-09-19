@@ -4,6 +4,9 @@ import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
 import type React from "react";
 import { cn } from "@/lib/utils";
 
+// VS Code's scrollable element (base/browser/ui/scrollbar): 10px overlay tracks with a square
+// slider, hidden until the pointer is over the area or it scrolls (fade in 100ms, out 800ms),
+// and a 3px shadow at the top once scrolled. `scrollFade` turns that shadow on.
 export function ScrollArea({
   className,
   children,
@@ -22,16 +25,19 @@ export function ScrollArea({
 }): React.ReactElement {
   return (
     <ScrollAreaPrimitive.Root
-      className={cn("size-full min-h-0", className)}
+      className={cn(
+        "relative size-full min-h-0",
+        scrollFade &&
+          "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-10 before:hidden before:h-[3px] before:shadow-[var(--vsc-scrollbar-shadow)_0_6px_6px_-6px_inset] data-overflow-y-start:before:block",
+        className,
+      )}
       {...props}
     >
       <ScrollAreaPrimitive.Viewport
         className={cn(
-          "h-full rounded-[inherit] outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+          "h-full rounded-[inherit] outline-none",
           overscrollContain &&
             "data-has-overflow-y:overscroll-y-contain data-has-overflow-x:overscroll-x-contain",
-          scrollFade &&
-            "mask-t-from-[calc(100%-min(var(--fade-size),var(--scroll-area-overflow-y-start)))] mask-b-from-[calc(100%-min(var(--fade-size),var(--scroll-area-overflow-y-end)))] mask-l-from-[calc(100%-min(var(--fade-size),var(--scroll-area-overflow-x-start)))] mask-r-from-[calc(100%-min(var(--fade-size),var(--scroll-area-overflow-x-end)))] [--fade-size:1.5rem]",
           scrollbarGutter &&
             "data-has-overflow-y:pe-2.5 data-has-overflow-x:pb-2.5",
         )}
@@ -60,7 +66,7 @@ export function ScrollBar({
   return (
     <ScrollAreaPrimitive.Scrollbar
       className={cn(
-        "m-1 flex opacity-0 transition-opacity delay-300 data-[orientation=horizontal]:h-1.5 data-[orientation=vertical]:w-1.5 data-[orientation=horizontal]:flex-col data-hovering:opacity-100 data-scrolling:opacity-100 data-hovering:delay-0 data-scrolling:delay-0 data-hovering:duration-100 data-scrolling:duration-100",
+        "flex opacity-0 transition-opacity duration-800 ease-linear data-[orientation=horizontal]:h-2.5 data-[orientation=vertical]:w-2.5 data-[orientation=horizontal]:flex-col data-hovering:opacity-100 data-scrolling:opacity-100 data-hovering:duration-100 data-scrolling:duration-100",
         className,
       )}
       data-slot="scroll-area-scrollbar"
@@ -68,7 +74,7 @@ export function ScrollBar({
       {...props}
     >
       <ScrollAreaPrimitive.Thumb
-        className="relative flex-1 rounded-full bg-foreground/20"
+        className="relative min-h-5 min-w-5 flex-1 bg-(--vsc-scrollbarSlider-background) hover:bg-(--vsc-scrollbarSlider-hoverBackground) active:bg-(--vsc-scrollbarSlider-activeBackground) data-[orientation=horizontal]:min-h-0 data-[orientation=vertical]:min-w-0"
         data-slot="scroll-area-thumb"
       />
     </ScrollAreaPrimitive.Scrollbar>

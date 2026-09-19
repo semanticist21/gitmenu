@@ -1,282 +1,645 @@
 @import "tailwindcss";
-@import "./theme/presets.css";
+/* Codicons (the font VS Code draws every icon with); in the base layer so utilities can size them */
+@import "@vscode/codicons/dist/codicon.css" layer(base);
 
 @custom-variant dark (&:is(.dark *));
 
-/* The panel is 360px wide but is a desktop surface: coss components use their compact
-   `sm:` sizes from the start */
+/* The panel is 360px wide but is a desktop surface: no mobile breakpoints */
 @theme {
-    --breakpoint-sm: 0px;
+  --breakpoint-sm: 0px;
+  /* VS Code type ramp (platform/theme/common/sizes/baseSizes.ts) */
+  --text-2xs: 10px;
+  --text-2xs--line-height: 14px;
+  --text-xs: 11px;
+  --text-xs--line-height: 16px;
+  --text-sm: 12px;
+  --text-sm--line-height: 16px;
+  --text-base: 13px;
+  --text-base--line-height: 1.4;
+  --text-lg: 14px;
+  --text-lg--line-height: 22px;
+  --text-xl: 18px;
+  --text-xl--line-height: 24px;
+  --text-2xl: 26px;
+  --text-2xl--line-height: 32px;
 }
 
 @theme inline {
-    --animate-skeleton: skeleton 2s -1s infinite linear;
-    --animate-caret-blink: 1s ease-out infinite caret-blink;
-    --animate-toast-success-odd: toast-success-odd 0.32s cubic-bezier(0.5, 1, 0.89, 1);
-    --animate-toast-success-even: toast-success-even 0.32s cubic-bezier(0.5, 1, 0.89, 1);
-    --animate-toast-error-odd: toast-error-odd 0.28s cubic-bezier(0.5, 1, 0.89, 1);
-    --animate-toast-error-even: toast-error-even 0.28s cubic-bezier(0.5, 1, 0.89, 1);
-    --font-heading: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-    --font-sans: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    --color-sidebar-ring: var(--sidebar-ring);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar: var(--sidebar);
-    --color-code-highlight: var(--code-highlight);
-    --code-foreground: var(--code-foreground);
-    --color-code: var(--code);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-secondary: var(--secondary);
-    --color-ring: var(--ring);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-primary: var(--primary);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-popover: var(--popover);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-muted: var(--muted);
-    --color-input: var(--input);
-    --color-foreground: var(--foreground);
-    --color-destructive: var(--destructive);
-    --color-card-foreground: var(--card-foreground);
-    --color-card: var(--card);
-    --color-border: var(--border);
-    --color-background: var(--background);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-accent: var(--accent);
-    --color-warning-foreground: var(--warning-foreground);
-    --color-warning: var(--warning);
-    --color-success-foreground: var(--success-foreground);
-    --color-success: var(--success);
-    --color-info-foreground: var(--info-foreground);
-    --color-info: var(--info);
-    --color-destructive-foreground: var(--destructive-foreground);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
-  @keyframes skeleton {
-  to {
-    background-position: -200% 0;
-        }
-    }
-  @keyframes caret-blink {
-  0%, 70%, to {
-    opacity: 1;
-        }
-  20%, 50% {
-    opacity: 0;
-        }
-    }
-  @keyframes toast-success-odd {
-  0% {
-    scale: 1;
-        }
-  30% {
-    scale: 1.025;
-        }
-  60% {
-    scale: 0.99;
-        }
-  100% {
-    scale: 1;
-        }
-    }
-  @keyframes toast-error-odd {
-  0% {
-    translate: 0 0;
-        }
-  25% {
-    translate: -3px 0;
-        }
-  50% {
-    translate: 3px 0;
-        }
-  75% {
-    translate: -3px 0;
-        }
-  100% {
-    translate: 0 0;
-        }
-    }
-  @keyframes toast-success-even {
-  0% {
-    scale: 1;
-        }
-  30% {
-    scale: 1.025;
-        }
-  60% {
-    scale: 0.99;
-        }
-  100% {
-    scale: 1;
-        }
-    }
-  @keyframes toast-error-even {
-  0% {
-    translate: 0 0;
-        }
-  25% {
-    translate: -3px 0;
-        }
-  50% {
-    translate: 3px 0;
-        }
-  75% {
-    translate: -3px 0;
-        }
-  100% {
-    translate: 0 0;
-        }
-    }
+  /* workbench/browser/media/style.css */
+  --font-sans: -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "SF Mono", Monaco, Menlo, Courier, monospace;
+  /* editor/common/config/fontInfo.ts (diff and file viewer) */
+  --font-editor: Menlo, Monaco, "Courier New", monospace;
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 8px;
+  --radius-2xl: 12px;
+  --radius-3xl: 12px;
+  --radius-4xl: 12px;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar: var(--sidebar);
+  --color-code-highlight: var(--code-highlight);
+  --color-code-foreground: var(--code-foreground);
+  --color-code: var(--code);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-ring: var(--ring);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-input: var(--input);
+  --color-foreground: var(--foreground);
+  --color-destructive: var(--destructive);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-background: var(--background);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning: var(--warning);
+  --color-success-foreground: var(--success-foreground);
+  --color-success: var(--success);
+  --color-info-foreground: var(--info-foreground);
+  --color-info: var(--info);
+  --color-destructive-foreground: var(--destructive-foreground);
 }
 
+/* Light Modern (extensions/theme-defaults/themes/light_modern.json, resolved). The kit's
+   semantic names map onto VS Code colors; everything else is `--vsc-<color id>`. */
 :root {
-    --destructive-foreground: var(--color-red-700);
-    --info: var(--color-blue-500);
-    --info-foreground: var(--color-blue-700);
-    --success: var(--color-emerald-500);
-    --success-foreground: var(--color-emerald-700);
-    --warning: var(--color-amber-500);
-    --warning-foreground: var(--color-amber-700);
-    --accent: --alpha(var(--color-black) / 4%);
-    --accent-foreground: var(--color-neutral-800);
-    --background: var(--color-white);
-    --border: --alpha(var(--color-black) / 8%);
-    --card: var(--color-white);
-    --card-foreground: var(--color-neutral-800);
-    --destructive: var(--color-red-500);
-    --foreground: var(--color-neutral-800);
-    --input: --alpha(var(--color-black) / 10%);
-    --muted: --alpha(var(--color-black) / 4%);
-    --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 90%, var(--color-black));
-    --popover: var(--color-white);
-    --popover-foreground: var(--color-neutral-800);
-    --primary: var(--color-neutral-800);
-    --primary-foreground: var(--color-neutral-50);
-    --ring: var(--color-neutral-400);
-    --secondary: --alpha(var(--color-black) / 4%);
-    --secondary-foreground: var(--color-neutral-800);
-    --chart-1: var(--color-orange-600);
-    --chart-2: var(--color-teal-600);
-    --chart-3: var(--color-cyan-900);
-    --chart-4: var(--color-amber-400);
-    --chart-5: var(--color-amber-500);
-    --code: var(--color-white);
-    --code-foreground: var(--foreground);
-    --code-highlight: --alpha(var(--color-black) / 4%);
-    --radius: 0.625rem;
-    --sidebar: var(--color-neutral-50);
-    --sidebar-accent: --alpha(var(--color-black) / 4%);
-    --sidebar-accent-foreground: var(--color-neutral-800);
-    --sidebar-border: --alpha(var(--color-black) / 6%);
-    --sidebar-foreground: color-mix(in srgb, var(--color-neutral-800) 64%, var(--sidebar));
-    --sidebar-primary: var(--color-neutral-800);
-    --sidebar-primary-foreground: var(--color-neutral-50);
-    --sidebar-ring: var(--color-neutral-400);
+  --radius: 4px;
+  /* elevation (style.css): zero-offset glows */
+  --vsc-shadow-sm: 0 0 4px rgba(0, 0, 0, 0.08);
+  --vsc-shadow-md: 0 0 6px rgba(0, 0, 0, 0.08);
+  --vsc-shadow-lg: 0 0 12px rgba(0, 0, 0, 0.14);
+  --vsc-shadow-xl: 0 0 20px rgba(0, 0, 0, 0.15);
+  --vsc-cornerRadius-xSmall: 2px;
+  --vsc-cornerRadius-small: 4px;
+  --vsc-cornerRadius-medium: 6px;
+  --vsc-cornerRadius-large: 8px;
+  --vsc-cornerRadius-xLarge: 12px;
+  --vsc-cornerRadius-circle: 9999px;
+
+  --background: #f8f8f8;
+  --foreground: #3b3b3b;
+  --card: #f8f8f8;
+  --card-foreground: #3b3b3b;
+  --popover: #ffffff;
+  --popover-foreground: #3b3b3b;
+  --primary: #005fb8;
+  --primary-foreground: #ffffff;
+  --secondary: #e5e5e5;
+  --secondary-foreground: #3b3b3b;
+  --muted: #f2f2f2;
+  --muted-foreground: #3b3b3b;
+  --accent: #f2f2f2;
+  --accent-foreground: #3b3b3b;
+  --border: #e5e5e5;
+  --input: #cecece;
+  --ring: #005fb8;
+  --destructive: #f85149;
+  --destructive-foreground: #f85149;
+  --info: #0063d3;
+  --info-foreground: #0063d3;
+  --warning: #bf8803;
+  --warning-foreground: #bf8803;
+  --success: #587c0c;
+  --success-foreground: #587c0c;
+  --code: #ffffff;
+  --code-foreground: #3b3b3b;
+  --code-highlight: #eeeeee;
+  --sidebar: #f8f8f8;
+  --sidebar-foreground: #3b3b3b;
+  --sidebar-border: #e5e5e5;
+  --sidebar-accent: #f2f2f2;
+  --sidebar-accent-foreground: #3b3b3b;
+  --sidebar-primary: #005fb8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-ring: #005fb8;
+
+  --vsc-foreground: #3b3b3b;
+  --vsc-descriptionForeground: #3b3b3b;
+  --vsc-disabledForeground: #61616180;
+  --vsc-errorForeground: #f85149;
+  --vsc-focusBorder: #005fb8;
+  --vsc-icon-foreground: #3b3b3b;
+  --vsc-widget-border: #e5e5e5;
+  --vsc-widget-shadow: #00000029;
+  --vsc-textLink-foreground: #005fb8;
+  --vsc-textLink-activeForeground: #005fb8;
+  --vsc-textPreformat-foreground: #3b3b3b;
+  --vsc-textPreformat-background: #0000001f;
+  --vsc-textCodeBlock-background: #f8f8f8;
+  --vsc-sash-hoverBorder: #005fb8;
+  --vsc-sideBar-background: #f8f8f8;
+  --vsc-sideBar-foreground: #3b3b3b;
+  --vsc-sideBar-border: #e5e5e5;
+  --vsc-sideBarTitle-foreground: #3b3b3b;
+  --vsc-sideBarSectionHeader-background: #f8f8f8;
+  --vsc-sideBarSectionHeader-foreground: #3b3b3b;
+  --vsc-sideBarSectionHeader-border: #e5e5e5;
+  --vsc-panelTitle-inactiveForeground: #3b3b3b;
+  --vsc-titleBar-activeBackground: #f8f8f8;
+  --vsc-titleBar-activeForeground: #1e1e1e;
+  --vsc-titleBar-border: #e5e5e5;
+  --vsc-list-hoverBackground: #f2f2f2;
+  --vsc-list-activeSelectionBackground: #e8e8e8;
+  --vsc-list-activeSelectionForeground: #000000;
+  --vsc-list-activeSelectionIconForeground: #000000;
+  --vsc-list-inactiveSelectionBackground: #e4e6f1;
+  --vsc-list-focusOutline: #005fb8;
+  --vsc-list-focusAndSelectionOutline: #005fb8;
+  --vsc-list-highlightForeground: #0066bf;
+  --vsc-list-focusHighlightForeground: #0066bf;
+  --vsc-list-deemphasizedForeground: #8e8e90;
+  --vsc-list-errorForeground: #b01011;
+  --vsc-list-warningForeground: #855f00;
+  --vsc-tree-indentGuidesStroke: #a9a9a9;
+  --vsc-tree-inactiveIndentGuidesStroke: #a9a9a966;
+  --vsc-tree-tableOddRowsBackground: #3b3b3b0a;
+  --vsc-tree-tableColumnsBorder: #61616120;
+  --vsc-toolbar-hoverBackground: #b8b8b850;
+  --vsc-toolbar-activeBackground: #a6a6a650;
+  --vsc-button-background: #005fb8;
+  --vsc-button-foreground: #ffffff;
+  --vsc-button-hoverBackground: #0258a8;
+  --vsc-button-border: #0000001a;
+  --vsc-button-separator: #ffffff66;
+  --vsc-button-secondaryBackground: #e5e5e5;
+  --vsc-button-secondaryForeground: #3b3b3b;
+  --vsc-button-secondaryHoverBackground: #cccccc;
+  --vsc-button-secondaryBorder: #3b3b3b26;
+  --vsc-input-background: #ffffff;
+  --vsc-input-foreground: #3b3b3b;
+  --vsc-input-border: #cecece;
+  --vsc-input-placeholderForeground: #767676;
+  --vsc-inputOption-activeBorder: #005fb8;
+  --vsc-inputOption-activeBackground: #bed6ed;
+  --vsc-inputOption-activeForeground: #000000;
+  --vsc-inputOption-hoverBackground: #b8b8b850;
+  --vsc-inputValidation-errorBackground: #f2dede;
+  --vsc-inputValidation-errorBorder: #be1100;
+  --vsc-inputValidation-warningBackground: #f6f5d2;
+  --vsc-inputValidation-warningBorder: #b89500;
+  --vsc-inputValidation-infoBackground: #d6ecf2;
+  --vsc-inputValidation-infoBorder: #007acc;
+  --vsc-dropdown-background: #ffffff;
+  --vsc-dropdown-foreground: #3b3b3b;
+  --vsc-dropdown-border: #cecece;
+  --vsc-dropdown-listBackground: #ffffff;
+  --vsc-checkbox-background: #f8f8f8;
+  --vsc-checkbox-foreground: #3b3b3b;
+  --vsc-checkbox-border: #cecece;
+  --vsc-checkbox-disabled-background: #b9b9b9;
+  --vsc-checkbox-disabled-foreground: #797979;
+  --vsc-badge-background: #cccccc;
+  --vsc-badge-foreground: #3b3b3b;
+  --vsc-menu-background: #ffffff;
+  --vsc-menu-foreground: #3b3b3b;
+  --vsc-menu-border: #cecece;
+  --vsc-menu-separatorBackground: #3b3b3b33;
+  --vsc-quickInput-background: #f8f8f8;
+  --vsc-quickInput-foreground: #3b3b3b;
+  --vsc-quickInputTitle-background: #0000000f;
+  --vsc-quickInputList-focusBackground: #e8e8e8;
+  --vsc-quickInputList-focusForeground: #000000;
+  --vsc-quickInputList-focusIconForeground: #000000;
+  --vsc-quickInputList-focusHighlightForeground: #0066bf;
+  --vsc-pickerGroup-border: #e5e5e5;
+  --vsc-pickerGroup-foreground: #8b949e;
+  --vsc-keybindingLabel-background: #dddddd66;
+  --vsc-keybindingLabel-foreground: #3b3b3b;
+  --vsc-keybindingLabel-border: #cccccc66;
+  --vsc-keybindingLabel-bottomBorder: #bbbbbb66;
+  --vsc-notifications-background: #ffffff;
+  --vsc-notifications-foreground: #3b3b3b;
+  --vsc-notifications-border: #e5e5e5;
+  --vsc-notificationToast-border: #e5e5e5;
+  --vsc-notificationLink-foreground: #005fb8;
+  --vsc-notificationsInfoIcon-foreground: #0063d3;
+  --vsc-notificationsWarningIcon-foreground: #bf8803;
+  --vsc-notificationsErrorIcon-foreground: #e51400;
+  --vsc-editorError-foreground: #e51400;
+  --vsc-editorWarning-foreground: #bf8803;
+  --vsc-editorInfo-foreground: #0063d3;
+  --vsc-progressBar-background: #005fb8;
+  --vsc-editor-background: #ffffff;
+  --vsc-editor-foreground: #3b3b3b;
+  --vsc-editorLineNumber-foreground: #6e7681;
+  --vsc-editorLineNumber-activeForeground: #171184;
+  --vsc-editor-lineHighlightBorder: #eeeeee;
+  --vsc-editorWidget-background: #f8f8f8;
+  --vsc-editorWidget-foreground: #3b3b3b;
+  --vsc-editorWidget-border: #3b3b3b33;
+  --vsc-editorHoverWidget-background: #f8f8f8;
+  --vsc-editorHoverWidget-foreground: #3b3b3b;
+  --vsc-editorHoverWidget-border: #3b3b3b33;
+  --vsc-editorGutter-addedBackground: #2ea043;
+  --vsc-editorGutter-modifiedBackground: #005fb8;
+  --vsc-editorGutter-deletedBackground: #f85149;
+  --vsc-editorGroupHeader-tabsBackground: #e5e5e5;
+  --vsc-editorGroupHeader-tabsBorder: #e5e5e5;
+  --vsc-tab-activeBackground: #ffffff;
+  --vsc-tab-activeForeground: #3b3b3b;
+  --vsc-tab-activeBorder: #f8f8f8;
+  --vsc-tab-activeBorderTop: #005fb8;
+  --vsc-tab-inactiveBackground: #e5e5e5;
+  --vsc-tab-inactiveForeground: #616161;
+  --vsc-tab-hoverBackground: #ffffff;
+  --vsc-tab-border: #e5e5e5;
+  --vsc-tab-unfocusedActiveBorderTop: #e5e5e5;
+  --vsc-breadcrumb-foreground: #3b3b3bcc;
+  --vsc-scrollbar-shadow: #dddddd;
+  --vsc-scrollbarSlider-background: #64646466;
+  --vsc-scrollbarSlider-hoverBackground: #646464b3;
+  --vsc-scrollbarSlider-activeBackground: #00000099;
+  --vsc-statusBar-background: #f8f8f8;
+  --vsc-statusBar-foreground: #3b3b3b;
+  --vsc-statusBar-border: #e5e5e5;
+  --vsc-statusBarItem-hoverBackground: #1f1f1f11;
+  --vsc-statusBarItem-hoverForeground: #000000;
+  --vsc-settings-headerForeground: #1f1f1f;
+  --vsc-settings-modifiedItemIndicator: #bb800966;
+  --vsc-settings-rowHoverBackground: #f2f2f24d;
+  --vsc-settings-focusedRowBackground: #f2f2f299;
+  --vsc-settings-headerBorder: #e5e5e5;
+  /* GitLens contributes.colors */
+  --vsc-gitlens-unpublishedChangesIconColor: #35b15e;
+  --vsc-gitlens-unpulledChangesIconColor: #b15e35;
+  --vsc-gitlens-branchAhead: #35b15e;
+  --vsc-gitlens-branchBehind: #b15e35;
+  --vsc-gitlens-branchDiverged: #d8af1b;
+  --vsc-gitlens-branchMissingUpstream: #ad0707;
+  --vsc-gitlens-statusMergingOrRebasing: #d8af1b;
+
+  /* git decorations (extensions/git/package.json) */
+  --git-modified: #895503;
+  --git-stage-modified: #895503;
+  --git-added: #587c0c;
+  --git-deleted: #ad0707;
+  --git-stage-deleted: #ad0707;
+  --git-renamed: #007100;
+  --git-untracked: #007100;
+  --git-ignored: #8e8e90;
+  --git-conflict: #ad0707;
+  --git-submodule: #1258a7;
+  /* diff (editorColors.ts) */
+  --diff-added: #9bb95533;
+  --diff-added-strong: #9ccc2c40;
+  --diff-removed: #ff000033;
+  --diff-removed-strong: #ff000033;
+  --diff-diagonal-fill: #22222233;
+  --diff-unchanged-region: #f8f8f8;
+  --diff-unchanged-code: #b8b8b829;
+  --diff-overview-added: #9ccc2c80;
+  --diff-overview-removed: #ff000066;
 }
 
+/* Dark Modern (dark_modern.json, resolved) */
 .dark {
-    --destructive-foreground: var(--color-red-400);
-    --info: var(--color-blue-500);
-    --info-foreground: var(--color-blue-400);
-    --success: var(--color-emerald-500);
-    --success-foreground: var(--color-emerald-400);
-    --warning: var(--color-amber-500);
-    --warning-foreground: var(--color-amber-400);
-    --accent: --alpha(var(--color-white) / 4%);
-    --accent-foreground: var(--color-neutral-100);
-    --background: color-mix(in srgb, var(--color-neutral-950) 95%, var(--color-white));
-    --border: --alpha(var(--color-white) / 6%);
-    --card: color-mix(in srgb, var(--background) 98%, var(--color-white));
-    --card-foreground: var(--color-neutral-100);
-    --destructive: color-mix(in srgb, var(--color-red-500) 90%, var(--color-white));
-    --foreground: var(--color-neutral-100);
-    --input: --alpha(var(--color-white) / 8%);
-    --muted: --alpha(var(--color-white) / 4%);
-    --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 90%, var(--color-white));
-    --popover: color-mix(in srgb, var(--background) 98%, var(--color-white));
-    --popover-foreground: var(--color-neutral-100);
-    --primary: var(--color-neutral-100);
-    --primary-foreground: var(--color-neutral-800);
-    --ring: var(--color-neutral-500);
-    --secondary: --alpha(var(--color-white) / 4%);
-    --secondary-foreground: var(--color-neutral-100);
-    --chart-1: var(--color-blue-700);
-    --chart-2: var(--color-emerald-500);
-    --chart-3: var(--color-amber-500);
-    --chart-4: var(--color-purple-500);
-    --chart-5: var(--color-rose-500);
-    --code: color-mix(in srgb, var(--background) 98%, var(--color-white));
-    --code-foreground: var(--foreground);
-    --code-highlight: --alpha(var(--color-white) / 4%);
-    --sidebar: color-mix(in srgb, var(--color-neutral-950) 97%, var(--color-white));
-    --sidebar-accent: --alpha(var(--color-white) / 4%);
-    --sidebar-accent-foreground: var(--color-neutral-100);
-    --sidebar-border: --alpha(var(--color-white) / 5%);
-    --sidebar-foreground: color-mix(in srgb, var(--color-neutral-100) 64%, var(--sidebar));
-    --sidebar-primary: var(--color-neutral-100);
-    --sidebar-primary-foreground: var(--color-neutral-800);
-    --sidebar-ring: var(--color-neutral-400);
+  --background: #181818;
+  --foreground: #cccccc;
+  --card: #181818;
+  --card-foreground: #cccccc;
+  --popover: #1f1f1f;
+  --popover-foreground: #cccccc;
+  --primary: #0078d4;
+  --primary-foreground: #ffffff;
+  --secondary: #00000000;
+  --secondary-foreground: #cccccc;
+  --muted: #2a2d2e;
+  --muted-foreground: #9d9d9d;
+  --accent: #2a2d2e;
+  --accent-foreground: #cccccc;
+  --border: #2b2b2b;
+  --input: #3c3c3c;
+  --ring: #0078d4;
+  --destructive: #f85149;
+  --destructive-foreground: #f85149;
+  --info: #59a4f9;
+  --info-foreground: #59a4f9;
+  --warning: #cca700;
+  --warning-foreground: #cca700;
+  --success: #81b88b;
+  --success-foreground: #81b88b;
+  --code: #1f1f1f;
+  --code-foreground: #cccccc;
+  --code-highlight: #282828;
+  --sidebar: #181818;
+  --sidebar-foreground: #cccccc;
+  --sidebar-border: #2b2b2b;
+  --sidebar-accent: #2a2d2e;
+  --sidebar-accent-foreground: #cccccc;
+  --sidebar-primary: #0078d4;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-ring: #0078d4;
+
+  --vsc-foreground: #cccccc;
+  --vsc-descriptionForeground: #9d9d9d;
+  --vsc-disabledForeground: #cccccc80;
+  --vsc-errorForeground: #f85149;
+  --vsc-focusBorder: #0078d4;
+  --vsc-icon-foreground: #cccccc;
+  --vsc-widget-border: #313131;
+  --vsc-widget-shadow: #0000005c;
+  --vsc-textLink-foreground: #4daafc;
+  --vsc-textLink-activeForeground: #4daafc;
+  --vsc-textPreformat-foreground: #d0d0d0;
+  --vsc-textPreformat-background: #3c3c3c;
+  --vsc-textCodeBlock-background: #2b2b2b;
+  --vsc-sash-hoverBorder: #0078d4;
+  --vsc-sideBar-background: #181818;
+  --vsc-sideBar-foreground: #cccccc;
+  --vsc-sideBar-border: #2b2b2b;
+  --vsc-sideBarTitle-foreground: #cccccc;
+  --vsc-sideBarSectionHeader-background: #181818;
+  --vsc-sideBarSectionHeader-foreground: #cccccc;
+  --vsc-sideBarSectionHeader-border: #2b2b2b;
+  --vsc-panelTitle-inactiveForeground: #9d9d9d;
+  --vsc-titleBar-activeBackground: #181818;
+  --vsc-titleBar-activeForeground: #cccccc;
+  --vsc-titleBar-border: #2b2b2b;
+  --vsc-list-hoverBackground: #2a2d2e;
+  --vsc-list-activeSelectionBackground: #04395e;
+  --vsc-list-activeSelectionForeground: #ffffff;
+  --vsc-list-activeSelectionIconForeground: #ffffff;
+  --vsc-list-inactiveSelectionBackground: #37373d;
+  --vsc-list-focusOutline: #0078d4;
+  --vsc-list-focusAndSelectionOutline: #0078d4;
+  --vsc-list-highlightForeground: #2aaaff;
+  --vsc-list-focusHighlightForeground: #2aaaff;
+  --vsc-list-deemphasizedForeground: #8c8c8c;
+  --vsc-list-errorForeground: #f88070;
+  --vsc-list-warningForeground: #cca700;
+  --vsc-tree-indentGuidesStroke: #585858;
+  --vsc-tree-inactiveIndentGuidesStroke: #58585866;
+  --vsc-tree-tableOddRowsBackground: #cccccc0a;
+  --vsc-tree-tableColumnsBorder: #cccccc20;
+  --vsc-toolbar-hoverBackground: #5a5d5e50;
+  --vsc-toolbar-activeBackground: #63666750;
+  --vsc-button-background: #0078d4;
+  --vsc-button-foreground: #ffffff;
+  --vsc-button-hoverBackground: #026ec1;
+  --vsc-button-border: #ffffff1a;
+  --vsc-button-separator: #ffffff66;
+  --vsc-button-secondaryBackground: #00000000;
+  --vsc-button-secondaryForeground: #cccccc;
+  --vsc-button-secondaryHoverBackground: #2b2b2b;
+  --vsc-button-secondaryBorder: #cccccc26;
+  --vsc-input-background: #313131;
+  --vsc-input-foreground: #cccccc;
+  --vsc-input-border: #3c3c3c;
+  --vsc-input-placeholderForeground: #989898;
+  --vsc-inputOption-activeBorder: #2488db;
+  --vsc-inputOption-activeBackground: #2489db82;
+  --vsc-inputOption-activeForeground: #ffffff;
+  --vsc-inputOption-hoverBackground: #5a5d5e80;
+  --vsc-inputValidation-errorBackground: #5a1d1d;
+  --vsc-inputValidation-errorBorder: #be1100;
+  --vsc-inputValidation-warningBackground: #352a05;
+  --vsc-inputValidation-warningBorder: #b89500;
+  --vsc-inputValidation-infoBackground: #063b49;
+  --vsc-inputValidation-infoBorder: #007acc;
+  --vsc-dropdown-background: #313131;
+  --vsc-dropdown-foreground: #cccccc;
+  --vsc-dropdown-border: #3c3c3c;
+  --vsc-dropdown-listBackground: #1f1f1f;
+  --vsc-checkbox-background: #313131;
+  --vsc-checkbox-foreground: #cccccc;
+  --vsc-checkbox-border: #3c3c3c;
+  --vsc-checkbox-disabled-background: #646464;
+  --vsc-checkbox-disabled-foreground: #989898;
+  --vsc-badge-background: #616161;
+  --vsc-badge-foreground: #f8f8f8;
+  --vsc-menu-background: #1f1f1f;
+  --vsc-menu-foreground: #cccccc;
+  --vsc-menu-border: #454545;
+  --vsc-menu-separatorBackground: #454545;
+  --vsc-quickInput-background: #222222;
+  --vsc-quickInput-foreground: #cccccc;
+  --vsc-quickInputTitle-background: #ffffff1b;
+  --vsc-quickInputList-focusBackground: #04395e;
+  --vsc-quickInputList-focusForeground: #ffffff;
+  --vsc-quickInputList-focusIconForeground: #ffffff;
+  --vsc-quickInputList-focusHighlightForeground: #2aaaff;
+  --vsc-pickerGroup-border: #3c3c3c;
+  --vsc-pickerGroup-foreground: #3794ff;
+  --vsc-keybindingLabel-background: #8080802b;
+  --vsc-keybindingLabel-foreground: #cccccc;
+  --vsc-keybindingLabel-border: #33333399;
+  --vsc-keybindingLabel-bottomBorder: #44444499;
+  --vsc-notifications-background: #1f1f1f;
+  --vsc-notifications-foreground: #cccccc;
+  --vsc-notifications-border: #2b2b2b;
+  --vsc-notificationToast-border: #313131;
+  --vsc-notificationLink-foreground: #4daafc;
+  --vsc-notificationsInfoIcon-foreground: #59a4f9;
+  --vsc-notificationsWarningIcon-foreground: #cca700;
+  --vsc-notificationsErrorIcon-foreground: #f14c4c;
+  --vsc-editorError-foreground: #f14c4c;
+  --vsc-editorWarning-foreground: #cca700;
+  --vsc-editorInfo-foreground: #59a4f9;
+  --vsc-progressBar-background: #0078d4;
+  --vsc-editor-background: #1f1f1f;
+  --vsc-editor-foreground: #cccccc;
+  --vsc-editorLineNumber-foreground: #6e7681;
+  --vsc-editorLineNumber-activeForeground: #cccccc;
+  --vsc-editor-lineHighlightBorder: #282828;
+  --vsc-editorWidget-background: #202020;
+  --vsc-editorWidget-foreground: #cccccc;
+  --vsc-editorWidget-border: #cccccc33;
+  --vsc-editorHoverWidget-background: #202020;
+  --vsc-editorHoverWidget-foreground: #cccccc;
+  --vsc-editorHoverWidget-border: #cccccc33;
+  --vsc-editorGutter-addedBackground: #2ea043;
+  --vsc-editorGutter-modifiedBackground: #0078d4;
+  --vsc-editorGutter-deletedBackground: #f85149;
+  --vsc-editorGroupHeader-tabsBackground: #2b2b2b;
+  --vsc-editorGroupHeader-tabsBorder: #2b2b2b;
+  --vsc-tab-activeBackground: #1f1f1f;
+  --vsc-tab-activeForeground: #ffffff;
+  --vsc-tab-activeBorder: #1f1f1f;
+  --vsc-tab-activeBorderTop: #0078d4;
+  --vsc-tab-inactiveBackground: #2b2b2b;
+  --vsc-tab-inactiveForeground: #9d9d9d;
+  --vsc-tab-hoverBackground: #1f1f1f;
+  --vsc-tab-border: #2b2b2b;
+  --vsc-tab-unfocusedActiveBorderTop: #2b2b2b;
+  --vsc-breadcrumb-foreground: #cccccccc;
+  --vsc-scrollbar-shadow: #000000;
+  --vsc-scrollbarSlider-background: #79797966;
+  --vsc-scrollbarSlider-hoverBackground: #646464b3;
+  --vsc-scrollbarSlider-activeBackground: #bfbfbf66;
+  --vsc-statusBar-background: #181818;
+  --vsc-statusBar-foreground: #cccccc;
+  --vsc-statusBar-border: #2b2b2b;
+  --vsc-statusBarItem-hoverBackground: #f1f1f133;
+  --vsc-statusBarItem-hoverForeground: #ffffff;
+  --vsc-settings-headerForeground: #ffffff;
+  --vsc-settings-modifiedItemIndicator: #bb800966;
+  --vsc-settings-rowHoverBackground: #2a2d2e4d;
+  --vsc-settings-focusedRowBackground: #2a2d2e99;
+  --vsc-settings-headerBorder: #2b2b2b;
+  --vsc-gitlens-branchMissingUpstream: #c74e39;
+
+  --git-modified: #e2c08d;
+  --git-stage-modified: #e2c08d;
+  --git-added: #81b88b;
+  --git-deleted: #c74e39;
+  --git-stage-deleted: #c74e39;
+  --git-renamed: #73c991;
+  --git-untracked: #73c991;
+  --git-ignored: #8c8c8c;
+  --git-conflict: #e4676b;
+  --git-submodule: #8db9e2;
+  --diff-added: #9bb95533;
+  --diff-added-strong: #9ccc2c33;
+  --diff-removed: #ff000033;
+  --diff-removed-strong: #ff000033;
+  --diff-diagonal-fill: #cccccc33;
+  --diff-unchanged-region: #181818;
+  --diff-unchanged-code: #74747429;
+  --diff-overview-added: #9ccc2c66;
+  --diff-overview-removed: #ff000066;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
-    }
-  body {
-    @apply bg-background text-foreground;
-    }
-  code, kbd, samp, pre {
-    font-family: var(--font-mono);
-    }
+    border-color: var(--border);
+    outline-color: var(--vsc-focusBorder);
+  }
   html {
-    @apply font-sans;
-    }
-}
-/* VS Code's gitDecoration colors (Default Light+/Dark+) */
-:root {
-    --git-modified: #895503;
-    --git-added: #587c0c;
-    --git-deleted: #ad0707;
-    --git-untracked: #007100;
-    --git-conflict: #ad0707;
-}
-.dark {
-    --git-modified: #e2c08d;
-    --git-added: #81b88b;
-    --git-deleted: #c74e39;
-    --git-untracked: #73c991;
-    --git-conflict: #e4676b;
+    font-family: var(--font-sans);
+  }
+  /* CJK stacks (style.css) */
+  html:lang(ko) {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Nanum Gothic", "AppleGothic", sans-serif;
+  }
+  html:lang(ja) {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic Pro", sans-serif;
+  }
+  html:lang(zh-Hans),
+  html:lang(zh-cn) {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", sans-serif;
+  }
+  html:lang(zh-Hant),
+  html:lang(zh-tw) {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif;
+  }
+  body {
+    font-size: 13px;
+    line-height: 1.4em;
+    color: var(--vsc-foreground);
+    background: var(--background);
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input,
+  textarea,
+  [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: var(--font-mono);
+  }
+  /* VS Code's single focus treatment: a 1px focusBorder outline drawn inside the element */
+  button:focus-visible,
+  [tabindex]:focus-visible,
+  a:focus-visible,
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: 1px solid var(--vsc-focusBorder);
+    outline-offset: -1px;
+  }
+  ::placeholder {
+    color: var(--vsc-input-placeholderForeground);
+    opacity: 1;
+  }
+  /* Native-overflow scrollbars (VS Code's webview CSS): square slider, transparent track */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: transparent;
+  }
+  :hover::-webkit-scrollbar-thumb {
+    background: var(--vsc-scrollbarSlider-background);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--vsc-scrollbarSlider-hoverBackground);
+  }
+  ::-webkit-scrollbar-thumb:active {
+    background: var(--vsc-scrollbarSlider-activeBackground);
+  }
 }
 
-/* VS Code's diffEditor.removedLineBackground / insertedLineBackground */
-:root {
-    --diff-removed: rgb(255 0 0 / 0.1);
-    --diff-removed-strong: rgb(255 0 0 / 0.24);
-    --diff-added: rgb(155 185 85 / 0.2);
-    --diff-added-strong: rgb(120 170 60 / 0.4);
+@layer base {
+  /* codicon-modifiers.css: throttled spin (the package's own `.codicon-loading` timing differs) */
+  .codicon.codicon-modifier-spin {
+    animation: codicon-spin 1.5s steps(30) infinite;
+    transform-origin: center center;
+  }
+  .codicon.codicon-loading.codicon-modifier-spin {
+    animation-duration: 1.5s !important;
+    animation-timing-function: steps(30) !important;
+  }
 }
-.dark {
-    --diff-removed: rgb(255 0 0 / 0.14);
-    --diff-removed-strong: rgb(255 60 60 / 0.3);
-    --diff-added: rgb(155 185 85 / 0.16);
-    --diff-added-strong: rgb(155 185 85 / 0.34);
-}
-.diff-filler {
-    background-image: linear-gradient(-45deg, var(--border) 12.5%, transparent 12.5%, transparent 50%, var(--border) 50%, var(--border) 62.5%, transparent 62.5%, transparent 100%);
+
+@layer components {
+  .diff-filler {
+    background-image: linear-gradient(-45deg, var(--diff-diagonal-fill) 12.5%, transparent 12.5%, transparent 50%, var(--diff-diagonal-fill) 50%, var(--diff-diagonal-fill) 62.5%, transparent 62.5%, transparent 100%);
     background-size: 8px 8px;
+  }
+}
+
+/* The only keyframes VS Code's chrome uses (besides codicon-spin from the codicon CSS) */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes fadein {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes progress {
+  from {
+    transform: translateX(0%) scaleX(1);
+  }
+  50% {
+    transform: translateX(2500%) scaleX(3);
+  }
+  to {
+    transform: translateX(4900%) scaleX(1);
+  }
 }

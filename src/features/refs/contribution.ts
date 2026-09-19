@@ -1,7 +1,6 @@
 // GitLens commands and menus for the Branches, Remotes, Tags, Stashes, Worktrees and
 // Contributors views.
-import { ArchiveIcon, ArchiveRestoreIcon, CloudDownloadIcon, FolderPlusIcon, GitBranchPlusIcon, PlusIcon, TagIcon, TrashIcon, UserPlusIcon } from 'lucide-react'
-import { executeCommand, registerHandler, type CommandContribution, type Contribution } from '@/commands/registry'
+import { executeCommand, registerHandler, type CommandContribution, type CommandIcon, type Contribution } from '@/commands/registry'
 import { repoFrom } from '../scm/state'
 
 const category = { text: 'GitLens' }
@@ -9,6 +8,10 @@ const category = { text: 'GitLens' }
 function command(id: string, title: string, extra: Partial<CommandContribution> = {}): CommandContribution {
   return { command: id, title: { gl: title }, category, ...extra }
 }
+
+/** A codicon id as a command icon (menus and inline actions render ids with `<Icon>`). GitLens's
+ * own stash glyphs fall back to the codicons `git-stash` and `git-stash-pop`. */
+const codicon = (id: string): CommandIcon => id
 
 const item = (re: string) => `viewItem =~ /${re}/`
 const branch = item('^gitlens:branch\\b')
@@ -26,14 +29,14 @@ const view = (id: string) => `view == gitmenu.views.${id}`
 const rows = (items: [string, string, string][]) => items.map(([command, group, when]) => ({ command, group, when }))
 
 // View title buttons that run the VS Code git commands
-const TITLE_COMMANDS: [string, string, string, typeof PlusIcon][] = [
-  ['gitlens.views.branches.create', 'Create Branch...', 'git.branch', GitBranchPlusIcon],
-  ['gitlens.views.remotes.add', 'Add Remote...', 'git.addRemote', PlusIcon],
-  ['gitlens.views.remotes.fetchAll', 'Fetch All', 'git.fetchAll', CloudDownloadIcon],
-  ['gitlens.views.tags.create', 'Create Tag...', 'git.createTag', TagIcon],
-  ['gitlens.views.stashes.stash', 'Stash All Changes...', 'git.stash', ArchiveIcon],
-  ['gitlens.views.stashes.applyLatest', 'Apply Latest Stash', 'git.stashApplyLatest', ArchiveRestoreIcon],
-  ['gitlens.views.worktrees.create', 'Create Worktree...', 'git.createWorktree', FolderPlusIcon],
+const TITLE_COMMANDS: [string, string, string, string][] = [
+  ['gitlens.views.branches.create', 'Create Branch...', 'git.branch', 'add'],
+  ['gitlens.views.remotes.add', 'Add Remote...', 'git.addRemote', 'add'],
+  ['gitlens.views.remotes.fetchAll', 'Fetch All', 'git.fetchAll', 'repo-fetch'],
+  ['gitlens.views.tags.create', 'Create Tag...', 'git.createTag', 'add'],
+  ['gitlens.views.stashes.stash', 'Stash All Changes...', 'git.stash', 'git-stash'],
+  ['gitlens.views.stashes.applyLatest', 'Apply Latest Stash', 'git.stashApplyLatest', 'git-stash-pop'],
+  ['gitlens.views.worktrees.create', 'Create Worktree...', 'git.createWorktree', 'add'],
 ]
 
 export function registerRefTitleHandlers() {
@@ -42,37 +45,37 @@ export function registerRefTitleHandlers() {
 
 export const refsContribution: Contribution = {
   commands: [
-    ...TITLE_COMMANDS.map(([id, title, , icon]) => command(id, title, { icon })),
+    ...TITLE_COMMANDS.map(([id, title, , icon]) => command(id, title, { icon: codicon(icon) })),
     command('gitlens.views.switchToBranch', 'Switch to Branch...'),
     command('gitlens.views.switchToTag', 'Switch to Tag...'),
     command('gitlens.views.merge', 'Merge Branch into Current Branch...'),
     command('gitlens.views.rebaseOntoBranch', 'Rebase Current Branch onto Branch...'),
     command('gitlens.views.renameBranch', 'Rename Branch...'),
-    command('gitlens.views.deleteBranch', 'Delete Branch...', { icon: TrashIcon }),
+    command('gitlens.views.deleteBranch', 'Delete Branch...', { icon: codicon('trash') }),
     command('gitlens.views.createBranchFrom', 'Create Branch...'),
     command('gitlens.views.pushBranch', 'Push Branch'),
     command('gitlens.views.pushTag', 'Push Tag'),
-    command('gitlens.views.deleteTag', 'Delete Tag...', { icon: TrashIcon }),
+    command('gitlens.views.deleteTag', 'Delete Tag...', { icon: codicon('trash') }),
     command('gitlens.views.compareRefWithHead', 'Compare with HEAD'),
     command('gitlens.openBranchOnRemote', 'Open Branch on Remote'),
     command('gitlens.copyRemoteBranchUrl', 'Copy Remote Branch URL'),
     command('gitlens.views.copyRefName', 'Copy Name'),
-    command('gitlens.views.fetchRemote', 'Fetch', { icon: CloudDownloadIcon }),
+    command('gitlens.views.fetchRemote', 'Fetch', { icon: codicon('repo-fetch') }),
     command('gitlens.views.pruneRemote', 'Prune'),
     command('gitlens.views.removeRemote', 'Remove Remote...'),
     command('gitlens.openRemoteOnRemote', 'Open Repository on Remote'),
     command('gitlens.views.copyRemoteUrl', 'Copy Remote URL'),
-    command('gitlens.views.stash.apply', 'Apply Stash', { icon: ArchiveRestoreIcon }),
+    command('gitlens.views.stash.apply', 'Apply Stash', { icon: codicon('git-stash-pop') }),
     command('gitlens.views.stash.pop', 'Pop Stash'),
-    command('gitlens.views.stash.delete', 'Delete Stash...', { icon: TrashIcon }),
+    command('gitlens.views.stash.delete', 'Delete Stash...', { icon: codicon('trash') }),
     command('gitlens.views.stash.openAll', 'Open All Changes'),
     command('gitlens.views.openWorktree', 'Open Worktree in New Tab'),
     command('gitlens.views.revealWorktreeInFinder', 'Reveal in Finder'),
     command('gitlens.views.openWorktreeInTerminal', 'Open in Terminal'),
-    command('gitlens.views.deleteWorktree', 'Delete Worktree...', { icon: TrashIcon }),
+    command('gitlens.views.deleteWorktree', 'Delete Worktree...', { icon: codicon('trash') }),
     command('gitlens.views.lockWorktree', 'Lock'),
     command('gitlens.views.unlockWorktree', 'Unlock'),
-    command('gitlens.views.addAuthor', 'Add as Co-author', { icon: UserPlusIcon }),
+    command('gitlens.views.addAuthor', 'Add as Co-author', { icon: codicon('person-add') }),
     command('gitlens.views.copyEmail', 'Copy Email'),
   ],
   menus: {

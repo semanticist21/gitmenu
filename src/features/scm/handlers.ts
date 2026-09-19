@@ -2,6 +2,7 @@
 // safety prompts follow the git extension (same text, so its translations apply).
 import { isCancelledError } from '@tanstack/react-query'
 import { registerHandler } from '@/commands/registry'
+import { holdOp } from '@/features/ops/operations'
 import { type QuickPickItem, showInputBox, showMessage, showQuickPick } from '@/components/dialogs/dialogs'
 import { toastManager } from '@/components/ui/toast'
 import { t, vs, vsb } from '@/i18n'
@@ -135,7 +136,9 @@ function refItem(ref: RefInfo): QuickPickItem<RefInfo> {
       : ref.kind === 'tag'
         ? vsb('Tag at {0}', ref.commit?.slice(0, 8) ?? '')
         : ref.commit?.slice(0, 8)
-  return { label: ref.short, description: kind, detail: ref.subject ?? undefined, value: ref }
+  // VS Code's RefItem labels: `$(git-branch) main`, `$(cloud) origin/main`, `$(tag) v1.0.0`
+  const icon = ref.kind === 'remote' ? 'cloud' : ref.kind === 'tag' ? 'tag' : 'git-branch'
+  return { label: ref.short, icon, description: kind, detail: ref.subject ?? undefined, value: ref }
 }
 
 async function pickRef(root: string, placeholder: string, kinds: RefInfo['kind'][], exclude?: string) {
@@ -493,8 +496,13 @@ async function sync(root: string, rebase: boolean) {
     if (!(await confirm(vsb('This action will pull and push commits from and to "{0}/{1}".', remote, rest.join('/')), vsb('OK'), { neverAgainSetting: 'git.confirmSync' }))) return
   }
   const pullArgs = rebase || setting<boolean>('git.rebaseWhenSync') ? ['--rebase'] : []
-  await pull(root, pullArgs)
-  await push(root, { tags: setting<boolean>('git.followTagsWhenSync') })
+  const release = holdOp(root, 'sync', vs('command.sync'))
+  try {
+    await pull(root, pullArgs)
+    await push(root, { tags: setting<boolean>('git.followTagsWhenSync') })
+  } finally {
+    release()
+  }
 }
 
 async function fetch(root: string, extra: string[]) {
@@ -791,11 +799,17 @@ async function abortOperation(root: string) {
 export async function commitAndThen(arg: unknown, then: 'push' | 'sync') {
   const root = repoFrom(arg)
   if (!root) return
-  const committed = await commit(root, { scope: 'default' })
-  if (!committed) return
-  // postCommitCommand may already have pushed or synced
-  if (setting<string>('git.postCommitCommand') === then) return
-  await guard(() => (then === 'push' ? push(root, {}) : sync(root, false)))
+  // One operation from the commit through the push, like VS Code's "Commit & Push"
+  const release = holdOp(root, 'commit', vsb(then === 'push' ? '{0} Commit & Push' : '{0} Commit & Sync', '').trim())
+  try {
+    const committed = await commit(root, { scope: 'default' })
+    if (!committed) return
+    // postCommitCommand may already have pushed or synced
+    if (setting<string>('git.postCommitCommand') === then) return
+    await guard(() => (then === 'push' ? push(root, {}) : sync(root, false)))
+  } finally {
+    release()
+  }
 }
 
 // ——— registration ———

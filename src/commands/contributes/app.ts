@@ -1,6 +1,5 @@
 // gitmenu's own commands (project tabs, panel, windows). VS Code ids are kept where VS Code
 // has the same command (palette, settings, keyboard shortcuts).
-import { FolderOpenIcon, PictureInPicture2Icon, PinIcon, SettingsIcon, SquareTerminalIcon } from 'lucide-react'
 import type { Contribution } from '../registry'
 
 const category = { text: 'gitmenu' }
@@ -8,21 +7,21 @@ const category = { text: 'gitmenu' }
 export const appContribution: Contribution = {
   commands: [
     { command: 'workbench.action.showCommands', title: { app: 'panel.commandPalette' } },
-    { command: 'workbench.action.openSettings', title: { app: 'panel.settings' }, category, icon: SettingsIcon },
+    { command: 'workbench.action.openSettings', title: { app: 'panel.settings' }, category, icon: 'settings-gear' },
     { command: 'workbench.action.openGlobalKeybindings', title: { app: 'panel.keyboardShortcuts' }, category },
     { command: 'workbench.action.closeActiveEditor', title: { vsb: 'Close Editor' } },
-    { command: 'gitmenu.openProject', title: { app: 'project.open' }, category, icon: FolderOpenIcon },
+    { command: 'gitmenu.openProject', title: { app: 'project.open' }, category, icon: 'folder-opened' },
     { command: 'gitmenu.closeProject', title: { app: 'project.close' }, category, enablement: 'gitmenu.hasProject' },
     { command: 'gitmenu.nextProject', title: { app: 'project.next' }, category, enablement: 'gitmenu.projectCount > 1' },
     { command: 'gitmenu.previousProject', title: { app: 'project.previous' }, category, enablement: 'gitmenu.projectCount > 1' },
-    { command: 'gitmenu.togglePin', title: { app: 'panel.pin' }, category, icon: PinIcon },
+    { command: 'gitmenu.togglePin', title: { app: 'panel.pin' }, category, icon: 'pin' },
     { command: 'gitmenu.hidePanel', title: { app: 'panel.hide' }, category },
-    { command: 'gitmenu.toggleDetach', title: { app: 'panel.detach' }, category, icon: PictureInPicture2Icon },
+    { command: 'gitmenu.toggleDetach', title: { app: 'panel.detach' }, category, icon: 'empty-window' },
     {
       command: 'gitmenu.openInTerminal',
       title: { app: 'panel.openInTerminal' },
       category,
-      icon: SquareTerminalIcon,
+      icon: 'terminal',
       enablement: 'gitmenu.hasRepository',
     },
     { command: 'gitmenu.revealInFinder', title: { app: 'panel.revealInFinder' }, category, enablement: 'gitmenu.hasProject' },

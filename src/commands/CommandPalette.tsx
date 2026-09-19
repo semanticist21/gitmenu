@@ -1,4 +1,5 @@
-// Command palette (⌘⇧P): every command the palette allows in the current context.
+// Command palette (⌘⇧P): every command the palette allows in the current context, in VS Code's
+// quick input widget (22px rows, bold matches, key caps on the right).
 import { useEffect, useMemo, useState } from 'react'
 import {
   Command,
@@ -8,8 +9,8 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandPanel,
   CommandShortcut,
+  QuickInputLabel,
 } from '@/components/ui/command'
 import { t, useLocale } from '@/i18n'
 import { contextSnapshot, openOverlay } from './context'
@@ -25,9 +26,17 @@ interface Item {
 export function CommandPalette() {
   useLocale()
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
   const bindings = useEffectiveBindings()
 
-  useEffect(() => registerHandler('workbench.action.showCommands', () => setOpen(true)), [])
+  useEffect(
+    () =>
+      registerHandler('workbench.action.showCommands', () => {
+        setQuery('')
+        setOpen(true)
+      }),
+    [],
+  )
   useEffect(() => (open ? openOverlay() : undefined), [open])
 
   const items = useMemo<Item[]>(() => {
@@ -42,26 +51,29 @@ export function CommandPalette() {
 
   const run = (id: string) => {
     setOpen(false)
-    // Let the dialog close before the command opens anything of its own
+    // Let the widget close before the command opens anything of its own
     requestAnimationFrame(() => void executeCommand(id))
   }
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandDialogPopup className="max-w-[calc(100vw-1rem)]">
-        <Command items={items} itemToStringValue={(item: unknown) => (item as Item).label}>
-          <CommandInput placeholder={t('palette.placeholder')} />
-          <CommandPanel>
-            <CommandEmpty>{t('palette.empty')}</CommandEmpty>
-            <CommandList>
-              {(item: Item) => (
-                <CommandItem key={item.id} value={item} onClick={() => run(item.id)}>
-                  <span className="truncate">{item.label}</span>
-                  {item.shortcut && <CommandShortcut>{item.shortcut}</CommandShortcut>}
-                </CommandItem>
-              )}
-            </CommandList>
-          </CommandPanel>
+      <CommandDialogPopup aria-label={t('palette.placeholder')}>
+        <Command
+          items={items}
+          value={query}
+          onValueChange={(value) => setQuery(value)}
+          itemToStringValue={(item: unknown) => (item as Item).label}
+        >
+          <CommandInput placeholder={t('palette.placeholder')} aria-label={t('palette.placeholder')} />
+          <CommandEmpty>{t('palette.empty')}</CommandEmpty>
+          <CommandList>
+            {(item: Item) => (
+              <CommandItem key={item.id} value={item} onClick={() => run(item.id)}>
+                <QuickInputLabel label={item.label} query={query} />
+                {item.shortcut && <CommandShortcut>{item.shortcut}</CommandShortcut>}
+              </CommandItem>
+            )}
+          </CommandList>
         </Command>
       </CommandDialogPopup>
     </CommandDialog>

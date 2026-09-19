@@ -9,7 +9,7 @@ export interface HighlightRequest {
   id: number
   text: string
   lang: string
-  theme: 'github-light' | 'github-dark'
+  theme: 'light-plus' | 'dark-plus'
   maxLineLength: number
 }
 
@@ -26,7 +26,7 @@ const loading = new Map<string, Promise<void>>()
 
 function get() {
   highlighter ??= createHighlighterCore({
-    themes: [import('@shikijs/themes/github-light'), import('@shikijs/themes/github-dark')],
+    themes: [import('@shikijs/themes/light-plus'), import('@shikijs/themes/dark-plus')],
     langs: [],
     engine: createOnigurumaEngine(import('shiki/wasm')),
   })

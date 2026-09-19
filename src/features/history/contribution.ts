@@ -1,29 +1,17 @@
 // GitLens commands and menus for the Commits, File History, Line History and Search &
 // Compare views, and GitLens's additions to Source Control rows. GitLens strings are English
 // with gitmenu's own translations (`gl`).
-import {
-  ArrowDownIcon,
-  ArrowLeftRightIcon,
-  ArrowUpIcon,
-  CloudUploadIcon,
-  FileIcon,
-  FolderOpenIcon,
-  GitCompareIcon,
-  HistoryIcon,
-  ListXIcon,
-  PinIcon,
-  PinOffIcon,
-  RefreshCwIcon,
-  SearchIcon,
-  XIcon,
-} from 'lucide-react'
-import type { CommandContribution, Contribution } from '@/commands/registry'
+import type { CommandContribution, CommandIcon, Contribution } from '@/commands/registry'
 
 const category = { text: 'GitLens' }
 
 function command(id: string, title: string, extra: Partial<CommandContribution> = {}): CommandContribution {
   return { command: id, title: { gl: title }, category, ...extra }
 }
+
+/** A codicon id as a command icon (menus and inline actions render ids with `<Icon>`). GitLens's
+ * own glyphs (compare-ref-working) fall back to the nearest codicon. */
+const codicon = (id: string): CommandIcon => id
 
 const commit = 'viewItem =~ /^gitlens:commit\\b/'
 const file = 'viewItem =~ /^gitlens:file\\b/'
@@ -32,19 +20,19 @@ const rowMenu = (items: [string, string, string][]) => items.map(([command, grou
 
 export const historyContribution: Contribution = {
   commands: [
-    command('gitlens.views.searchAndCompare.searchCommits', 'Search Commits...', { icon: SearchIcon }),
-    command('gitlens.views.searchAndCompare.selectForCompare', 'Compare References...', { icon: GitCompareIcon }),
-    command('gitlens.views.searchAndCompare.clear', 'Clear Results', { icon: ListXIcon }),
-    command('gitlens.views.dismissNode', 'Dismiss', { icon: XIcon }),
-    command('gitlens.views.swapComparison', 'Swap Comparison', { icon: ArrowLeftRightIcon }),
-    command('gitlens.views.refresh', 'Refresh', { icon: RefreshCwIcon }),
-    command('gitlens.views.push', 'Push', { icon: ArrowUpIcon }),
-    command('gitlens.views.pull', 'Pull', { icon: ArrowDownIcon }),
-    command('gitlens.views.fetch', 'Fetch', { icon: RefreshCwIcon }),
-    command('gitlens.views.publishBranch', 'Publish Branch', { icon: CloudUploadIcon }),
-    command('gitlens.views.fileHistory.pick', 'Choose File...', { icon: FolderOpenIcon }),
-    command('gitlens.views.fileHistory.setEditorFollowingOff', 'Pin the Current History', { icon: PinIcon }),
-    command('gitlens.views.fileHistory.setEditorFollowingOn', 'Unpin the Current History', { icon: PinOffIcon }),
+    command('gitlens.views.searchAndCompare.searchCommits', 'Search Commits...', { icon: codicon('search') }),
+    command('gitlens.views.searchAndCompare.selectForCompare', 'Compare References...', { icon: codicon('compare-changes') }),
+    command('gitlens.views.searchAndCompare.clear', 'Clear Results', { icon: codicon('clear-all') }),
+    command('gitlens.views.dismissNode', 'Dismiss', { icon: codicon('close') }),
+    command('gitlens.views.swapComparison', 'Swap Comparison', { icon: codicon('arrow-swap') }),
+    command('gitlens.views.refresh', 'Refresh', { icon: codicon('refresh') }),
+    command('gitlens.views.push', 'Push', { icon: codicon('repo-push') }),
+    command('gitlens.views.pull', 'Pull', { icon: codicon('repo-pull') }),
+    command('gitlens.views.fetch', 'Fetch', { icon: codicon('repo-fetch') }),
+    command('gitlens.views.publishBranch', 'Publish Branch', { icon: codicon('cloud-upload') }),
+    command('gitlens.views.fileHistory.pick', 'Choose File...', { icon: codicon('folder-opened') }),
+    command('gitlens.views.fileHistory.setEditorFollowingOff', 'Pin the Current History', { icon: codicon('pin') }),
+    command('gitlens.views.fileHistory.setEditorFollowingOn', 'Unpin the Current History', { icon: codicon('pinned') }),
 
     command('gitlens.views.cherryPick', 'Cherry Pick Commit...'),
     command('gitlens.views.revert', 'Revert Commit...'),
@@ -54,9 +42,9 @@ export const historyContribution: Contribution = {
     command('gitlens.views.switchToCommit', 'Switch to Commit...'),
     command('gitlens.views.createBranch', 'Create Branch...'),
     command('gitlens.views.createTag', 'Create Tag...'),
-    command('gitlens.views.openChanges', 'Open Changes', { icon: GitCompareIcon }),
-    command('gitlens.views.openChangesWithWorking', 'Open Changes with Working File', { icon: GitCompareIcon }),
-    command('gitlens.views.openFile', 'Open File', { icon: FileIcon }),
+    command('gitlens.views.openChanges', 'Open Changes', { icon: codicon('compare-changes') }),
+    command('gitlens.views.openChangesWithWorking', 'Open Changes with Working File', { icon: codicon('compare-changes') }),
+    command('gitlens.views.openFile', 'Open File', { icon: codicon('go-to-file') }),
     command('gitlens.views.openFileRevision', 'Open File at Revision'),
     command('gitlens.views.compareWithHead', 'Compare with HEAD'),
     command('gitlens.views.selectForCompare', 'Select for Compare'),
@@ -68,7 +56,7 @@ export const historyContribution: Contribution = {
     command('gitlens.openFileOnRemote', 'Open File on Remote'),
     command('gitlens.copyRemoteFileUrlToClipboard', 'Copy Remote File URL'),
     command('gitlens.openRepoOnRemote', 'Open Repository on Remote'),
-    command('gitlens.openFileHistory', 'Open File History', { icon: HistoryIcon }),
+    command('gitlens.openFileHistory', 'Open File History', { icon: codicon('history') }),
   ],
   menus: {
     'view/title': [

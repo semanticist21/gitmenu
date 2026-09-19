@@ -1,13 +1,19 @@
-// Resource groups and files as one virtualized tree (VS Code's SCM list view).
+// Resource groups and files as one virtualized tree, drawn like VS Code's SCM tree (scm.css,
+// scmViewPane.ts): the commit input and action button scroll with it as its first rows; group
+// rows show the name, inline actions on hover and the count badge; file rows show a file icon
+// aligned with the twisties, the name and dimmed folder on one line (struck through when
+// deleted), inline actions on hover and the colored status letter.
 // Keyboard: ↑↓ move, ←→ collapse/expand groups, Enter opens, ⇧F10 opens the context menu.
 // Click opens changes; ⌘/⇧-click selects several files for group commands.
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ChevronRightIcon } from 'lucide-react'
-import { type KeyboardEvent, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type KeyboardEvent, type ReactNode, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { InlineActions } from '@/commands/InlineActions'
 import { MenuItems } from '@/commands/MenuItems'
 import { executeCommand } from '@/commands/registry'
+import { Icon } from '@/components/Icon'
+import { Badge } from '@/components/ui/badge'
 import { ContextMenu, ContextMenuPopup, ContextMenuTrigger } from '@/components/ui/context-menu'
+import { IndentGuides, INDENT, ROW_HEIGHT, RowLabel, treeRowClass, Twistie } from '@/features/views/ViewTree'
 import { useLocale } from '@/i18n'
 import type { FileChange } from '@/lib/git'
 import { useUiState } from '@/lib/uiState'
@@ -22,12 +28,11 @@ export interface Group {
   changes: FileChange[]
 }
 
+/** `depth` counts from the group row (1), as VS Code's tree does. */
 type Row =
-  | { kind: 'group'; group: Group }
-  | { kind: 'folder'; group: Group; path: string; name: string; depth: number }
-  | { kind: 'file'; group: Group; change: FileChange; depth: number }
-
-const INDENT = 12
+  | { kind: 'group'; group: Group; depth: 1; ancestors: string[] }
+  | { kind: 'folder'; group: Group; path: string; name: string; depth: number; ancestors: string[] }
+  | { kind: 'file'; group: Group; change: FileChange; depth: number; ancestors: string[] }
 
 /** VS Code's `scm.defaultViewSortKey`: by file name, by full path, or by status then path. */
 function sortChanges(changes: FileChange[], sortKey: string): FileChange[] {
@@ -38,6 +43,8 @@ function sortChanges(changes: FileChange[], sortKey: string): FileChange[] {
     return a.path.localeCompare(b.path)
   })
 }
+
+const groupKey = (group: Group) => `g:${group.id}`
 
 /** Tree view rows for one group: folders (with VS Code's compact `a/b` chains), then files. */
 function treeRows(group: Group, changes: FileChange[], collapsedFolders: string[]): Row[] {
@@ -59,7 +66,7 @@ function treeRows(group: Group, changes: FileChange[], collapsedFolders: string[
     node.files.push(change)
   }
   const out: Row[] = []
-  const walk = (node: Node, prefix: string, depth: number) => {
+  const walk = (node: Node, prefix: string, depth: number, ancestors: string[]) => {
     for (const [part, sub] of [...node.folders.entries()].sort(([a], [b]) => a.localeCompare(b))) {
       // Collapse single-child folder chains into one row, like VS Code's compact folders
       let name = part
@@ -71,19 +78,23 @@ function treeRows(group: Group, changes: FileChange[], collapsedFolders: string[
         path = `${path}/${only}`
         current = next
       }
-      out.push({ kind: 'folder', group, path, name, depth })
-      if (!collapsedFolders.includes(`${group.id}:${path}`)) walk(current, `${path}/`, depth + 1)
+      out.push({ kind: 'folder', group, path, name, depth, ancestors })
+      if (!collapsedFolders.includes(`${group.id}:${path}`)) walk(current, `${path}/`, depth + 1, [...ancestors, `f:${group.id}:${path}`])
     }
-    for (const change of node.files) out.push({ kind: 'file', group, change, depth })
+    for (const change of node.files) out.push({ kind: 'file', group, change, depth, ancestors })
   }
-  walk(top, '', 1)
+  walk(top, '', 2, [groupKey(group)])
   return out
 }
 
-const ROW_HEIGHT = 22
-
 function key(group: GroupId, change: FileChange) {
   return `${group}:${change.path}`
+}
+
+function rowId(row: Row) {
+  if (row.kind === 'group') return groupKey(row.group)
+  if (row.kind === 'folder') return `f:${row.group.id}:${row.path}`
+  return key(row.group.id, row.change)
 }
 
 function splitPath(path: string) {
@@ -91,7 +102,31 @@ function splitPath(path: string) {
   return i === -1 ? { name: path, dir: '' } : { name: path.slice(i + 1), dir: path.slice(0, i) }
 }
 
-export function ResourceList({ root, groups }: { root: string; groups: Group[] }) {
+/** A compressed folder chain, `a/b/c`, with VS Code's dimmed separators (`.label-separator`). */
+function FolderName({ name }: { name: string }) {
+  const parts = name.split('/')
+  return parts.map((part, i) => (
+    <span key={i}>
+      {i > 0 && <span className="mx-0.5 opacity-50">/</span>}
+      {part}
+    </span>
+  ))
+}
+
+/** The decoration badge: the status letter, 11px semibold at .75 opacity, in the git color
+ * (inherited on a selected row of a focused list). */
+function StatusBadge({ letter, color }: { letter: string; color: string }) {
+  return (
+    <span
+      className="my-auto ms-[5px] me-[3px] inline-flex h-4 min-w-4 shrink-0 items-center justify-center font-semibold text-(--deco) text-[11px] leading-none opacity-75 group-focus-within/list:group-aria-selected/row:text-inherit"
+      style={{ '--deco': color } as CSSProperties}
+    >
+      {letter}
+    </span>
+  )
+}
+
+export function ResourceList({ root, groups, header }: { root: string; groups: Group[]; header?: ReactNode }) {
   useLocale()
   const openDiffOnClick = useSetting<boolean>('git.openDiffOnClick')
   const viewMode = useSetting<string>('scm.defaultViewMode')
@@ -101,17 +136,31 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [anchor, setAnchor] = useState<string | null>(null)
   const [focusIndex, setFocusIndex] = useState(0)
+  const [interacted, setInteracted] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
+  const [headerHeight, setHeaderHeight] = useState(0)
+
+  // The rows start below the input and action button, which scroll with them
+  useLayoutEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    const measure = () => setHeaderHeight(el.offsetHeight)
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    measure()
+    return () => observer.disconnect()
+  }, [])
 
   const rows = useMemo<Row[]>(() => {
     const list: Row[] = []
     for (const group of groups) {
       if (group.changes.length === 0 && group.id !== 'workingTree') continue
-      list.push({ kind: 'group', group })
+      list.push({ kind: 'group', group, depth: 1, ancestors: [] })
       if (collapsed.includes(group.id)) continue
       const changes = sortChanges(group.changes, sortKey)
       if (viewMode === 'tree') list.push(...treeRows(group, changes, collapsedFolders))
-      else for (const change of changes) list.push({ kind: 'file', group, change, depth: 1 })
+      else for (const change of changes) list.push({ kind: 'file', group, change, depth: 2, ancestors: [groupKey(group)] })
     }
     return list
   }, [groups, collapsed, collapsedFolders, viewMode, sortKey])
@@ -121,6 +170,7 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 12,
+    scrollMargin: headerHeight,
   })
 
   const toggleGroup = (id: GroupId) =>
@@ -149,6 +199,7 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
 
   const click = (index: number, row: Row, event: React.MouseEvent) => {
     setFocusIndex(index)
+    setInteracted(true)
     if (row.kind === 'group') {
       toggleGroup(row.group.id)
       return
@@ -180,11 +231,14 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
   const focusRow = (index: number) => {
     const next = Math.max(0, Math.min(rows.length - 1, index))
     setFocusIndex(next)
+    setInteracted(true)
     virtualizer.scrollToIndex(next)
     requestAnimationFrame(() => scrollRef.current?.querySelector<HTMLElement>(`[data-index="${next}"]`)?.focus())
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
+    // Only the rows navigate; inline action buttons keep their keys
+    if ((event.target as HTMLElement).getAttribute('role') !== 'treeitem') return
     const row = rows[focusIndex]
     if (!row) return
     switch (event.key) {
@@ -238,22 +292,33 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
     }
   }
 
+  // The active indent guide: the focused folder or group when open, else the focused row's parent
+  const focused = interacted ? rows[focusIndex] : undefined
+  const focusedOpen =
+    focused?.kind === 'group' ? !collapsed.includes(focused.group.id) : focused?.kind === 'folder' ? !collapsedFolders.includes(folderKey(focused)) : false
+  const activeGuide = focused ? (focusedOpen ? rowId(focused) : (focused.ancestors.at(-1) ?? null)) : null
+  const tree = viewMode === 'tree'
+
   return (
-    <div
-      ref={scrollRef}
-      role="tree"
-      aria-multiselectable
-      className="h-full overflow-auto outline-none"
-      data-context={JSON.stringify({ listFocus: true, focusedView: 'workbench.scm' })}
-      onKeyDown={onKeyDown}
-    >
-      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+    <div ref={scrollRef} className="h-full overflow-auto">
+      <div ref={headerRef}>{header}</div>
+      <div
+        role="tree"
+        aria-multiselectable
+        className="group/list relative w-full outline-none"
+        style={{ height: virtualizer.getTotalSize() }}
+        data-context={JSON.stringify({ listFocus: true, focusedView: 'workbench.scm' })}
+        onKeyDown={onKeyDown}
+      >
         {virtualizer.getVirtualItems().map((item) => {
           const row = rows[item.index]
-          const style = { transform: `translateY(${item.start}px)`, height: ROW_HEIGHT }
+          const style = { transform: `translateY(${item.start - headerHeight}px)` }
+          const indent = row.depth * INDENT
           const common = {
             'data-index': item.index,
             tabIndex: item.index === focusIndex ? 0 : -1,
+            className: treeRowClass,
+            style,
             onFocus: () => setFocusIndex(item.index),
             onClick: (e: React.MouseEvent) => click(item.index, row, e),
           }
@@ -261,7 +326,7 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
             const context = { scmProvider: 'git', scmResourceGroup: row.group.id }
             const expanded = !collapsed.includes(row.group.id)
             return (
-              <ContextMenu key={`g:${row.group.id}`}>
+              <ContextMenu key={groupKey(row.group)}>
                 <ContextMenuTrigger
                   render={
                     <div
@@ -269,18 +334,14 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
                       aria-level={1}
                       aria-expanded={expanded}
                       aria-label={`${row.group.label}, ${row.group.changes.length}`}
-                      className="group/row absolute inset-x-0 top-0 flex cursor-default items-center gap-1 ps-1 pe-1 text-[13px] font-medium outline-none hover:bg-accent/50 focus-visible:bg-accent focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
-                      style={style}
                       {...common}
                     />
                   }
                 >
-                  <ChevronRightIcon className={cn('size-3.5 shrink-0 transition-transform', expanded && 'rotate-90')} />
+                  <Twistie indent={indent} state={expanded ? 'expanded' : 'collapsed'} />
                   <span className="min-w-0 flex-1 truncate">{row.group.label}</span>
                   <InlineActions menu="scm/resourceGroup/context" context={context} args={[groupSelection(row.group)]} />
-                  <span className="min-w-5 shrink-0 rounded-full bg-muted px-1.5 text-center text-[11px] text-muted-foreground tabular-nums">
-                    {row.group.changes.length}
-                  </span>
+                  <Badge className="ms-1.5">{row.group.changes.length}</Badge>
                 </ContextMenuTrigger>
                 <ContextMenuPopup>
                   <MenuItems menu="scm/resourceGroup/context" kind="context" context={context} args={[groupSelection(row.group)]} />
@@ -296,19 +357,12 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
               <ContextMenu key={`f:${folderKey(row)}`}>
                 <ContextMenuTrigger
                   render={
-                    <div
-                      role="treeitem"
-                      aria-level={row.depth + 1}
-                      aria-expanded={expanded}
-                      aria-label={row.name}
-                      className="group/row absolute inset-x-0 top-0 flex cursor-default items-center gap-1 pe-1 text-[13px] outline-none hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
-                      style={{ ...style, paddingInlineStart: 4 + row.depth * INDENT }}
-                      {...common}
-                    />
+                    <div role="treeitem" aria-level={row.depth} aria-expanded={expanded} aria-label={row.name} {...common} />
                   }
                 >
-                  <ChevronRightIcon className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-90')} />
-                  <span className="min-w-0 flex-1 truncate">{row.name}</span>
+                  <IndentGuides ancestors={row.ancestors} active={activeGuide} />
+                  <Twistie indent={indent} state={expanded ? 'expanded' : 'collapsed'} />
+                  <RowLabel label={<FolderName name={row.name} />} />
                   <InlineActions menu="scm/resourceFolder/context" context={context} args={[selection]} />
                 </ContextMenuTrigger>
                 <ContextMenuPopup>
@@ -320,7 +374,6 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
           const { change, group } = row
           const k = key(group.id, change)
           const { name, dir } = splitPath(change.path)
-          const tree = viewMode === 'tree'
           const context = { scmProvider: 'git', scmResourceGroup: group.id, scmResourceState: 'worktree' }
           const deleted = isDeletion(change.status)
           const tooltip = `${change.originalPath ? `${change.originalPath} → ` : ''}${change.path} • ${statusText(change.status)}`
@@ -330,30 +383,23 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
                 render={
                   <div
                     role="treeitem"
-                    aria-level={row.depth + 1}
+                    aria-level={row.depth}
                     aria-selected={selected.has(k)}
                     aria-label={`${name}, ${statusText(change.status)}`}
-                    data-selected={selected.has(k)}
+                    data-selected={selected.has(k) || undefined}
                     title={tooltip}
-                    className={cn(
-                      'group/row absolute inset-x-0 top-0 flex cursor-default items-center gap-1.5 pe-1 text-[13px] outline-none hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
-                      selected.has(k) && 'bg-accent',
-                    )}
-                    style={{ ...style, paddingInlineStart: (tree ? 22 : 20) + (row.depth - 1) * INDENT }}
                     {...common}
                   />
                 }
               >
-                <span className="min-w-0 flex-1 truncate">
-                  <span className={cn(deleted && 'line-through opacity-70')} style={{ color: statusColor(change.status) }}>
-                    {name}
-                  </span>
-                  <span className="ms-1.5 text-muted-foreground text-xs">{change.originalPath ? `${change.originalPath} → ${dir}` : tree ? '' : dir}</span>
-                </span>
+                <IndentGuides ancestors={row.ancestors} active={activeGuide} />
+                {/* File icons align with the twisties, so a file has no twistie of its own */}
+                <Twistie indent={indent} state="hidden" />
+                <Icon name="file" className="me-1.5 opacity-70 group-aria-selected/row:opacity-100" />
+                {/* The name is not tinted (`fileDecorations.colors: false`); only the letter is */}
+                <RowLabel label={name} description={tree ? undefined : dir} className={cn(deleted && 'line-through')} />
                 <InlineActions menu="scm/resourceState/context" context={context} args={[selectionFor(group, change)]} />
-                <span className="w-3 shrink-0 text-center font-mono text-[11px] font-semibold" style={{ color: statusColor(change.status) }}>
-                  {LETTER[change.status]}
-                </span>
+                <StatusBadge letter={LETTER[change.status]} color={statusColor(change.status)} />
               </ContextMenuTrigger>
               <ContextMenuPopup>
                 <MenuItems menu="scm/resourceState/context" kind="context" context={context} args={[selectionFor(group, change)]} />

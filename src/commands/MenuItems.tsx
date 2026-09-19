@@ -1,6 +1,7 @@
-// Renders a registry menu (`resolveMenu`) as items of a coss Menu or ContextMenu,
-// including submenus (VS Code's `submenu` entries).
-import { Fragment } from 'react'
+// Renders a registry menu (`resolveMenu`) as items of a Menu or ContextMenu, including
+// submenus (VS Code's `submenu` entries). Groups are split by separators; empty groups leave
+// no leading, trailing or doubled separator. Keybindings show as plain text on the right.
+import { Fragment, type ReactNode } from 'react'
 import {
   ContextMenuItem,
   ContextMenuSeparator,
@@ -34,34 +35,44 @@ export function MenuItems({ menu, context, args = [], kind = 'menu', exclude = [
   const Sub = kind === 'menu' ? MenuSub : ContextMenuSub
   const SubTrigger = kind === 'menu' ? MenuSubTrigger : ContextMenuSubTrigger
   const SubPopup = kind === 'menu' ? MenuSubPopup : ContextMenuSubPopup
-  return groups.map((group, i) => (
-    <Fragment key={group.group || i}>
-      {i > 0 && <Separator />}
-      {group.items.map((item) => {
-        if (item.submenu) {
-          if (resolveMenu(item.submenu.id, context).every((g) => g.items.length === 0)) return null
+
+  const rendered = groups
+    .map((group, i) => ({
+      key: group.group || String(i),
+      items: group.items
+        .map((item): ReactNode => {
+          if (item.submenu) {
+            if (resolveMenu(item.submenu.id, context).every((g) => g.items.length === 0)) return null
+            return (
+              <Sub key={item.id}>
+                <SubTrigger>{title(item.submenu.label)}</SubTrigger>
+                <SubPopup>
+                  <MenuItems menu={item.submenu.id} context={context} args={args} kind={kind} />
+                </SubPopup>
+              </Sub>
+            )
+          }
+          if (!item.command) return null
+          const binding = [...bindings].reverse().find((b) => b.command === item.command!.command)
           return (
-            <Sub key={item.id}>
-              <SubTrigger>{title(item.submenu.label)}</SubTrigger>
-              <SubPopup>
-                <MenuItems menu={item.submenu.id} context={context} args={args} kind={kind} />
-              </SubPopup>
-            </Sub>
+            <Item
+              key={item.id}
+              disabled={!item.enabled}
+              onClick={() => void executeCommand(item.command!.command, ...args)}
+            >
+              {title(item.command.title)}
+              {binding && <Shortcut>{formatKey(binding.key)}</Shortcut>}
+            </Item>
           )
-        }
-        if (!item.command) return null
-        const binding = [...bindings].reverse().find((b) => b.command === item.command!.command)
-        return (
-          <Item
-            key={item.id}
-            disabled={!item.enabled}
-            onClick={() => void executeCommand(item.command!.command, ...args)}
-          >
-            {title(item.command.title)}
-            {binding && <Shortcut>{formatKey(binding.key)}</Shortcut>}
-          </Item>
-        )
-      })}
+        })
+        .filter((node) => node !== null),
+    }))
+    .filter((group) => group.items.length > 0)
+
+  return rendered.map((group, i) => (
+    <Fragment key={group.key}>
+      {i > 0 && <Separator />}
+      {group.items}
     </Fragment>
   ))
 }

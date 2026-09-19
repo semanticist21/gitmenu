@@ -88,7 +88,7 @@ export function useHighlight(text: string | null | undefined, path: string, dark
   useEffect(() => {
     if (text == null) return
     let alive = true
-    void highlight({ text, lang: languageFor(path), theme: dark ? 'github-dark' : 'github-light', maxLineLength }).then(
+    void highlight({ text, lang: languageFor(path), theme: dark ? 'dark-plus' : 'light-plus', maxLineLength }).then(
       (lines) => {
         if (alive) setResult({ key, lines })
       },

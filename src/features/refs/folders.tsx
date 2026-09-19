@@ -1,6 +1,6 @@
 // GitLens's tree layout for branch names: `feature/login` shows as `login` inside a
 // `feature` folder (`gitlens.views.*.branches.layout: tree`).
-import { FolderIcon } from 'lucide-react'
+import { Icon } from '@/components/Icon'
 import type { TreeNode } from '../views/ViewTree'
 
 export function folderize<T>(items: T[], name: (item: T) => string, leaf: (item: T, label: string) => TreeNode, idPrefix: string): TreeNode[] {
@@ -28,7 +28,7 @@ export function folderize<T>(items: T[], name: (item: T) => string, leaf: (item:
       .map(([part, sub]) => ({
         id: `${idPrefix}/folder:${path}${part}`,
         label: part,
-        icon: <FolderIcon className="text-muted-foreground" />,
+        icon: <Icon name="folder" />,
         children: build(sub, `${path}${part}/`),
       })),
     ...folder.leaves,

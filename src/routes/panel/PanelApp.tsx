@@ -1,13 +1,12 @@
-// The menu bar panel: project tabs, then the active project's repositories and views.
+// The menu bar panel: project tabs, then the active project's repositories and views, and the
+// status bar with the repository's branch and sync items (where VS Code shows them).
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { useEffect, useRef, useState } from 'react'
 import { setContext } from '@/commands/context'
 import { registerHandler } from '@/commands/registry'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogPopup, DialogTitle } from '@/components/ui/dialog'
-import { toastManager } from '@/components/ui/toast'
-import { OpsBar } from '@/features/ops/OpsBar'
+import { NotificationCard, toastManager } from '@/components/ui/toast'
+import { Operations, useOpsBusy } from '@/features/ops/operations'
 import { openProjectPicker, useProjects, useSelectedRepo } from '@/features/projects/api'
 import { PanelHeader } from '@/features/projects/components/PanelHeader'
 import {
@@ -19,6 +18,7 @@ import {
 } from '@/features/projects/components/ProjectBody'
 import { PromptDialog } from '@/features/prompt/PromptDialog'
 import { useRepoChangeSync } from '@/features/scm/api'
+import { ScmStatusBar } from '@/features/scm/components/ScmView'
 import { setActiveRepo } from '@/features/scm/state'
 import { ViewContainer } from '@/features/views/ViewContainer'
 import { renderView, ViewActions } from '@/features/views/registry'
@@ -89,48 +89,46 @@ function EnvBanner() {
   const gitMissing = !data.git
   if (!gitMissing && !data.shellFailed) return null
   return (
-    <div role="alert" className="flex items-center gap-2 border-b bg-warning/8 px-3 py-2 text-[13px] text-warning-foreground">
-      <span className="min-w-0 flex-1">
-        {gitMissing ? vsb('Git not found. Install it or configure it using the "git.path" setting.') : t('env.shellFailed')}
-      </span>
-      <Button size="xs" variant="outline" onClick={() => void ipc.envRefresh()}>
-        {t('env.retry')}
-      </Button>
-    </div>
+    <NotificationCard
+      role="alert"
+      className="m-1 shrink-0"
+      severity="warning"
+      title={gitMissing ? vsb('Git not found. Install it or configure it using the "git.path" setting.') : t('env.shellFailed')}
+      actions={[{ children: t('env.retry'), onClick: () => void ipc.envRefresh() }]}
+    />
   )
 }
 
-/** Asks once, on first launch, whether to open at login (SMAppService). */
+/** Asks once, on first launch, whether to open at login (SMAppService), as a notification. */
 function LoginItemQuestion() {
   useLocale()
   const [asked, setAsked, loaded] = useUiState<boolean>('loginItemAsked', false)
-  if (!loaded || asked) return null
-  const answer = async (enable: boolean) => {
-    setAsked(true)
-    if (!enable) return
-    try {
-      const status = await ipc.loginItemSet(true)
-      if (status === 'requiresApproval') toastManager.add({ type: 'info', title: t('login.requiresApproval') })
-    } catch (error) {
-      toastManager.add({ type: 'error', title: errorMessage(error) })
+  const shown = useRef(false)
+  useEffect(() => {
+    if (!loaded || asked || shown.current) return
+    shown.current = true
+    const answer = async (enable: boolean) => {
+      setAsked(true)
+      if (!enable) return
+      try {
+        const status = await ipc.loginItemSet(true)
+        if (status === 'requiresApproval') toastManager.add({ type: 'info', title: t('login.requiresApproval') })
+      } catch (error) {
+        toastManager.add({ type: 'error', title: errorMessage(error) })
+      }
     }
-  }
-  return (
-    <Dialog open onOpenChange={(open) => !open && void answer(false)}>
-      <DialogPopup className="max-w-[calc(100vw-1.5rem)]" showCloseButton={false}>
-        <DialogHeader>
-          <DialogTitle>{t('login.question')}</DialogTitle>
-          <DialogDescription>{t('login.description')}</DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => void answer(false)}>
-            {t('login.no')}
-          </Button>
-          <Button onClick={() => void answer(true)}>{t('login.yes')}</Button>
-        </DialogFooter>
-      </DialogPopup>
-    </Dialog>
-  )
+    toastManager.add({
+      type: 'info',
+      title: t('login.question'),
+      description: t('login.description'),
+      timeout: 0,
+      actionProps: { children: t('login.yes'), onClick: () => void answer(true) },
+      actions: [{ children: t('login.no'), onClick: () => void answer(false) }],
+      // Dismissing it counts as "Not Now"
+      onClose: () => setAsked(true),
+    })
+  }, [loaded, asked, setAsked])
+  return null
 }
 
 export function PanelApp() {
@@ -182,6 +180,9 @@ export function PanelApp() {
     setContext('scmProvider', repo ? 'git' : undefined)
   }, [projects.length, active, repo])
 
+  // VS Code's `ProgressLocation.SourceControl`: a bar on the Source Control view
+  const busy = useOpsBusy()
+
   let body
   if (!loaded) body = null
   else if (!active) body = <NoProjects />
@@ -192,24 +193,29 @@ export function PanelApp() {
         {active.parentCandidate && <ParentRepoQuestion project={active} />}
         {active.repos.length === 0 && !active.parentCandidate && <NoRepository project={active} />}
         {active.repos.length > 1 && (
-          <div className="max-h-32 shrink-0 overflow-auto border-b">
+          <div className="max-h-32 shrink-0 overflow-auto border-(--vsc-sideBarSectionHeader-border) border-b">
             <RepoList repos={active.repos} selected={repo} onSelect={selectRepo} />
           </div>
         )}
         {repo && (
           <div className="min-h-0 flex-1">
-            <ViewContainer render={(id) => renderView(id, repo)} actions={(id) => <ViewActions view={id} repo={repo} />} />
+            <ViewContainer
+              render={(id) => renderView(id, repo)}
+              actions={(id) => <ViewActions view={id} repo={repo} />}
+              progress={(id) => id === 'scm' && busy}
+            />
           </div>
         )}
       </div>
     )
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground select-none">
+    <div className="flex h-screen flex-col overflow-hidden bg-(--vsc-sideBar-background) text-(--vsc-sideBar-foreground) select-none">
       <PanelHeader projects={projects} active={active} pinned={pinned} onTogglePin={togglePin} detached={detached} onToggleDetach={toggleDetach} />
       <EnvBanner />
       <main className="min-h-0 flex-1">{body}</main>
-      <OpsBar />
+      {repo && !active?.missing && <ScmStatusBar root={repo.root} />}
+      <Operations />
       <PromptDialog />
       <LoginItemQuestion />
     </div>

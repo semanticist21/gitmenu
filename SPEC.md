@@ -30,7 +30,7 @@ VS Code와 GitLens가 이미 정해 둔 동작과 기본값은 그대로 따른�
 - **쓰기 직후 갱신**: VS Code git 확장과 같이, 쓰기 명령이 끝나면 감시 이벤트를 기다리지 않고 곧바로 다시 읽어 화면에 반영한다. 미리 바꿔 두는 낙관적 갱신은 하지 않는다.
 - **프론트**: Vite + React + TypeScript, TanStack Query/Router/Hotkeys(`@tanstack/react-hotkeys`), `@tanstack/react-virtual`, Tailwind v4, shadcn CLI + coss ui(`@coss` 레지스트리), Bun. Next.js 쓰지 않음.
 - **폰트**: 시스템 폰트(`-apple-system`, `ui-monospace`).
-- **테마**: coss ui 기본 테마 + 설정에서 shadcn color preset 선택. 라이트/다크/시스템. diff 하이라이트는 github-light/dark. VS Code 테마 JSON 미지원.
+- **테마**: VS Code Light Modern / Dark Modern 색과 크기(13px, 22px 행, codicon)를 그대로 쓴다. 라이트/다크/시스템. 코드 하이라이트는 VS Code 기본인 Light+/Dark+. 색 preset과 VS Code 테마 JSON은 지원하지 않는다.
 - **UI 언어**: 10개(English, 한국어, 日本語, 简体中文, 繁體中文, Deutsch, Français, Español, Português (Brasil), Русский). 기본은 시스템 언어, 설정에서 변경. VS Code 언어팩(`microsoft/vscode-loc`, MIT)에 같은 항목이 있으면 그 번역을 복사해 저장소에 커밋하고 THIRD_PARTY_NOTICES에 고지한다. 언어팩에 없는 문구(GitLens 뷰 등)는 직접 번역한다.
 - **크래시 리포트**: 옵트인 Sentry(Rust panic + 프론트 에러). 저장소 경로·파일명·커밋 내용은 전송 전 제거.
 - **접근성**: 키보드 완전 조작(화살표, Enter/Space, ⇧F10 컨텍스트 메뉴), tree/treeitem 역할과 aria-label로 VoiceOver 기본 지원.

@@ -1,19 +1,14 @@
 "use client";
 
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
-import * as React from "react";
-import {
-  type SegmentedControlSize,
-  segmentedControlItemLayoutClassName,
-  segmentedControlItemSizeClassNames,
-} from "@/lib/segmented-control";
+import type * as React from "react";
 import { cn } from "@/lib/utils";
 
-type TabsVariant = "default" | "underline";
-type TabsSize = SegmentedControlSize;
+// VS Code's editor tabs (multieditortabscontrol.css): a 35px strip on the tabs background, square
+// 120px tabs separated by 1px borders, the active tab lifted with a 1px top bar. `underline` is
+// the Settings editor's scope tabs (User/Workspace). Nothing animates.
 
-const TabsListContext: React.Context<TabsSize> =
-  React.createContext<TabsSize>("default");
+type TabsVariant = "default" | "underline";
 
 export function Tabs({
   className,
@@ -22,7 +17,7 @@ export function Tabs({
   return (
     <TabsPrimitive.Root
       className={cn(
-        "flex flex-col gap-2 data-[orientation=vertical]:flex-row",
+        "flex flex-col data-[orientation=vertical]:flex-row",
         className,
       )}
       data-slot="tabs"
@@ -33,63 +28,41 @@ export function Tabs({
 
 export function TabsList({
   variant = "default",
-  size = "default",
   className,
-  children,
   ...props
 }: TabsPrimitive.List.Props & {
-  size?: TabsSize;
   variant?: TabsVariant;
 }): React.ReactElement {
   return (
     <TabsPrimitive.List
       className={cn(
-        "relative z-0 flex w-fit items-center justify-center gap-x-0.5 text-muted-foreground",
-        "data-[orientation=vertical]:flex-col",
+        "relative flex min-w-0 data-[orientation=vertical]:flex-col",
         variant === "default"
-          ? "rounded-lg bg-muted p-0.5 text-muted-foreground/72"
-          : "data-[orientation=vertical]:px-1 data-[orientation=horizontal]:py-1 *:data-[slot=tabs-tab]:hover:bg-accent",
+          ? "h-[35px] shrink-0 overflow-x-auto overflow-y-hidden bg-(--vsc-editorGroupHeader-tabsBackground) shadow-[inset_0_-1px_0_var(--vsc-editorGroupHeader-tabsBorder)] [&::-webkit-scrollbar]:h-[3px]"
+          : "gap-0",
         className,
       )}
-      data-size={size}
       data-slot="tabs-list"
+      data-variant={variant}
       {...props}
-    >
-      <TabsListContext.Provider value={size}>
-        {children}
-      </TabsListContext.Provider>
-      <TabsPrimitive.Indicator
-        className={cn(
-          "absolute bottom-0 left-0 h-(--active-tab-height) w-(--active-tab-width) translate-x-(--active-tab-left) -translate-y-(--active-tab-bottom) transition-[width,translate] duration-200 ease-in-out",
-          variant === "underline"
-            ? "z-10 bg-primary data-[orientation=horizontal]:h-0.5 data-[orientation=vertical]:w-0.5 data-[orientation=vertical]:-translate-x-px data-[orientation=horizontal]:translate-y-px"
-            : "-z-1 rounded-md bg-background shadow-sm/5 dark:bg-input",
-        )}
-        data-slot="tab-indicator"
-      />
-    </TabsPrimitive.List>
+    />
   );
 }
 
 export function TabsTab({
   className,
-  size,
   ...props
-}: TabsPrimitive.Tab.Props & {
-  size?: TabsSize;
-}): React.ReactElement {
-  const contextSize: TabsSize = React.useContext(TabsListContext);
-  const resolvedSize: TabsSize = size ?? contextSize;
-
+}: TabsPrimitive.Tab.Props): React.ReactElement {
   return (
     <TabsPrimitive.Tab
       className={cn(
-        "relative flex shrink-0 grow cursor-pointer items-center justify-center whitespace-nowrap rounded-md border border-transparent font-medium text-base outline-none transition-[color,background-color,box-shadow] hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring data-disabled:pointer-events-none data-[orientation=vertical]:w-full data-[orientation=vertical]:justify-start data-active:text-foreground data-disabled:opacity-64 sm:text-sm",
-        segmentedControlItemLayoutClassName,
-        segmentedControlItemSizeClassNames[resolvedSize],
+        "relative flex shrink-0 cursor-pointer items-center whitespace-nowrap text-[13px] outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-(--vsc-focusBorder) data-disabled:cursor-default data-disabled:opacity-40",
+        // editor tab
+        "in-data-[variant=default]:h-[35px] in-data-[variant=default]:w-[120px] in-data-[variant=default]:min-w-fit in-data-[variant=default]:border-(--vsc-tab-border) in-data-[variant=default]:border-r in-data-[variant=default]:bg-(--vsc-tab-inactiveBackground) in-data-[variant=default]:pr-2 in-data-[variant=default]:pl-2.5 in-data-[variant=default]:text-(--vsc-tab-inactiveForeground) in-data-[variant=default]:leading-[35px] in-data-[variant=default]:hover:bg-(--vsc-tab-hoverBackground) in-data-[variant=default]:data-active:bg-(--vsc-tab-activeBackground) in-data-[variant=default]:data-active:text-(--vsc-tab-activeForeground) in-data-[variant=default]:data-active:shadow-[inset_0_1px_0_var(--vsc-tab-activeBorderTop),inset_0_-1px_0_var(--vsc-tab-activeBorder)]",
+        // settings scope tab
+        "in-data-[variant=underline]:border-transparent in-data-[variant=underline]:border-b in-data-[variant=underline]:px-2 in-data-[variant=underline]:pt-[7px] in-data-[variant=underline]:pb-[6.5px] in-data-[variant=underline]:opacity-90 in-data-[variant=underline]:data-active:border-(--vsc-settings-headerForeground) in-data-[variant=underline]:data-active:text-(--vsc-settings-headerForeground) in-data-[variant=underline]:data-active:opacity-100",
         className,
       )}
-      data-size={resolvedSize}
       data-slot="tabs-tab"
       {...props}
     />
@@ -102,7 +75,7 @@ export function TabsPanel({
 }: TabsPrimitive.Panel.Props): React.ReactElement {
   return (
     <TabsPrimitive.Panel
-      className={cn("flex-1 outline-none", className)}
+      className={cn("min-h-0 flex-1 outline-none", className)}
       data-slot="tabs-content"
       {...props}
     />
@@ -113,6 +86,5 @@ export {
   TabsPrimitive,
   TabsTab as TabsTrigger,
   TabsPanel as TabsContent,
-  type TabsSize,
   type TabsVariant,
 };

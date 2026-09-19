@@ -63,6 +63,11 @@ function commits(count: number) {
 
 const scenario = new URLSearchParams(window.location.search)
 const ui: Record<string, unknown> = { loginItemAsked: !scenario.get('login'), 'views.layout': new URLSearchParams(window.location.search).get('views') ? { visible: new URLSearchParams(window.location.search).get('views')!.split(','), collapsed: [], weights: {} } : { visible: ['scm', 'commits', 'fileHistory', 'searchCompare'], collapsed: [], weights: { scm: 2, commits: 3, fileHistory: 1, searchCompare: 1 } }, 'fileHistory.target': { root, path: 'src/main.tsx' }, [`searchCompare.${root}`]: [{ id: 'compare:main..feature/login', kind: 'compare', base: 'main', head: 'feature/login' }] }
+if (scenario.get('many')) {
+  const file = (path: string) => `/detail/diff?repo=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}&group=workingTree`
+  ui['detail.tabs'] = ['/detail/settings', ...['src/main.tsx', 'README.md', 'src/queue.rs', 'docs/usage.md', 'src/old.ts', 'notes/todo.txt'].map(file), '/detail/keyboard-shortcuts']
+  ui['detail.active'] = file('README.md')
+}
 const settings: Record<string, unknown> = {}
 
 export function installMocks() {
@@ -103,6 +108,10 @@ export function installMocks() {
           if (kind === 'missing') return [[{ ...projects[0], missing: true, repos: [] }], root]
           if (kind === 'parent') return [[{ ...projects[0], repos: [], parentCandidate: '/Users/me/code' }], root]
           if (kind === 'norepo') return [[{ ...projects[0], repos: [] }], root]
+          if (scenario.get('many')) {
+            const names = ['api-server', 'web-dashboard', 'mobile-app', 'infra', 'docs-site', 'design-tokens']
+            return [[...projects, ...names.map((name) => ({ ...projects[1], id: `/Users/me/code/${name}`, name, dirty: false }))], root]
+          }
           return [projects, root]
         }
         case 'projects_recent':
