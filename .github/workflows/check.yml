@@ -20,7 +20,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun run lint
-      - run: bun test src
+      - run: bun run test
       - run: bun scripts/i18n/extract-gitlens.ts
       - run: bun run build
       - run: bun run test:e2e

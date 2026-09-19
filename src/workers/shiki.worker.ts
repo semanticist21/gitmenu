@@ -38,7 +38,15 @@ async function ensureLanguage(hl: HighlighterCore, lang: string): Promise<boolea
   const loader = bundledLanguages[lang as keyof typeof bundledLanguages]
   if (!loader) return false
   if (!loading.has(lang)) loading.set(lang, hl.loadLanguage(loader))
-  await loading.get(lang)
+  try {
+    await loading.get(lang)
+  } catch (error) {
+    // A failed load leaves Shiki's language graph broken for every later language: start over
+    // with a new highlighter, and let this language fail on its own next time
+    loading.clear()
+    highlighter = null
+    throw error
+  }
   return true
 }
 

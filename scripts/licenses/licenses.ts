@@ -1,7 +1,7 @@
 // Collects the license of everything the app ships, for About gitmenu: npm packages whose code
 // is in the bundle, Rust crates linked into the macOS binary, and Shiki's TextMate grammars.
-// Grammars without a permissive license (GPL, or none stated) are replaced by an empty list, so
-// those languages show without colors instead of shipping code we may not redistribute.
+// Grammars without a permissive license (GPL, or none stated) are replaced by an empty grammar,
+// so those languages show without colors instead of shipping code we may not redistribute.
 import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
@@ -239,6 +239,8 @@ interface CargoPackage {
   repository: string | null
   homepage: string | null
   manifest_path: string
+  /** `registry+…` for crates.io, `git+https://…?rev=…#sha` for git dependencies */
+  source: string | null
 }
 
 /** Crates linked into the app: normal dependencies of the app crate on the macOS targets */
@@ -266,14 +268,16 @@ function cargoPackages(): Found[] {
       // No license field: say what the shipped files are (Rust crates with two files are dual-licensed)
       const found = [...new Set(files.flatMap((f) => [...f.ids]))]
       const declared = p.license ?? (found.length ? found.join(' OR ') : p.license_file ? 'LicenseRef-custom' : 'NOASSERTION')
+      const label = p.license || !found.length ? declared : `${declared} (license files)`
+      const git = p.source?.startsWith('git+') ? p.source.slice(4).replace(/[?#].*$/, '').replace(/\.git$/, '') : undefined
       const holder = p.authors.map(person).filter(Boolean).join(', ') || `the ${p.name} authors`
       return {
         name: p.name,
         version: p.version,
         kind: 'cargo',
-        license: declared,
-        url: `https://crates.io/crates/${p.name}`,
-        homepage: normalizeUrl(p.repository ?? p.homepage ?? undefined),
+        license: label,
+        url: git ?? `https://crates.io/crates/${p.name}`,
+        homepage: normalizeUrl(p.repository ?? p.homepage ?? git),
         texts: packageTexts(files, declared, holder),
       }
     })
@@ -335,10 +339,14 @@ function implicitNotice(name: string): GrammarNotice | undefined {
   return undefined
 }
 
+/** NOASSERTION grammars whose license text is one a pattern can't name on its own */
+const GRAMMAR_LICENSES: Record<string, string> = { llvm: 'Apache-2.0 WITH LLVM-exception' }
+
 /** A grammar's license if it may be bundled; the stated SPDX id, or else what its text is */
 export function grammarLicense(name: string): string | undefined {
   const notice = notices().get(name) ?? implicitNotice(name)
   if (!notice) return undefined
+  if (GRAMMAR_LICENSES[name]) return GRAMMAR_LICENSES[name]
   if (notice.spdx === 'LicenseRef-TextMate-Bundle') return 'TextMate Bundle License'
   if (PERMISSIVE.has(notice.spdx)) return notice.spdx
   const ids = classify(notice.text)
@@ -406,11 +414,19 @@ function grammarFilter(): Plugin {
     load(id) {
       const name = id.replace(/\\/g, '/').replace(/[?#].*$/, '').match(GRAMMAR_FILE)?.[1]
       if (!name || !grammarInfo.has(name)) return null
-      if (!grammarLicense(name)) return 'export default []'
+      // Other grammars embed it by name, so it stays loadable, just without rules
+      if (!grammarLicense(name)) return `export default [${JSON.stringify(grammarStub(name))}]`
       bundledGrammars.add(name)
       return null
     },
   }
+}
+
+/** An empty grammar in place of one that may not be bundled. Grammars that embed it (cpp
+ * embeds glsl) need it to exist, or Shiki refuses to load them and every language after. */
+export function grammarStub(name: string) {
+  const info = grammarInfo.get(name)
+  return { name, displayName: info?.displayName ?? name, scopeName: info?.scopeName ?? `source.${name}`, patterns: [], repository: {} }
 }
 
 function recordModules(ids: Iterable<string>) {
