@@ -24,7 +24,7 @@ test('Source Control file menu follows the registry', async ({ page }) => {
 test('commit menu in Commits follows the registry', async ({ page }) => {
   await page.goto('/?window=panel&views=commits')
   await page.getByRole('treeitem').filter({ hasText: 'fix: retry index.lock' }).first().click({ button: 'right' })
-  const expected = await page.evaluate(() => window.__menuLabels('view/item/context', { view: 'gitside.views.commits', viewItem: 'gitlens:commit+current' }))
+  const expected = await page.evaluate(() => window.__menuLabels('view/item/context', { view: 'gitmenu.views.commits', viewItem: 'gitlens:commit+current' }))
   expect(await menuTexts(page)).toEqual(expected)
 })
 

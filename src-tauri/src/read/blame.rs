@@ -143,7 +143,7 @@ mod tests {
 
     #[test]
     fn blames_like_git() {
-        let dir = std::env::temp_dir().join(format!("gitside-blame-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gitmenu-blame-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let git = |args: &[&str]| {

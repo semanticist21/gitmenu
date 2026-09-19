@@ -22,7 +22,7 @@ const stash = item('^gitlens:stash\\b')
 const worktree = item('^gitlens:worktree\\b')
 const otherWorktree = item('^gitlens:worktree(?!.*\\+current)(?!.*\\+main)')
 const contributor = item('^gitlens:contributor\\b')
-const view = (id: string) => `view == gitside.views.${id}`
+const view = (id: string) => `view == gitmenu.views.${id}`
 const rows = (items: [string, string, string][]) => items.map(([command, group, when]) => ({ command, group, when }))
 
 // View title buttons that run the VS Code git commands

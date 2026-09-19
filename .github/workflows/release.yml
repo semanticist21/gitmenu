@@ -55,10 +55,10 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          GITSIDE_SENTRY_DSN: ${{ secrets.GITSIDE_SENTRY_DSN }}
+          GITMENU_SENTRY_DSN: ${{ secrets.GITMENU_SENTRY_DSN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: gitside ${{ github.ref_name }}
+          releaseName: gitmenu ${{ github.ref_name }}
           releaseDraft: true
           includeUpdaterJson: true
           args: --target universal-apple-darwin --config ${{ runner.temp }}/release.conf.json

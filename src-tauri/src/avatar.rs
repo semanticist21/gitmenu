@@ -235,10 +235,10 @@ mod tests {
 
     #[test]
     fn github_repos() {
-        let expected = Some(("kkom".to_owned(), "gitside".to_owned()));
-        assert_eq!(github_repo("git@github.com:kkom/gitside.git"), expected);
-        assert_eq!(github_repo("https://github.com/kkom/gitside"), expected);
-        assert_eq!(github_repo("ssh://git@github.com/kkom/gitside.git"), expected);
-        assert_eq!(github_repo("https://gitlab.com/kkom/gitside"), None);
+        let expected = Some(("kkom".to_owned(), "gitmenu".to_owned()));
+        assert_eq!(github_repo("git@github.com:kkom/gitmenu.git"), expected);
+        assert_eq!(github_repo("https://github.com/kkom/gitmenu"), expected);
+        assert_eq!(github_repo("ssh://git@github.com/kkom/gitmenu.git"), expected);
+        assert_eq!(github_repo("https://gitlab.com/kkom/gitmenu"), None);
     }
 }

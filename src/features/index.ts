@@ -30,22 +30,22 @@ contribute(scmContribution)
 contribute(diffContribution)
 contribute({
   commands: [
-    { command: 'gitside.generateCommitMessage', title: { app: 'ai.generate' }, category: { text: 'gitside' }, icon: SparklesIcon },
-    { command: 'gitside.commitAndPush', title: { vsb: '{0} Commit & Push' } },
-    { command: 'gitside.commitAndSync', title: { vsb: '{0} Commit & Sync' } },
+    { command: 'gitmenu.generateCommitMessage', title: { app: 'ai.generate' }, category: { text: 'gitmenu' }, icon: SparklesIcon },
+    { command: 'gitmenu.commitAndPush', title: { vsb: '{0} Commit & Push' } },
+    { command: 'gitmenu.commitAndSync', title: { vsb: '{0} Commit & Sync' } },
   ],
   menus: {
     commandPalette: [
-      { command: 'gitside.commitAndPush', when: 'false' },
-      { command: 'gitside.commitAndSync', when: 'false' },
+      { command: 'gitmenu.commitAndPush', when: 'false' },
+      { command: 'gitmenu.commitAndSync', when: 'false' },
     ],
   },
 })
 
 registerScmHandlers()
 registerAiHandlers()
-registerHandler('gitside.commitAndPush', (arg?: unknown) => commitAndThen(arg, 'push'))
-registerHandler('gitside.commitAndSync', (arg?: unknown) => commitAndThen(arg, 'sync'))
+registerHandler('gitmenu.commitAndPush', (arg?: unknown) => commitAndThen(arg, 'push'))
+registerHandler('gitmenu.commitAndSync', (arg?: unknown) => commitAndThen(arg, 'sync'))
 registerView('scm', ScmView)
 
 contribute(historyContribution)

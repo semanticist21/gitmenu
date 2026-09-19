@@ -107,5 +107,5 @@ export function SearchCompareView({ repo }: ViewProps) {
     }
   })
   if (nodes.length === 0) nodes.push(messageNode('empty', gl('Search for commits or compare references using the buttons above.')))
-  return <ViewTree viewId="gitside.views.searchCompare" nodes={nodes} label={gl('Search & Compare')} />
+  return <ViewTree viewId="gitmenu.views.searchCompare" nodes={nodes} label={gl('Search & Compare')} />
 }

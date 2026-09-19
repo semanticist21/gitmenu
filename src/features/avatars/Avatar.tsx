@@ -60,7 +60,7 @@ function hue(text: string) {
 }
 
 export function Avatar({ root, name, email, sha, className }: { root: string; name: string; email: string; sha?: string | null; className?: string }) {
-  const enabled = useSetting<boolean>('gitside.avatars.enabled')
+  const enabled = useSetting<boolean>('gitmenu.avatars.enabled')
   const [url, setUrl] = useState(() => resolved.get(email))
   const [broken, setBroken] = useState(() => failed.has(email))
 

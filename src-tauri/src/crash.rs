@@ -1,5 +1,5 @@
-//! Opt-in crash reports (`gitside.crashReports.enabled`, off by default). Only release builds
-//! that embed a DSN (`GITSIDE_SENTRY_DSN` at build time) can send. Anything that looks like a
+//! Opt-in crash reports (`gitmenu.crashReports.enabled`, off by default). Only release builds
+//! that embed a DSN (`GITMENU_SENTRY_DSN` at build time) can send. Anything that looks like a
 //! path is removed from messages first, so repository paths and file names never leave the Mac;
 //! commit contents are never attached.
 
@@ -39,8 +39,8 @@ fn scrub_event(mut event: Event<'static>) -> Event<'static> {
 
 /// Starts reporting when the user opted in and this build can report.
 pub fn init(settings: &Settings) {
-    let Some(dsn) = option_env!("GITSIDE_SENTRY_DSN") else { return };
-    if settings.get("gitside.crashReports.enabled").as_bool() != Some(true) {
+    let Some(dsn) = option_env!("GITMENU_SENTRY_DSN") else { return };
+    if settings.get("gitmenu.crashReports.enabled").as_bool() != Some(true) {
         return;
     }
     let guard = sentry::init((

@@ -20,8 +20,8 @@ private let errContextWindow: Int32 = 10
 private let errGuardrail: Int32 = 11
 private let errOther: Int32 = 12
 
-@_cdecl("gitside_fm_availability")
-public func gitsideAvailability() -> Int32 {
+@_cdecl("gitmenu_fm_availability")
+public func gitmenuAvailability() -> Int32 {
     #if canImport(FoundationModels)
     if #available(macOS 26.0, *) {
         switch SystemLanguageModel.default.availability {
@@ -42,8 +42,8 @@ public func gitsideAvailability() -> Int32 {
 }
 
 /// Tokens in `text`, or -1 where counting isn't available (before macOS 26.4).
-@_cdecl("gitside_fm_token_count")
-public func gitsideTokenCount(_ text: UnsafePointer<CChar>) -> Int64 {
+@_cdecl("gitmenu_fm_token_count")
+public func gitmenuTokenCount(_ text: UnsafePointer<CChar>) -> Int64 {
     #if canImport(FoundationModels)
     if #available(macOS 26.4, *) {
         let input = String(cString: text)
@@ -57,8 +57,8 @@ public func gitsideTokenCount(_ text: UnsafePointer<CChar>) -> Int64 {
 }
 
 /// The model's context window in tokens, or -1 when unknown.
-@_cdecl("gitside_fm_context_size")
-public func gitsideContextSize() -> Int64 {
+@_cdecl("gitmenu_fm_context_size")
+public func gitmenuContextSize() -> Int64 {
     #if canImport(FoundationModels)
     if #available(macOS 26.4, *) {
         return Int64(SystemLanguageModel.default.contextSize)
@@ -67,10 +67,10 @@ public func gitsideContextSize() -> Int64 {
     return -1
 }
 
-/// Generates a response. Returns a malloc'd UTF-8 string (free with gitside_fm_free), or nil
+/// Generates a response. Returns a malloc'd UTF-8 string (free with gitmenu_fm_free), or nil
 /// with `outError` set.
-@_cdecl("gitside_fm_generate")
-public func gitsideGenerate(
+@_cdecl("gitmenu_fm_generate")
+public func gitmenuGenerate(
     _ instructions: UnsafePointer<CChar>,
     _ prompt: UnsafePointer<CChar>,
     _ outError: UnsafeMutablePointer<Int32>
@@ -112,8 +112,8 @@ public func gitsideGenerate(
     return nil
 }
 
-@_cdecl("gitside_fm_free")
-public func gitsideFree(_ pointer: UnsafeMutablePointer<CChar>?) {
+@_cdecl("gitmenu_fm_free")
+public func gitmenuFree(_ pointer: UnsafeMutablePointer<CChar>?) {
     free(pointer)
 }
 

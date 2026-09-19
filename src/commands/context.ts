@@ -1,5 +1,5 @@
 // Context keys for `when` clauses, as in VS Code.
-// - global keys: set with setContext() (e.g. `gitside.hasRepository`)
+// - global keys: set with setContext() (e.g. `gitmenu.hasRepository`)
 // - focus keys: read from `data-context` JSON on the focused element and its ancestors
 //   (e.g. a list sets `{"listFocus":true,"focusedView":"workbench.scm"}`)
 // - settings: exposed as `config.<key>`
@@ -26,16 +26,16 @@ export function setContext(key: string, value: unknown) {
 
 let overlays = 0
 
-/** Marks a dialog as open (`gitside.overlayOpen`) until the returned function runs. */
+/** Marks a dialog as open (`gitmenu.overlayOpen`) until the returned function runs. */
 export function openOverlay(): () => void {
   overlays++
-  setContext('gitside.overlayOpen', true)
+  setContext('gitmenu.overlayOpen', true)
   let closed = false
   return () => {
     if (closed) return
     closed = true
     overlays--
-    setContext('gitside.overlayOpen', overlays > 0)
+    setContext('gitmenu.overlayOpen', overlays > 0)
   }
 }
 

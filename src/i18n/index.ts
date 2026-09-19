@@ -1,4 +1,4 @@
-// UI language: `gitside.language` ("auto" follows the system), 10 locales.
+// UI language: `gitmenu.language` ("auto" follows the system), 10 locales.
 // t()   app strings (src/i18n/app/)
 // vs()  VS Code git extension strings by nls key (`command.stage`)
 // vsb() VS Code git extension runtime strings by their English text

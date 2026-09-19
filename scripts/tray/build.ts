@@ -44,7 +44,7 @@ function svg(state: string, bodyColor: string): string {
 }
 
 function render(name: string, source: string) {
-  const tmp = join(tmpdir(), `gitside-tray-${name}.svg`)
+  const tmp = join(tmpdir(), `gitmenu-tray-${name}.svg`)
   writeFileSync(tmp, source)
   for (const [suffix, scale] of [['', 1], ['@2x', 2]] as const) {
     const px = String(SIZE_PT * scale)

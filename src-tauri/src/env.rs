@@ -32,7 +32,7 @@ use crate::{
     settings::Settings,
 };
 
-const IPC_ENV: &str = "GITSIDE_IPC";
+const IPC_ENV: &str = "GITMENU_IPC";
 const SHELL_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug)]
@@ -80,8 +80,8 @@ struct PromptEvent {
 
 impl GitEnv {
     pub fn new() -> Arc<Self> {
-        let socket = std::env::temp_dir().join(format!("gitside-{}.sock", std::process::id()));
-        let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("gitside"));
+        let socket = std::env::temp_dir().join(format!("gitmenu-{}.sock", std::process::id()));
+        let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("gitmenu"));
         Arc::new(Self {
             state: watch::channel(None).0,
             socket,

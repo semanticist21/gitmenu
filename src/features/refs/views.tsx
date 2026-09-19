@@ -78,7 +78,7 @@ export function BranchesView({ repo }: ViewProps) {
     }
   }
   const nodes = status(folderize(branches, (b) => b.short, leaf, 'branches'), query, gl('No branches could be found.'), branches.length)
-  return <ViewTree viewId="gitside.views.branches" nodes={nodes} label={gl('Branches')} />
+  return <ViewTree viewId="gitmenu.views.branches" nodes={nodes} label={gl('Branches')} />
 }
 
 export function RemotesView({ repo }: ViewProps) {
@@ -86,7 +86,7 @@ export function RemotesView({ repo }: ViewProps) {
   const root = repo.root
   const remotes = useRepoQuery(root, 'remotes', () => git.remotes(root))
   const refs = useRepoQuery(root, 'refs', () => git.refs(root))
-  const settings = useSetting<RemoteSetting[] | null>('gitside.remotes') ?? []
+  const settings = useSetting<RemoteSetting[] | null>('gitmenu.remotes') ?? []
   const nodes = (remotes.data ?? []).map((remote): TreeNode => {
     const provider = remote.fetchUrl ? providerFor(remote.fetchUrl, settings) : null
     const branches = (refs.data ?? []).filter((r) => r.kind === 'remote' && r.short.startsWith(`${remote.name}/`))
@@ -114,7 +114,7 @@ export function RemotesView({ repo }: ViewProps) {
         : [messageNode(`remote:${remote.name}/none`, gl('No branches could be found.'))],
     }
   })
-  return <ViewTree viewId="gitside.views.remotes" nodes={status(nodes, remotes, gl('No remotes could be found.'), nodes.length)} label={gl('Remotes')} />
+  return <ViewTree viewId="gitmenu.views.remotes" nodes={status(nodes, remotes, gl('No remotes could be found.'), nodes.length)} label={gl('Remotes')} />
 }
 
 export function TagsView({ repo }: ViewProps) {
@@ -133,7 +133,7 @@ export function TagsView({ repo }: ViewProps) {
     loadChildren: commitChildren(root, ['tag', tag.name], `tag:${tag.name}`, locale, (limit) => git.log(root, { revs: [tag.name], limit })),
   })
   const nodes = status(folderize(tags, (t) => t.short, leaf, 'tags'), refs, gl('No tags could be found.'), tags.length)
-  return <ViewTree viewId="gitside.views.tags" nodes={nodes} label={gl('Tags')} />
+  return <ViewTree viewId="gitmenu.views.tags" nodes={nodes} label={gl('Tags')} />
 }
 
 /** "On main: message" / "WIP on main: abc message" → the message, as GitLens shows it. */
@@ -163,7 +163,7 @@ export function StashesView({ repo }: ViewProps) {
       }),
     }),
   )
-  return <ViewTree viewId="gitside.views.stashes" nodes={status(nodes, query, gl('No stashes could be found.'), nodes.length)} label={gl('Stashes')} />
+  return <ViewTree viewId="gitmenu.views.stashes" nodes={status(nodes, query, gl('No stashes could be found.'), nodes.length)} label={gl('Stashes')} />
 }
 
 function tildePath(path: string) {
@@ -192,7 +192,7 @@ export function WorktreesView({ repo }: ViewProps) {
         : undefined,
     }
   })
-  return <ViewTree viewId="gitside.views.worktrees" nodes={status(nodes, query, gl('No worktrees could be found.'), nodes.length)} label={gl('Worktrees')} />
+  return <ViewTree viewId="gitmenu.views.worktrees" nodes={status(nodes, query, gl('No worktrees could be found.'), nodes.length)} label={gl('Worktrees')} />
 }
 
 export function ContributorsView({ repo }: ViewProps) {
@@ -213,5 +213,5 @@ export function ContributorsView({ repo }: ViewProps) {
       ),
     }),
   )
-  return <ViewTree viewId="gitside.views.contributors" nodes={status(nodes, query, gl('No contributors could be found.'), nodes.length)} label={gl('Contributors')} />
+  return <ViewTree viewId="gitmenu.views.contributors" nodes={status(nodes, query, gl('No contributors could be found.'), nodes.length)} label={gl('Contributors')} />
 }

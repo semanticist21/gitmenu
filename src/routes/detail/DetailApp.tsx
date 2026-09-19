@@ -70,7 +70,7 @@ export function DetailApp() {
   }
 
   useEffect(() => {
-    setContext('gitside.window', 'detail')
+    setContext('gitmenu.window', 'detail')
     const disposers = [
       registerHandler('workbench.action.openSettings', () => open('/detail/settings')),
       registerHandler('workbench.action.openGlobalKeybindings', () => open('/detail/keyboard-shortcuts')),

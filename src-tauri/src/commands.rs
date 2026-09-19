@@ -33,7 +33,7 @@ pub fn settings_set(app: AppHandle, settings: State<Arc<Settings>>, env: Env, ke
     if key == "git.path" {
         env.refresh_git(&app, &settings);
     }
-    if key == "gitside.panel.globalShortcut" {
+    if key == "gitmenu.panel.globalShortcut" {
         crate::register_global_shortcut(&app, &settings);
     }
     Ok(())
@@ -183,7 +183,7 @@ pub fn detail_open(app: AppHandle, route: String) -> Result<()> {
     }
     let url = format!("index.html#{route}");
     WebviewWindowBuilder::new(&app, DETAIL, WebviewUrl::App(url.into()))
-        .title("gitside")
+        .title("gitmenu")
         .inner_size(1100.0, 760.0)
         .min_inner_size(640.0, 400.0)
         .title_bar_style(tauri::TitleBarStyle::Overlay)
@@ -233,7 +233,7 @@ pub fn op_cancel(queue: State<Arc<Queue>>, id: u64) {
 
 #[tauri::command]
 pub async fn open_in_terminal(settings: State<'_, Arc<Settings>>, path: PathBuf) -> Result<()> {
-    let app_name = settings.get_str("gitside.terminal.app").unwrap_or_else(|| "Terminal".into());
+    let app_name = settings.get_str("gitmenu.terminal.app").unwrap_or_else(|| "Terminal".into());
     run_open(&["-a", &app_name], &path).await
 }
 

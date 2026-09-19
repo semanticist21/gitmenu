@@ -33,5 +33,5 @@ export function LineHistoryView({ repo }: ViewProps) {
     }
     if (log.more) nodes.push(loadMoreNode('lh', log.loadMore, log.loadingMore))
   }
-  return <ViewTree viewId="gitside.views.lineHistory" nodes={nodes} label={gl('Line History')} />
+  return <ViewTree viewId="gitmenu.views.lineHistory" nodes={nodes} label={gl('Line History')} />
 }

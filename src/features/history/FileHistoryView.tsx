@@ -26,7 +26,7 @@ export function FileHistoryView({ repo }: ViewProps) {
   const path = target && target.root === root ? target.path : null
   const log = usePagedLog(['repo', root, 'fileHistory', path], (skip, limit) => git.log(root, { path, skip, limit }), path !== null)
 
-  useEffect(() => setContext('gitside:views:fileHistory:pinned', pinned), [pinned])
+  useEffect(() => setContext('gitmenu:views:fileHistory:pinned', pinned), [pinned])
   useEffect(() => {
     const disposers = [
       registerHandler('gitlens.views.fileHistory.pick', async () => {
@@ -51,5 +51,5 @@ export function FileHistoryView({ repo }: ViewProps) {
     for (const commit of log.commits) nodes.push(commitNode(root, commit, { idPrefix: 'fh', locale, file: true }))
     if (log.more) nodes.push(loadMoreNode('fh', log.loadMore, log.loadingMore))
   }
-  return <ViewTree viewId="gitside.views.fileHistory" nodes={nodes} label={gl('File History')} />
+  return <ViewTree viewId="gitmenu.views.fileHistory" nodes={nodes} label={gl('File History')} />
 }

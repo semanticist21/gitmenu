@@ -33,7 +33,7 @@ export function ViewActions({ view, repo }: { view: string; repo: RepoInfo }) {
   useLocale()
   // Source Control uses VS Code's own `scm/title` menu; the other views use `view/title`
   const menu = view === 'scm' ? 'scm/title' : 'view/title'
-  const context = view === 'scm' ? { scmProvider: 'git' } : { view: `gitside.views.${view}` }
+  const context = view === 'scm' ? { scmProvider: 'git' } : { view: `gitmenu.views.${view}` }
   const groups = resolveMenu(menu, context)
   const inline = groups.filter((g) => g.group === 'navigation').flatMap((g) => g.items)
   const hasMore = groups.some((g) => g.group !== 'navigation' && g.items.length > 0)

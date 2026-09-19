@@ -70,7 +70,7 @@ pub fn run() {
 
             app.manage(Arc::new(read::Repos::default()));
             app.manage(Arc::new(read::graph::GraphCache::default()));
-            let cache = app.path().app_cache_dir().unwrap_or_else(|_| std::env::temp_dir().join("gitside"));
+            let cache = app.path().app_cache_dir().unwrap_or_else(|_| std::env::temp_dir().join("gitmenu"));
             app.manage(Arc::new(avatar::Avatars::new(&cache)));
             let queue = Queue::new(Arc::clone(&env), handle.clone());
             app.manage(Arc::clone(&queue));
@@ -168,7 +168,7 @@ pub fn run() {
             git::read_text_file,
         ])
         .build(tauri::generate_context!())
-        .expect("error while building gitside")
+        .expect("error while building gitmenu")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 app.state::<Arc<GitEnv>>().cleanup();
@@ -180,11 +180,11 @@ fn tauri_plugin_nspanel_init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri_nspanel::init()
 }
 
-/// Binds the one global shortcut (panel open/close) from `gitside.panel.globalShortcut`.
+/// Binds the one global shortcut (panel open/close) from `gitmenu.panel.globalShortcut`.
 pub(crate) fn register_global_shortcut(app: &AppHandle, settings: &Settings) {
     let shortcuts = app.global_shortcut();
     let _ = shortcuts.unregister_all();
-    if let Some(accelerator) = settings.get_str("gitside.panel.globalShortcut").filter(|s| !s.is_empty())
+    if let Some(accelerator) = settings.get_str("gitmenu.panel.globalShortcut").filter(|s| !s.is_empty())
         && let Err(e) = shortcuts.register(accelerator.as_str())
     {
         log::warn!("global shortcut {accelerator} not registered: {e}");

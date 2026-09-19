@@ -36,24 +36,24 @@ function usePanelCommands(projectIds: string[], activeId: string | null, activeR
       void ipc.projectActivate(projectIds[(i + delta + projectIds.length) % projectIds.length])
     }
     const disposers = [
-      registerHandler('gitside.openProject', () => openProjectPicker(t('project.pickTitle'))),
-      registerHandler('gitside.closeProject', (id?: unknown) => {
+      registerHandler('gitmenu.openProject', () => openProjectPicker(t('project.pickTitle'))),
+      registerHandler('gitmenu.closeProject', (id?: unknown) => {
         const target = typeof id === 'string' ? id : activeId
         if (target) void ipc.projectClose(target)
       }),
-      registerHandler('gitside.nextProject', () => step(1)),
-      registerHandler('gitside.previousProject', () => step(-1)),
-      registerHandler('gitside.togglePin', togglePin),
-      registerHandler('gitside.hidePanel', () => ipc.panelHide()),
-      registerHandler('gitside.openInTerminal', (path?: unknown) => {
+      registerHandler('gitmenu.nextProject', () => step(1)),
+      registerHandler('gitmenu.previousProject', () => step(-1)),
+      registerHandler('gitmenu.togglePin', togglePin),
+      registerHandler('gitmenu.hidePanel', () => ipc.panelHide()),
+      registerHandler('gitmenu.openInTerminal', (path?: unknown) => {
         const target = typeof path === 'string' ? path : (activeRepo ?? activeId)
         if (target) void ipc.openInTerminal(target).catch((e) => toastManager.add({ type: 'error', title: errorMessage(e) }))
       }),
-      registerHandler('gitside.revealInFinder', (path?: unknown) => {
+      registerHandler('gitmenu.revealInFinder', (path?: unknown) => {
         const target = typeof path === 'string' ? path : activeId
         if (target) void ipc.revealInFinder(target)
       }),
-      registerHandler('gitside.quit', () => ipc.appQuit()),
+      registerHandler('gitmenu.quit', () => ipc.appQuit()),
       registerHandler('update.checkForUpdates', () => checkForUpdates(true)),
       registerHandler('workbench.action.openSettings', () => ipc.detailOpen('/detail/settings')),
       registerHandler('workbench.action.openGlobalKeybindings', () => ipc.detailOpen('/detail/keyboard-shortcuts')),
@@ -155,10 +155,10 @@ export function PanelApp() {
   useEffect(() => setActiveRepo(repo?.root ?? null), [repo])
 
   useEffect(() => {
-    setContext('gitside.window', 'panel')
-    setContext('gitside.projectCount', projects.length)
-    setContext('gitside.hasProject', Boolean(active))
-    setContext('gitside.hasRepository', Boolean(repo))
+    setContext('gitmenu.window', 'panel')
+    setContext('gitmenu.projectCount', projects.length)
+    setContext('gitmenu.hasProject', Boolean(active))
+    setContext('gitmenu.hasRepository', Boolean(repo))
     setContext('scmProvider', repo ? 'git' : undefined)
   }, [projects.length, active, repo])
 

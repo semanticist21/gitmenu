@@ -1,10 +1,10 @@
 // Web URLs for remotes on hosting services, like GitLens's remote providers. Well-known hosts
-// are recognized by domain; self-hosted ones come from the `gitside.remotes` setting (the
+// are recognized by domain; self-hosted ones come from the `gitmenu.remotes` setting (the
 // shape of GitLens's `gitlens.remotes`). Nothing is detected by calling the host's API.
 
 export type ProviderType = 'GitHub' | 'GitLab' | 'Gitea' | 'Bitbucket' | 'BitbucketServer' | 'AzureDevOps' | 'Custom'
 
-/** One entry of the `gitside.remotes` setting. */
+/** One entry of the `gitmenu.remotes` setting. */
 export interface RemoteSetting {
   domain?: string
   regex?: string

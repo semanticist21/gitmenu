@@ -62,7 +62,7 @@ function CommitInput({ root, branch }: { root: string; branch: string | null }) 
         disabled={!ai?.available}
         aria-label={t('ai.generate')}
         title={ai?.available ? t('ai.generate') : (ai?.reason ?? t('ai.generate'))}
-        onClick={() => void executeCommand('gitside.generateCommitMessage', root)}
+        onClick={() => void executeCommand('gitmenu.generateCommitMessage', root)}
       >
         <SparklesIcon />
       </Button>
@@ -97,8 +97,8 @@ function ActionButton({ root, canCommit, ahead, behind, hasUpstream, branch, bus
           <MenuPopup align="end">
             <MenuItem onClick={() => void executeCommand('git.commit', root)}>{vsb('{0} Commit', '').trim()}</MenuItem>
             <MenuItem onClick={() => void executeCommand('git.commitAmend', root)}>{vsb('{0} Commit (Amend)', '').trim()}</MenuItem>
-            <MenuItem onClick={() => void executeCommand('gitside.commitAndPush', root)}>{vsb('{0} Commit & Push', '').trim()}</MenuItem>
-            <MenuItem onClick={() => void executeCommand('gitside.commitAndSync', root)}>{vsb('{0} Commit & Sync', '').trim()}</MenuItem>
+            <MenuItem onClick={() => void executeCommand('gitmenu.commitAndPush', root)}>{vsb('{0} Commit & Push', '').trim()}</MenuItem>
+            <MenuItem onClick={() => void executeCommand('gitmenu.commitAndSync', root)}>{vsb('{0} Commit & Sync', '').trim()}</MenuItem>
           </MenuPopup>
         </Menu>
       </ButtonGroup>

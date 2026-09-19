@@ -70,7 +70,7 @@ let selectedForCompare: { root: string; ref: string } | null = null
 
 export async function pickProvider(root: string): Promise<Provider | undefined> {
   const [remotes, status] = await Promise.all([git.remotes(root), git.status(root)])
-  const settings = setting<RemoteSetting[] | null>('gitside.remotes') ?? []
+  const settings = setting<RemoteSetting[] | null>('gitmenu.remotes') ?? []
   const withProvider = remotes
     .map((r) => ({ remote: r, provider: r.fetchUrl ? providerFor(r.fetchUrl, settings) : null }))
     .filter((r): r is { remote: typeof r.remote; provider: Provider } => r.provider !== null)

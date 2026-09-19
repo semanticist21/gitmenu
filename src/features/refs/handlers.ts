@@ -226,7 +226,7 @@ export function registerRefHandlers() {
     },
     'gitlens.openRemoteOnRemote': async (arg) => {
       if (!isRemote(arg) || !arg.url) return
-      const provider = providerFor(arg.url, setting<RemoteSetting[] | null>('gitside.remotes') ?? [])
+      const provider = providerFor(arg.url, setting<RemoteSetting[] | null>('gitmenu.remotes') ?? [])
       if (provider) await ipc.openPath(provider.repository())
     },
     'gitlens.views.copyRemoteUrl': (arg) => (isRemote(arg) && arg.url ? copy(arg.url) : undefined),

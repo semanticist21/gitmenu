@@ -34,7 +34,7 @@ export async function availability(): Promise<{ available: boolean; reason?: str
 let running = false
 
 export function registerAiHandlers() {
-  registerHandler('gitside.generateCommitMessage', async (arg?: unknown) => {
+  registerHandler('gitmenu.generateCommitMessage', async (arg?: unknown) => {
     const root = repoFrom(arg)
     if (!root || running) return
     running = true

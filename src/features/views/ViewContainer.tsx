@@ -87,7 +87,7 @@ export function ViewContainer({ render, actions }: Props) {
             aria-label={label}
             className={cn('relative flex min-h-0 flex-col', index > 0 && 'border-t')}
             style={collapsed ? { flex: '0 0 auto' } : { flex: `${layout.weights[view.id] ?? 1} 1 0px`, minHeight: MIN_EXPANDED }}
-            data-context={JSON.stringify({ view: `gitside.views.${view.id}`, focusedView: `gitside.views.${view.id}` })}
+            data-context={JSON.stringify({ view: `gitmenu.views.${view.id}`, focusedView: `gitmenu.views.${view.id}` })}
           >
             {resizable && (
               <div

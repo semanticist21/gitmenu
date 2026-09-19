@@ -1,4 +1,4 @@
-//! `settings.json` and `keybindings.json` in `~/Library/Application Support/gitside/`.
+//! `settings.json` and `keybindings.json` in `~/Library/Application Support/gitmenu/`.
 //!
 //! Both files are JSONC like VS Code's. Edits go through a concrete syntax tree so the
 //! user's comments, ordering and unknown keys survive. The files are watched; any change
@@ -186,19 +186,19 @@ mod tests {
         let settings = Settings::load(dir.clone()).unwrap();
         assert_eq!(settings.get("git.detectSubmodulesLimit"), Value::from(10));
         settings.set("git.path", Value::from("/opt/homebrew/bin/git")).unwrap();
-        settings.set("gitside.theme.mode", Value::from("dark")).unwrap();
+        settings.set("gitmenu.theme.mode", Value::from("dark")).unwrap();
         let text = fs::read_to_string(dir.join("settings.json")).unwrap();
         assert!(text.contains("// mine"));
         assert!(text.contains("\"editor.fontSize\": 13"));
         assert!(text.contains("/opt/homebrew/bin/git"));
-        assert!(text.contains("\"gitside.theme.mode\": \"dark\""));
+        assert!(text.contains("\"gitmenu.theme.mode\": \"dark\""));
         settings.set("git.path", Value::Null).unwrap();
         assert!(!fs::read_to_string(dir.join("settings.json")).unwrap().contains("git.path"));
         assert_eq!(settings.get("git.path"), Value::Null);
     }
 
     fn tempdir() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("gitside-settings-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gitmenu-settings-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir

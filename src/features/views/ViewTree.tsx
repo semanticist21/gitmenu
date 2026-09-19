@@ -79,7 +79,7 @@ export function ViewTree({ viewId, nodes, label }: { viewId: string; nodes: Tree
   const [focusIndex, setFocusIndex] = useState(0)
   const [limits, setLimits] = useState<Map<string, number>>(new Map())
   const shown = useRef(new Map<string, unknown>())
-  const pageSize = useSetting<number>('gitside.views.pageItemLimit')
+  const pageSize = useSetting<number>('gitmenu.views.pageItemLimit')
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const isExpanded = (node: TreeNode) => toggled.get(node.id) ?? node.expanded ?? false

@@ -318,7 +318,7 @@ mod tests {
     }
 
     fn fixture(name: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("gitside-status-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gitmenu-status-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         git(&dir, &["init", "-q"]);
@@ -382,7 +382,7 @@ mod tests {
         std::fs::write(remote.join("f.txt"), "1\n").unwrap();
         git(&remote, &["add", "."]);
         git(&remote, &["commit", "-qm", "1"]);
-        let clone = std::env::temp_dir().join(format!("gitside-status-clone-{}", std::process::id()));
+        let clone = std::env::temp_dir().join(format!("gitmenu-status-clone-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&clone);
         git(&remote, &["clone", "-q", remote.to_str().unwrap(), clone.to_str().unwrap()]);
         std::fs::write(remote.join("f.txt"), "2\n").unwrap();

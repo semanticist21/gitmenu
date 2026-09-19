@@ -38,14 +38,14 @@ const BLUR_GRACE: Duration = Duration::from_millis(80);
 const MARGIN: f64 = 6.0;
 
 tauri_panel! {
-    panel!(GitsidePanel {
+    panel!(GitmenuPanel {
         config: {
             can_become_key_window: true,
             is_floating_panel: true
         }
     })
 
-    panel_event!(GitsidePanelEvents {
+    panel_event!(GitmenuPanelEvents {
         window_did_resign_key(notification: &NSNotification) -> ()
     })
 }
@@ -144,7 +144,7 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(frames.idle.clone())
         .icon_as_template(true)
-        .tooltip("gitside")
+        .tooltip("gitmenu")
         .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
@@ -172,14 +172,14 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
 fn setup_panel(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let window = app.get_webview_window(PANEL).expect("panel window in tauri.conf.json");
-    let panel = window.to_panel::<GitsidePanel>().map_err(|e| e.to_string())?;
+    let panel = window.to_panel::<GitmenuPanel>().map_err(|e| e.to_string())?;
     panel.set_level(PanelLevel::Floating.value());
     panel.set_style_mask(StyleMask::empty().nonactivating_panel().resizable().into());
     panel.set_collection_behavior(CollectionBehavior::new().full_screen_auxiliary().can_join_all_spaces().into());
     panel.set_has_shadow(true);
     panel.set_corner_radius(10.0);
 
-    let handler = GitsidePanelEvents::new();
+    let handler = GitmenuPanelEvents::new();
     let handle = app.clone();
     handler.window_did_resign_key(move |_| {
         let app = handle.clone();

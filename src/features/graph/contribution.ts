@@ -8,7 +8,7 @@ export const graphContribution: Contribution = {
   commands: [{ command: 'gitlens.showGraph', title: { gl: 'Show Commit Graph' }, category: { text: 'GitLens' }, icon: WaypointsIcon }],
   menus: {
     'scm/title': [{ command: 'gitlens.showGraph', group: 'navigation@-1', when: 'scmProvider == git' }],
-    'view/title': [{ command: 'gitlens.showGraph', group: 'navigation@8', when: 'view == gitside.views.commits || view == gitside.views.branches' }],
+    'view/title': [{ command: 'gitlens.showGraph', group: 'navigation@8', when: 'view == gitmenu.views.commits || view == gitmenu.views.branches' }],
   },
 }
 

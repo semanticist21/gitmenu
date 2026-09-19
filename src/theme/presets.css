@@ -1,4 +1,4 @@
-/* Color presets (`gitside.theme.preset`). The base palettes swap the neutral scale the
+/* Color presets (`gitmenu.theme.preset`). The base palettes swap the neutral scale the
  * coss theme is built on; the accent presets change the primary color and focus ring. */
 html[data-preset="stone"] {
   --color-neutral-50: var(--color-stone-50);

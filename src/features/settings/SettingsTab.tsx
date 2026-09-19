@@ -26,8 +26,8 @@ interface Schema {
 const schemas = configuration as Record<string, Schema>
 
 const SECTIONS: { title: AppKey; match: (key: string) => boolean }[] = [
-  { title: 'settings.section.general', match: (k) => (k.startsWith('gitside.') && !k.startsWith('gitside.ai.')) || k.startsWith('update.') },
-  { title: 'settings.section.ai', match: (k) => k.startsWith('gitside.ai.') },
+  { title: 'settings.section.general', match: (k) => (k.startsWith('gitmenu.') && !k.startsWith('gitmenu.ai.')) || k.startsWith('update.') },
+  { title: 'settings.section.ai', match: (k) => k.startsWith('gitmenu.ai.') },
   { title: 'settings.section.git', match: (k) => k.startsWith('git.') },
   { title: 'settings.section.diff', match: (k) => k.startsWith('diffEditor.') || k.startsWith('editor.') },
   { title: 'settings.section.scm', match: (k) => k.startsWith('scm.') },
@@ -63,8 +63,8 @@ function descriptionOf(key: string): string {
 }
 
 function optionLabel(key: string, value: string | boolean): string {
-  if (key === 'gitside.language') return value === 'auto' ? t('settings.systemLanguage') : LANGUAGE_NAMES[String(value)]
-  if (key === 'gitside.theme.mode') return t(`settings.theme.${value}` as AppKey)
+  if (key === 'gitmenu.language') return value === 'auto' ? t('settings.systemLanguage') : LANGUAGE_NAMES[String(value)]
+  if (key === 'gitmenu.theme.mode') return t(`settings.theme.${value}` as AppKey)
   return String(value)
 }
 
@@ -72,9 +72,9 @@ function Control({ name, schema, value }: { name: string; schema: Schema; value:
   const types = Array.isArray(schema.type) ? schema.type : [schema.type]
   const save = (next: unknown) =>
     void setSetting(name, next).catch((e) => toastManager.add({ type: 'error', title: errorMessage(e) }))
-  const terminals = useQuery({ queryKey: ['terminalApps'], queryFn: ipc.terminalApps, enabled: name === 'gitside.terminal.app' })
+  const terminals = useQuery({ queryKey: ['terminalApps'], queryFn: ipc.terminalApps, enabled: name === 'gitmenu.terminal.app' })
 
-  if (name === 'gitside.terminal.app') {
+  if (name === 'gitmenu.terminal.app') {
     const options = [...new Set([...(terminals.data ?? []), String(value)])]
     return (
       <Select value={String(value)} onValueChange={(v) => save(v)}>
@@ -120,7 +120,7 @@ function Control({ name, schema, value }: { name: string; schema: Schema; value:
       />
     )
   }
-  if (name === 'gitside.ai.commitMessage.customInstructions') {
+  if (name === 'gitmenu.ai.commitMessage.customInstructions') {
     return <Textarea className="w-full max-w-xl" rows={3} defaultValue={String(value ?? '')} onBlur={(e) => save(e.target.value)} />
   }
   if (types.includes('string')) {

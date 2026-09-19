@@ -27,7 +27,7 @@ export const SHOW_FILE_EVENT = 'fileHistory://show'
 
 export function useFileHistoryTarget() {
   const [target, setTarget] = useUiState<FileTarget | null>('fileHistory.target', null)
-  const follow = useSetting<boolean>('gitside.views.fileHistory.followActiveFile')
+  const follow = useSetting<boolean>('gitmenu.views.fileHistory.followActiveFile')
   const [pinned, setPinned] = useUiState<boolean>('fileHistory.pinned', false)
   useTauriEvent<FileTarget>(ACTIVE_FILE_EVENT, (next) => {
     if (follow && !pinned && (next.root !== target?.root || next.path !== target?.path)) setTarget(next)

@@ -1,4 +1,4 @@
-# gitside
+# gitmenu
 
 macOS menu bar git panel (Tauri 2). `SPEC.md` owns every product and architecture decision; read the section you touch before changing it.
 

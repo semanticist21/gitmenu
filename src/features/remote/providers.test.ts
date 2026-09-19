@@ -3,19 +3,19 @@ import { parseRemoteUrl, providerFor } from './providers'
 
 describe('parseRemoteUrl', () => {
   test('scp, ssh and https forms', () => {
-    expect(parseRemoteUrl('git@github.com:kkom/gitside.git')).toEqual({ domain: 'github.com', path: 'kkom/gitside' })
+    expect(parseRemoteUrl('git@github.com:kkom/gitmenu.git')).toEqual({ domain: 'github.com', path: 'kkom/gitmenu' })
     expect(parseRemoteUrl('ssh://git@gitlab.example.com:2222/group/sub/repo.git')).toEqual({ domain: 'gitlab.example.com', path: 'group/sub/repo' })
-    expect(parseRemoteUrl('https://user@github.com/kkom/gitside/')).toEqual({ domain: 'github.com', path: 'kkom/gitside' })
+    expect(parseRemoteUrl('https://user@github.com/kkom/gitmenu/')).toEqual({ domain: 'github.com', path: 'kkom/gitmenu' })
     expect(parseRemoteUrl('/local/path')).toBeNull()
   })
 })
 
 describe('providerFor', () => {
   test('GitHub', () => {
-    const p = providerFor('git@github.com:kkom/gitside.git')!
-    expect(p.commit('abc')).toBe('https://github.com/kkom/gitside/commit/abc')
-    expect(p.file('src/a b.ts', { sha: 'abc' }, { start: 3, end: 5 })).toBe('https://github.com/kkom/gitside/blob/abc/src/a%20b.ts#L3-L5')
-    expect(p.branch('feat/x')).toBe('https://github.com/kkom/gitside/tree/feat/x')
+    const p = providerFor('git@github.com:kkom/gitmenu.git')!
+    expect(p.commit('abc')).toBe('https://github.com/kkom/gitmenu/commit/abc')
+    expect(p.file('src/a b.ts', { sha: 'abc' }, { start: 3, end: 5 })).toBe('https://github.com/kkom/gitmenu/blob/abc/src/a%20b.ts#L3-L5')
+    expect(p.branch('feat/x')).toBe('https://github.com/kkom/gitmenu/tree/feat/x')
   })
 
   test('GitLab and self-hosted via settings', () => {

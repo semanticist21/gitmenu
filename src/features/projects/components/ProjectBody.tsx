@@ -39,7 +39,7 @@ export function NoProjects() {
           <EmptyTitle>{t('project.empty.title')}</EmptyTitle>
           <EmptyDescription>{t('project.empty.description')}</EmptyDescription>
         </EmptyHeader>
-        <Button onClick={() => void executeCommand('gitside.openProject')}>{t('project.open')}</Button>
+        <Button onClick={() => void executeCommand('gitmenu.openProject')}>{t('project.open')}</Button>
         <p className="text-muted-foreground text-xs">{t('project.empty.drop')}</p>
       </Empty>
     </Centered>
@@ -132,7 +132,7 @@ export function RepoList({ repos, selected, onSelect }: RepoListProps) {
       role="listbox"
       aria-label={t('repos.title')}
       className="flex flex-col py-0.5"
-      data-context={JSON.stringify({ focusedView: 'gitside.views.repositories', listFocus: true })}
+      data-context={JSON.stringify({ focusedView: 'gitmenu.views.repositories', listFocus: true })}
     >
       {repos.map((repo) => (
         <button

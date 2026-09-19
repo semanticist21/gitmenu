@@ -4,7 +4,7 @@ import type { CommitInfo, LogPage } from '@/lib/git'
 import { useSetting } from '@/settings/settings'
 
 export function usePagedLog(queryKey: unknown[], fetchPage: (skip: number, limit: number) => Promise<LogPage>, enabled = true) {
-  const limit = useSetting<number>('gitside.views.pageItemLimit')
+  const limit = useSetting<number>('gitmenu.views.pageItemLimit')
   const query = useInfiniteQuery({
     queryKey: [...queryKey, limit],
     queryFn: ({ pageParam }) => fetchPage(pageParam, limit),

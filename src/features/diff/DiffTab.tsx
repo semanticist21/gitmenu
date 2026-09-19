@@ -164,8 +164,8 @@ export function DiffTab({ params }: DetailTabProps) {
   const canUnstage = left.kind === 'head' && right.kind === 'index'
 
   useEffect(() => {
-    setContext('gitsideDiffCanStage', canStage)
-    setContext('gitsideDiffCanUnstage', canUnstage)
+    setContext('gitmenuDiffCanStage', canStage)
+    setContext('gitmenuDiffCanUnstage', canUnstage)
   }, [canStage, canUnstage])
 
   const refresh = useCallback(() => {
@@ -267,7 +267,7 @@ export function DiffTab({ params }: DetailTabProps) {
 
   const hunkCount = result?.hunks.length ?? 0
   return (
-    <div className="flex h-full flex-col" data-context={JSON.stringify({ gitsideDiffFocus: true, isInDiffEditor: true })}>
+    <div className="flex h-full flex-col" data-context={JSON.stringify({ gitmenuDiffFocus: true, isInDiffEditor: true })}>
       <div className="flex h-9 shrink-0 items-center gap-1 border-b px-2 text-[13px]">
         <span className="min-w-0 flex-1 truncate text-muted-foreground" title={`${root}/${path}`}>
           {original && original !== path ? `${original} → ${path}` : path}

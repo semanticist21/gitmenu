@@ -1,10 +1,10 @@
-// Applies `gitside.theme.mode` (system/light/dark) and `gitside.theme.preset` to <html>.
+// Applies `gitmenu.theme.mode` (system/light/dark) and `gitmenu.theme.preset` to <html>.
 import { useEffect } from 'react'
 import { useSetting } from '@/settings/settings'
 
 export function useTheme() {
-  const mode = useSetting<string>('gitside.theme.mode')
-  const preset = useSetting<string>('gitside.theme.preset')
+  const mode = useSetting<string>('gitmenu.theme.mode')
+  const preset = useSetting<string>('gitmenu.theme.preset')
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)')

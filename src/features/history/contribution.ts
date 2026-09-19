@@ -1,6 +1,6 @@
 // GitLens commands and menus for the Commits, File History, Line History and Search &
 // Compare views, and GitLens's additions to Source Control rows. GitLens strings are English
-// with gitside's own translations (`gl`).
+// with gitmenu's own translations (`gl`).
 import {
   ArrowDownIcon,
   ArrowLeftRightIcon,
@@ -27,7 +27,7 @@ function command(id: string, title: string, extra: Partial<CommandContribution> 
 
 const commit = 'viewItem =~ /^gitlens:commit\\b/'
 const file = 'viewItem =~ /^gitlens:file\\b/'
-const views = (...ids: string[]) => ids.map((id) => `view == gitside.views.${id}`).join(' || ')
+const views = (...ids: string[]) => ids.map((id) => `view == gitmenu.views.${id}`).join(' || ')
 const rowMenu = (items: [string, string, string][]) => items.map(([command, group, when]) => ({ command, group, when }))
 
 export const historyContribution: Contribution = {
@@ -76,8 +76,8 @@ export const historyContribution: Contribution = {
       { command: 'gitlens.views.searchAndCompare.selectForCompare', group: 'navigation@2', when: views('searchCompare') },
       { command: 'gitlens.views.searchAndCompare.clear', group: 'navigation@3', when: views('searchCompare') },
       { command: 'gitlens.views.fileHistory.pick', group: 'navigation@1', when: views('fileHistory') },
-      { command: 'gitlens.views.fileHistory.setEditorFollowingOff', group: 'navigation@2', when: `${views('fileHistory')} && !gitside:views:fileHistory:pinned` },
-      { command: 'gitlens.views.fileHistory.setEditorFollowingOn', group: 'navigation@2', when: `${views('fileHistory')} && gitside:views:fileHistory:pinned` },
+      { command: 'gitlens.views.fileHistory.setEditorFollowingOff', group: 'navigation@2', when: `${views('fileHistory')} && !gitmenu:views:fileHistory:pinned` },
+      { command: 'gitlens.views.fileHistory.setEditorFollowingOn', group: 'navigation@2', when: `${views('fileHistory')} && gitmenu:views:fileHistory:pinned` },
       { command: 'gitlens.views.refresh', group: 'navigation@9', when: views('commits', 'fileHistory', 'lineHistory', 'searchCompare') },
       { command: 'gitlens.views.pull', group: '1_gitlens_sync@1', when: views('commits') },
       { command: 'gitlens.views.push', group: '1_gitlens_sync@2', when: views('commits') },

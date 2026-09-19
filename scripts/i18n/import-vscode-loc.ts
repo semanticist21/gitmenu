@@ -10,7 +10,7 @@ import { join } from 'node:path'
 
 const VSCODE_TAG = '1.138.0'
 const VSCODE_LOC_COMMIT = '0f157dee0cdcbf58cdf51a221ee94751c7f35e75'
-// gitside locale id → vscode-loc language pack folder
+// gitmenu locale id → vscode-loc language pack folder
 const LANGUAGES: Record<string, string> = {
   ko: 'ko',
   ja: 'ja',

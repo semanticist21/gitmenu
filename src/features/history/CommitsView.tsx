@@ -69,5 +69,5 @@ export function CommitsView({ repo }: ViewProps) {
   for (const commit of log.commits) nodes.push(commitNode(root, commit, { idPrefix: 'log', locale, flags: ['current'] }))
   if (log.more) nodes.push(loadMoreNode('log', log.loadMore, log.loadingMore))
 
-  return <ViewTree viewId="gitside.views.commits" nodes={nodes} label={gl('Commits')} />
+  return <ViewTree viewId="gitmenu.views.commits" nodes={nodes} label={gl('Commits')} />
 }

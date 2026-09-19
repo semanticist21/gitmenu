@@ -10,7 +10,7 @@ const dirs: string[] = []
 afterAll(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })))
 
 function repo(left: string) {
-  const dir = mkdtempSync(join(tmpdir(), 'gitside-patch-'))
+  const dir = mkdtempSync(join(tmpdir(), 'gitmenu-patch-'))
   dirs.push(dir)
   const git = (...args: string[]) =>
     execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: dir, encoding: 'utf8' })

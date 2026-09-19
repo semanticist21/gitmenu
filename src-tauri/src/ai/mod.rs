@@ -18,11 +18,11 @@ use crate::{
 };
 
 unsafe extern "C" {
-    fn gitside_fm_availability() -> i32;
-    fn gitside_fm_token_count(text: *const c_char) -> i64;
-    fn gitside_fm_context_size() -> i64;
-    fn gitside_fm_generate(instructions: *const c_char, prompt: *const c_char, error: *mut i32) -> *mut c_char;
-    fn gitside_fm_free(pointer: *mut c_char);
+    fn gitmenu_fm_availability() -> i32;
+    fn gitmenu_fm_token_count(text: *const c_char) -> i64;
+    fn gitmenu_fm_context_size() -> i64;
+    fn gitmenu_fm_generate(instructions: *const c_char, prompt: *const c_char, error: *mut i32) -> *mut c_char;
+    fn gitmenu_fm_free(pointer: *mut c_char);
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -37,7 +37,7 @@ pub enum Availability {
 }
 
 pub fn availability() -> Availability {
-    match unsafe { gitside_fm_availability() } {
+    match unsafe { gitmenu_fm_availability() } {
         0 => Availability::Available,
         1 => Availability::DeviceNotEligible,
         2 => Availability::AppleIntelligenceNotEnabled,
@@ -58,7 +58,7 @@ fn generate(instructions: &str, prompt: &str) -> std::result::Result<String, Gen
     let instructions = CString::new(instructions.replace('\0', "")).unwrap();
     let prompt = CString::new(prompt.replace('\0', "")).unwrap();
     let mut code = 0i32;
-    let pointer = unsafe { gitside_fm_generate(instructions.as_ptr(), prompt.as_ptr(), &mut code) };
+    let pointer = unsafe { gitmenu_fm_generate(instructions.as_ptr(), prompt.as_ptr(), &mut code) };
     if pointer.is_null() {
         return Err(match code {
             10 => GenerateError::ContextWindow,
@@ -67,14 +67,14 @@ fn generate(instructions: &str, prompt: &str) -> std::result::Result<String, Gen
         });
     }
     let text = unsafe { CStr::from_ptr(pointer) }.to_string_lossy().into_owned();
-    unsafe { gitside_fm_free(pointer) };
+    unsafe { gitmenu_fm_free(pointer) };
     Ok(text)
 }
 
 /// Tokens in `text`: exact on macOS 26.4+, otherwise a conservative estimate.
 fn tokens(text: &str) -> usize {
     let c = CString::new(text.replace('\0', "")).unwrap();
-    let count = unsafe { gitside_fm_token_count(c.as_ptr()) };
+    let count = unsafe { gitmenu_fm_token_count(c.as_ptr()) };
     if count >= 0 {
         count as usize
     } else {
@@ -84,7 +84,7 @@ fn tokens(text: &str) -> usize {
 }
 
 fn context_size() -> usize {
-    let size = unsafe { gitside_fm_context_size() };
+    let size = unsafe { gitmenu_fm_context_size() };
     if size > 0 { size as usize } else { 4096 }
 }
 
@@ -189,7 +189,7 @@ pub async fn commit_message(env: &Arc<GitEnv>, settings: &Settings, root: &Path)
         }
     }
     let excludes: Vec<String> = settings
-        .get("gitside.ai.exclude")
+        .get("gitmenu.ai.exclude")
         .as_array()
         .map(|a| a.iter().filter_map(|v| v.as_str().map(|p| format!(":(exclude,glob){p}"))).collect())
         .unwrap_or_default();
@@ -201,8 +201,8 @@ pub async fn commit_message(env: &Arc<GitEnv>, settings: &Settings, root: &Path)
     if diff.trim().is_empty() {
         return Err(Error::Other("ai:noChanges".into()));
     }
-    let language = settings.get_str("gitside.ai.commitMessage.language").unwrap_or_else(|| "English".into());
-    let custom = settings.get_str("gitside.ai.commitMessage.customInstructions").unwrap_or_default();
+    let language = settings.get_str("gitmenu.ai.commitMessage.language").unwrap_or_else(|| "English".into());
+    let custom = settings.get_str("gitmenu.ai.commitMessage.customInstructions").unwrap_or_default();
     let instructions = instructions(&language, &custom);
 
     tauri::async_runtime::spawn_blocking(move || {

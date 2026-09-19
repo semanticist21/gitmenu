@@ -1,6 +1,6 @@
 # Third-party notices
 
-gitside includes source copied from the projects below. Dependencies installed
+gitmenu includes source copied from the projects below. Dependencies installed
 through Cargo or Bun keep their own license files and are not listed here.
 
 ## coss ui

@@ -36,7 +36,7 @@ function Shell() {
   useCommandHotkeys()
   const settings = useSettings()
   const { isFetched } = useQuery(settingsQuery)
-  const language = String(settings['gitside.language'] ?? 'auto')
+  const language = String(settings['gitmenu.language'] ?? 'auto')
 
   useEffect(() => setSettingsContext(settings), [settings])
   useEffect(() => {
@@ -55,7 +55,7 @@ function Shell() {
 // Load the language before the first paint so the UI never flashes English
 void queryClient
   .fetchQuery(settingsQuery)
-  .then((values) => setLocale(String(values['gitside.language'] ?? 'auto')))
+  .then((values) => setLocale(String(values['gitmenu.language'] ?? 'auto')))
   .catch(() => setLocale('auto'))
   .finally(() => {
     createRoot(document.getElementById('root')!).render(

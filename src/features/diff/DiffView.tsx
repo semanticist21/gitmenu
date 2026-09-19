@@ -164,7 +164,7 @@ export function DiffView({ result, path, leftPath, sideBySide, dark, selection, 
     <div
       ref={scrollRef}
       className="h-full overflow-auto font-mono text-[12px] leading-[19px]"
-      data-context={JSON.stringify({ gitsideDiffFocus: true })}
+      data-context={JSON.stringify({ gitmenuDiffFocus: true })}
       tabIndex={0}
       role="document"
       aria-label={path}

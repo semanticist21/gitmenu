@@ -1,4 +1,4 @@
-# gitside 명세
+# gitmenu 명세
 
 ## 목표
 VS Code Source Control과 GitLens의 기능을 가벼운 macOS 메뉴 막대 앱(Tauri)으로 만든다. 코드 편집은 사용자의 에디터에서 하고, 이 앱은 git 패널, diff, 그래프를 맡는다. 기능·메뉴 위치·순서를 VS Code/GitLens와 동급으로 맞추는 것이 제품 목표이며, 속도와 가벼움이 최우선이다. 구현은 마일스톤 순서대로 한다.
@@ -64,7 +64,7 @@ VS Code와 GitLens가 이미 정해 둔 동작과 기본값은 그대로 따른�
   - 저장된 경로가 사라지면 탭을 지우지 않고 "찾을 수 없음"으로 흐리게 둔다. 누르면 다시 찾기와 제거 버튼을 준다. 그 탭은 git 작업도 감시도 하지 않고, 경로가 돌아오면 저절로 복구된다.
   - 폴더가 git 저장소가 아니면 "저장소 초기화"(`git init`) 버튼을 보여준다. 상위 폴더가 저장소인 경우는 감지 기본값대로 물어본다.
 - **감시**: 모든 탭을 FSEvents(`notify` + debouncer)로 감시한다. gitignore 경로는 버리고 Rust에서 debounce한다. 비활성 탭은 "변경 있음" 점만 표시하고 git 작업은 하지 않으며, 탭을 열 때 다시 읽는다. 프론트에는 debounce가 없다.
-- **상태 저장**: 프로젝트 탭, 활성 탭, 뷰 표시·접힘·높이, 창 위치·크기, 상세 창 탭을 모두 복원한다. 설정은 `settings.json`, 단축키는 `keybindings.json`이 원본이고 화면·파일 어느 쪽에서 바꿔도 즉시 반영한다. 두 파일은 VS Code와 같은 자리인 `~/Library/Application Support/gitside/`에 둔다. 우리가 모르는 키는 지우지 않고 그대로 보존한다.
+- **상태 저장**: 프로젝트 탭, 활성 탭, 뷰 표시·접힘·높이, 창 위치·크기, 상세 창 탭을 모두 복원한다. 설정은 `settings.json`, 단축키는 `keybindings.json`이 원본이고 화면·파일 어느 쪽에서 바꿔도 즉시 반영한다. 두 파일은 VS Code와 같은 자리인 `~/Library/Application Support/gitmenu/`에 둔다. 우리가 모르는 키는 지우지 않고 그대로 보존한다.
 - **macOS 폴더 권한**: Desktop/Documents/Downloads/iCloud Drive 아래 저장소는 첫 접근 때 시스템 권한 창이 뜬다. 거부 시 안내.
 
 ## 기능 동등성

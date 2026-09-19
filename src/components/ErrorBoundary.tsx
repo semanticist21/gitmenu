@@ -10,7 +10,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
   }
 
   componentDidCatch(error: Error) {
-    console.error('[gitside] render error', error)
+    console.error('[gitmenu] render error', error)
     // Sent only when crash reports are on; Rust strips paths first
     void invoke('crash_report', { message: `${error.message}\n${error.stack ?? ''}` }).catch(() => {})
   }

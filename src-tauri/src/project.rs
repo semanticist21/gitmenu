@@ -577,6 +577,6 @@ fn any_relevant(repo: &RepoInfo, paths: &[&Path]) -> bool {
 pub fn app_support_dir(app: &AppHandle) -> PathBuf {
     app.path()
         .home_dir()
-        .map(|h| h.join("Library/Application Support/gitside"))
-        .unwrap_or_else(|_| PathBuf::from("/tmp/gitside"))
+        .map(|h| h.join("Library/Application Support/gitmenu"))
+        .unwrap_or_else(|_| PathBuf::from("/tmp/gitmenu"))
 }

@@ -46,14 +46,14 @@ function refMenu(root: string, row: GraphRow, ref: GraphRef): { context: Record<
   if (ref.kind === 'stash') {
     const index = Number(/\{(\d+)\}/.exec(ref.name)?.[1] ?? 0)
     const arg: StashArg = { root, stash: { index, commit: row.id, message: row.subject, time: row.committer.time } }
-    return { context: { view: 'gitside.views.graph', viewItem: 'gitlens:stash' }, arg }
+    return { context: { view: 'gitmenu.views.graph', viewItem: 'gitlens:stash' }, arg }
   }
   const kind: RefInfo['kind'] = ref.kind === 'remote' ? 'remote' : ref.kind === 'tag' ? 'tag' : 'branch'
   const prefix = { branch: 'refs/heads/', remote: 'refs/remotes/', tag: 'refs/tags/' }[kind]
   const info: RefInfo = { name: `${prefix}${ref.name}`, short: ref.name, kind, commit: row.id, time: row.committer.time, subject: row.subject }
   const viewItem = kind === 'tag' ? 'gitlens:tag' : kind === 'remote' ? 'gitlens:branch+remote' : `gitlens:branch${ref.kind === 'head' ? '+current' : ''}`
   if (ref.name === 'HEAD') return null
-  return { context: { view: 'gitside.views.graph', viewItem }, arg: { root, ref: info } satisfies RefArg }
+  return { context: { view: 'gitmenu.views.graph', viewItem }, arg: { root, ref: info } satisfies RefArg }
 }
 
 function RefBadge({ root, row, gref }: { root: string; row: GraphRow; gref: GraphRef }) {
@@ -284,7 +284,7 @@ export function GraphTab({ params }: DetailTabProps) {
                   <MenuItems
                     menu="view/item/context"
                     kind="context"
-                    context={{ view: 'gitside.views.graph', viewItem: row.stash ? 'gitlens:stash' : `gitlens:commit${row.current ? '+current' : ''}` }}
+                    context={{ view: 'gitmenu.views.graph', viewItem: row.stash ? 'gitlens:stash' : `gitlens:commit${row.current ? '+current' : ''}` }}
                     args={[arg]}
                   />
                 </ContextMenuPopup>

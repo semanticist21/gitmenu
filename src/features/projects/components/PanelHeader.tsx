@@ -65,7 +65,7 @@ export function PanelHeader({ projects, active, pinned, onTogglePin }: Props) {
               )}
             </ContextMenuTrigger>
             <ContextMenuPopup>
-              <MenuItems menu="gitside/project/context" kind="context" args={[project.id]} />
+              <MenuItems menu="gitmenu/project/context" kind="context" args={[project.id]} />
             </ContextMenuPopup>
           </ContextMenu>
         ))}
@@ -78,7 +78,7 @@ export function PanelHeader({ projects, active, pinned, onTogglePin }: Props) {
           <PlusIcon />
         </MenuTrigger>
         <MenuPopup align="end">
-          <MenuItem onClick={() => void executeCommand('gitside.openProject')}>{t('project.open')}</MenuItem>
+          <MenuItem onClick={() => void executeCommand('gitmenu.openProject')}>{t('project.open')}</MenuItem>
           <MenuSeparator />
           <MenuGroupLabel>{t('project.openRecent')}</MenuGroupLabel>
           {recentClosed.length === 0 && <MenuItem disabled>{t('project.noRecent')}</MenuItem>}
@@ -107,7 +107,7 @@ export function PanelHeader({ projects, active, pinned, onTogglePin }: Props) {
           <EllipsisIcon />
         </MenuTrigger>
         <MenuPopup align="end">
-          <MenuItems menu="gitside/panel/more" />
+          <MenuItems menu="gitmenu/panel/more" />
         </MenuPopup>
       </Menu>
     </header>
