@@ -1,11 +1,11 @@
-// Project tabs across the top of the panel, styled as VS Code's editor tabs at the compact tab
-// height (multieditortabscontrol.css, `workbench.editor.tabHeight: compact`: 22px), with the
-// title actions after them (open, detach, pin, more) as 22px codicon actions.
+// The panel's header: VS Code's sidebar title (part.css) with the panel actions (open, detach,
+// pin, more) as 22px codicon actions, and below it the project tabs, styled as VS Code's editor
+// tabs at the compact tab height (multieditortabscontrol.css, `tabHeight: compact`: 22px).
 import { useQuery } from '@tanstack/react-query'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { type KeyboardEvent, useEffect, useState } from 'react'
 import { MenuItems } from '@/commands/MenuItems'
-import { executeCommand } from '@/commands/registry'
+import { executeCommand, isEnabled } from '@/commands/registry'
 import { Icon } from '@/components/Icon'
 import { ContextMenu, ContextMenuPopup, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from '@/components/ui/menu'
@@ -134,55 +134,69 @@ export function PanelHeader({ projects, active, pinned, onTogglePin, detached, o
   const recentClosed = (recent.data ?? []).filter((p) => !openIds.has(p))
 
   return (
-    // The header is the drag area when the panel is detached (anything but its controls)
+    // Two rows: VS Code's sidebar title with the panel actions, then the project tabs. The
+    // header is the drag area when the panel is detached (anything but its controls).
     <header
-      className="relative flex h-tab-compact shrink-0 bg-tab-strip after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:z-[9] after:h-px after:bg-tab-strip-border"
+      className="shrink-0"
       onPointerDown={(e) => {
         if (!detached || e.button !== 0 || (e.target as HTMLElement).closest('button, [role="tab"], [role="menu"]')) return
         void getCurrentWindow().startDragging()
       }}
     >
-      <ScrollableTabs label={t('project.tabs')} activeKey={active?.id}>
-        {projects.map((project) => (
-          <ProjectTab key={project.id} project={project} active={project.id === active?.id} windowFocused={windowFocused} />
-        ))}
-      </ScrollableTabs>
+      {/* part.css: a 35px title, 8px side padding, the label 12px further in, 11px uppercase;
+          title actions 4px apart */}
+      <div className="flex h-part-title items-center bg-part-title px-2">
+        <h2 className="min-w-0 flex-1 cursor-default truncate ps-3 text-caption text-part-title-foreground uppercase">
+          {t('view.sourceControl')}
+        </h2>
+        <div className="flex shrink-0 items-center gap-1 pe-1">
+          <Menu>
+            <ActionButton icon="add" label={t('project.open')} render={<MenuTrigger />} />
+            <MenuPopup align="end">
+              <MenuItem onClick={() => void executeCommand('gitmenu.openProject')}>{t('project.open')}</MenuItem>
+              <MenuItem disabled={!isEnabled('gitmenu.openInTerminal')} onClick={() => void executeCommand('gitmenu.openInTerminal')}>
+                {t('panel.openInTerminal')}
+              </MenuItem>
+              <MenuSeparator />
+              <MenuGroup>
+                <MenuGroupLabel>{t('project.openRecent')}</MenuGroupLabel>
+                {recentClosed.length === 0 && <MenuItem disabled>{t('project.noRecent')}</MenuItem>}
+                {/* VS Code's Open Recent lists folders by their full (~) path */}
+                {recentClosed.map((path) => (
+                  <MenuItem key={path} onClick={() => void ipc.projectOpen(path)}>
+                    {tildify(path)}
+                  </MenuItem>
+                ))}
+              </MenuGroup>
+            </MenuPopup>
+          </Menu>
 
-      {/* Editor actions: 0 8px 0 4px, 4px between */}
-      <div className="flex shrink-0 items-center gap-1 ps-1 pe-3">
-        <Menu>
-          <ActionButton icon="add" label={t('project.open')} render={<MenuTrigger />} />
-          <MenuPopup align="end">
-            <MenuItem onClick={() => void executeCommand('gitmenu.openProject')}>{t('project.open')}</MenuItem>
-            <MenuSeparator />
-            <MenuGroup>
-              <MenuGroupLabel>{t('project.openRecent')}</MenuGroupLabel>
-              {recentClosed.length === 0 && <MenuItem disabled>{t('project.noRecent')}</MenuItem>}
-              {/* VS Code's Open Recent lists folders by their full (~) path */}
-              {recentClosed.map((path) => (
-                <MenuItem key={path} onClick={() => void ipc.projectOpen(path)}>
-                  {tildify(path)}
-                </MenuItem>
-              ))}
-            </MenuGroup>
-          </MenuPopup>
-        </Menu>
+          <ActionButton
+            icon={detached ? 'close' : 'empty-window'}
+            label={detached ? t('panel.attach') : t('panel.detach')}
+            onClick={onToggleDetach}
+          />
 
-        <ActionButton
-          icon={detached ? 'close' : 'empty-window'}
-          label={detached ? t('panel.attach') : t('panel.detach')}
-          onClick={onToggleDetach}
-        />
+          <ActionButton icon={pinned ? 'pinned' : 'pin'} label={pinned ? t('panel.unpin') : t('panel.pin')} onClick={onTogglePin} />
 
-        <ActionButton icon={pinned ? 'pinned' : 'pin'} label={pinned ? t('panel.unpin') : t('panel.pin')} onClick={onTogglePin} />
-
-        <Menu>
-          <ActionButton icon="ellipsis" label={t('panel.more')} render={<MenuTrigger />} />
-          <MenuPopup align="end">
-            <MenuItems menu="gitmenu/panel/more" />
-          </MenuPopup>
-        </Menu>
+          <Menu>
+            <ActionButton icon="ellipsis" label={t('panel.more')} render={<MenuTrigger />} />
+            <MenuPopup align="end">
+              <MenuItems menu="gitmenu/panel/more" />
+            </MenuPopup>
+          </Menu>
+        </div>
       </div>
+
+      {projects.length > 0 && (
+        <div className="relative flex h-tab-compact bg-tab-strip after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:z-[9] after:h-px after:bg-tab-strip-border">
+          <ScrollableTabs label={t('project.tabs')} activeKey={active?.id}>
+            {projects.map((project) => (
+              <ProjectTab key={project.id} project={project} active={project.id === active?.id} windowFocused={windowFocused} />
+            ))}
+          </ScrollableTabs>
+        </div>
+      )}
     </header>
   )
 }

@@ -82,6 +82,7 @@
   --spacing-pane-header: 22px;
   --spacing-tab: 35px;
   --spacing-tab-compact: 22px;
+  --spacing-part-title: 35px;
   --spacing-breadcrumbs: 22px;
   --spacing-status-bar: 22px;
   --spacing-control: 26px;
@@ -110,6 +111,7 @@
   --leading-pane-header: var(--spacing-pane-header);
   --leading-tab: var(--spacing-tab);
   --leading-tab-compact: var(--spacing-tab-compact);
+  --leading-part-title: var(--spacing-part-title);
   --leading-breadcrumbs: var(--spacing-breadcrumbs);
   --leading-status-bar: var(--spacing-status-bar);
   --leading-scm-input: 20px;
@@ -182,6 +184,8 @@
 
   --color-section-header: var(--vsc-sideBarSectionHeader-background);
   --color-section-header-foreground: var(--vsc-sideBarSectionHeader-foreground);
+  --color-part-title: var(--vsc-sideBar-background);
+  --color-part-title-foreground: var(--vsc-sideBarTitle-foreground);
   --color-section-header-border: var(--vsc-sideBarSectionHeader-border);
   --color-section-header-description: var(--vsc-panelTitle-inactiveForeground);
 
@@ -375,6 +379,7 @@
   --vsc-sideBarTitle-foreground: #3b3b3b;
   --vsc-sideBarSectionHeader-background: #f8f8f8;
   --vsc-sideBarSectionHeader-foreground: #3b3b3b;
+  --vsc-sideBarTitle-foreground: #3b3b3b;
   --vsc-sideBarSectionHeader-border: #e5e5e5;
   --vsc-panelTitle-inactiveForeground: #3b3b3b;
   --vsc-titleBar-activeBackground: #f8f8f8;
@@ -566,6 +571,7 @@
   --vsc-sideBarTitle-foreground: #cccccc;
   --vsc-sideBarSectionHeader-background: #181818;
   --vsc-sideBarSectionHeader-foreground: #cccccc;
+  --vsc-sideBarTitle-foreground: #cccccc;
   --vsc-sideBarSectionHeader-border: #2b2b2b;
   --vsc-panelTitle-inactiveForeground: #9d9d9d;
   --vsc-titleBar-activeBackground: #181818;

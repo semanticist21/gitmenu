@@ -30,7 +30,7 @@ function Link({ href, children }: { href: string; children: ReactNode }) {
   return (
     <a
       href={href}
-      className="text-(--vsc-textLink-foreground) hover:text-(--vsc-textLink-activeForeground) hover:underline"
+      className="text-link hover:text-link-active hover:underline"
       onClick={(e) => {
         e.preventDefault()
         void ipc.openPath(href)
@@ -45,7 +45,7 @@ function Link({ href, children }: { href: string; children: ReactNode }) {
 function inline(text: string): ReactNode[] {
   // A URL doesn't end in the punctuation after it
   return text.split(/(`[^`]+`|https?:\/\/[^\s)]*[^\s),.;:])/g).map((part, i) => {
-    if (part.startsWith('`')) return <code key={i} className="text-[0.9em]">{part.slice(1, -1)}</code>
+    if (part.startsWith('`')) return <code key={i} className="text-label-description">{part.slice(1, -1)}</code>
     if (/^https?:\/\//.test(part)) return <Link key={i} href={part}>{part}</Link>
     return part
   })
@@ -98,7 +98,7 @@ function Notices({ text }: { text: string }) {
 
 function LicenseText({ text }: { text: string }) {
   return (
-    <pre className="my-1.5 overflow-x-auto whitespace-pre-wrap rounded-[4px] bg-(--vsc-textCodeBlock-background) px-3 py-2 font-mono text-[12px] leading-[18px] select-text">
+    <pre className="my-1.5 overflow-x-auto whitespace-pre-wrap rounded-control bg-code-block px-3 py-2 font-editor text-code select-text">
       {text}
     </pre>
   )
@@ -107,7 +107,7 @@ function LicenseText({ text }: { text: string }) {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mt-6">
-      <h2 className="border-(--vsc-settings-headerBorder) border-b pb-1.5 font-semibold text-[16px]">{title}</h2>
+      <h2 className="border-settings-header-border border-b pb-1.5 font-semibold text-[16px]">{title}</h2>
       {children}
     </section>
   )
@@ -119,18 +119,18 @@ function PackageRow({ pkg, texts, open, onToggle }: { pkg: LicensedPackage; text
       <button
         type="button"
         aria-expanded={open}
-        className="flex h-[22px] w-full min-w-0 cursor-pointer items-center rounded-[3px] pe-2 text-start hover:bg-(--vsc-list-hoverBackground) focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-(--vsc-focusBorder)"
+        className="flex h-row w-full min-w-0 cursor-pointer items-center rounded-inset pe-2 text-start hover:bg-list-hover focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-focus"
         onClick={onToggle}
       >
         <Icon name={open ? 'chevron-down' : 'chevron-right'} className="mx-0.5 shrink-0" />
         <span className="min-w-0 truncate">{pkg.name}</span>
-        <span className="ms-1.5 shrink-0 text-(--vsc-descriptionForeground) text-[0.9em]">{pkg.version}</span>
-        <span className="ms-auto min-w-0 shrink truncate ps-3 text-(--vsc-descriptionForeground) text-[0.9em]">{pkg.license}</span>
+        <span className="ms-1.5 shrink-0 text-description text-label-description">{pkg.version}</span>
+        <span className="ms-auto min-w-0 shrink truncate ps-3 text-description text-label-description">{pkg.license}</span>
       </button>
       {open && (
         <div className="mb-2 ps-5">
           {(pkg.homepage || pkg.url) && (
-            <div className="my-1 flex gap-3 text-[12px]">
+            <div className="my-1 flex gap-3 text-small">
               {pkg.homepage && <Link href={pkg.homepage}>{pkg.homepage.replace(/^https?:\/\//, '')}</Link>}
               {pkg.url && pkg.url !== pkg.homepage && <Link href={pkg.url}>{pkg.url.replace(/^https?:\/\//, '')}</Link>}
             </div>
@@ -183,12 +183,12 @@ function Packages({ licenses }: { licenses: Licenses }) {
             <button
               type="button"
               aria-expanded={expanded}
-              className="flex h-[22px] w-full cursor-pointer items-center rounded-[3px] text-start font-semibold hover:bg-(--vsc-list-hoverBackground) focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-(--vsc-focusBorder)"
+              className="flex h-row w-full cursor-pointer items-center rounded-inset text-start font-semibold hover:bg-list-hover focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-focus"
               onClick={() => setCollapsed(toggle(collapsed, group.kind))}
             >
               <Icon name={expanded ? 'chevron-down' : 'chevron-right'} className="mx-0.5" />
               {t(group.label)}
-              <span className="ms-1.5 font-normal text-(--vsc-descriptionForeground)">{group.packages.length}</span>
+              <span className="ms-1.5 font-normal text-description">{group.packages.length}</span>
             </button>
             {expanded && (
               <div className="ps-4">
@@ -215,17 +215,17 @@ export function AboutTab() {
   const copyright = licenses?.license.split('\n').find((line) => line.startsWith('Copyright'))
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-[760px] px-6 py-6 text-[13px]">
+      <div className="mx-auto max-w-[760px] px-6 py-6 text-ui">
         <header className="flex items-start gap-4">
           <img src={appIcon} alt="" className="size-16 shrink-0" draggable={false} />
           <div className="min-w-0">
             <h1 className="font-semibold text-[20px] leading-7">gitmenu</h1>
-            {version && <div className="text-(--vsc-descriptionForeground)">{t('about.version', version)}</div>}
+            {version && <div className="text-description">{t('about.version', version)}</div>}
             <div className="mt-1.5">
               {copyright && <span>{copyright.replace('(c)', '©')} · </span>}
               <button
                 type="button"
-                className="cursor-pointer text-(--vsc-textLink-foreground) hover:text-(--vsc-textLink-activeForeground) hover:underline"
+                className="cursor-pointer text-link hover:text-link-active hover:underline"
                 aria-expanded={showLicense}
                 onClick={() => setShowLicense(!showLicense)}
               >
@@ -234,11 +234,11 @@ export function AboutTab() {
               <span> · </span>
               <Link href={REPOSITORY}>GitHub</Link>
             </div>
-            <div className="mt-1 text-(--vsc-descriptionForeground)">{t('about.notAffiliated')}</div>
+            <div className="mt-1 text-description">{t('about.notAffiliated')}</div>
           </div>
         </header>
         {showLicense && licenses && <LicenseText text={licenses.license} />}
-        {error && <p className="mt-6 text-(--vsc-errorForeground)">{String(error)}</p>}
+        {error && <p className="mt-6 text-error">{String(error)}</p>}
         {licenses && (
           <>
             <Section title={t('about.notices')}>

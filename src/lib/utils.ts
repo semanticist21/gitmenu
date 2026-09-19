@@ -7,8 +7,8 @@ import { extendTailwindMerge } from "tailwind-merge";
 export const themeTokens = {
   theme: {
     text: ["caption", "small", "ui", "large", "label-description", "code"],
-    leading: ["ui", "row", "pane-header", "tab", "tab-compact", "breadcrumbs", "status-bar", "scm-input"],
-    spacing: ["row", "pane-header", "tab", "tab-compact", "breadcrumbs", "status-bar", "control", "control-sm", "action", "action-sm", "icon", "indent", "code-line", "notification-margin", "tab-min"],
+    leading: ["ui", "row", "pane-header", "tab", "tab-compact", "part-title", "breadcrumbs", "status-bar", "scm-input"],
+    spacing: ["row", "pane-header", "tab", "tab-compact", "part-title", "breadcrumbs", "status-bar", "control", "control-sm", "action", "action-sm", "icon", "indent", "code-line", "notification-margin", "tab-min"],
     container: ["welcome-button"],
     radius: ["inset", "control", "hover", "action", "menu", "label", "badge", "dialog"],
     shadow: ["widget", "quick-pick", "dialog", "key", "scroll-top", "scroll-left", "diff-original", "diff-modified", "unchanged-region"],

@@ -102,14 +102,14 @@ export function OutputTab({ params }: DetailTabProps) {
         role="log"
         aria-label={outputLabel(params)}
         tabIndex={0}
-        className="h-full overflow-auto bg-(--vsc-editor-background) py-1 ps-5 pe-3.5 font-mono text-(--vsc-editor-foreground) text-[12px] leading-[18px] select-text"
+        className="h-full overflow-auto bg-editor py-1 ps-5 pe-3.5 font-editor text-editor-foreground text-code select-text"
         onScroll={(e) => {
           const el = e.currentTarget
           atEnd.current = !single && el.scrollTop + el.clientHeight >= el.scrollHeight - 4
         }}
       >
         {text.split('\n').map((line, i) => (
-          <div key={i} className="min-h-[18px] wrap-break-word whitespace-pre-wrap">
+          <div key={i} className="min-h-code-line wrap-break-word whitespace-pre-wrap">
             {tokens?.[i]
               ? tokens[i].map(([content, color, style], j) => (
                   <span
