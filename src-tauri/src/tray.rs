@@ -125,6 +125,8 @@ pub struct Tray {
     /// Blur-hide is suppressed until this instant (while a window we opened takes focus)
     suppress_hide_until: Mutex<Option<Instant>>,
     last_rect: Mutex<Option<Rect>>,
+    /// Size the panel was given on show; only a size the user changed is remembered
+    applied_size: Mutex<Option<(f64, f64)>>,
     conflicted: Mutex<std::collections::HashSet<std::path::PathBuf>>,
 }
 
@@ -147,6 +149,7 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         picker_open: AtomicBool::new(false),
         suppress_hide_until: Mutex::new(None),
         last_rect: Mutex::new(None),
+        applied_size: Mutex::new(None),
         conflicted: Mutex::new(Default::default()),
     });
     app.manage(Arc::clone(&tray_state));
@@ -166,6 +169,9 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             {
                 let app = tray.app_handle();
                 *app.state::<Arc<Tray>>().last_rect.lock().unwrap() = Some(rect);
+                // The status item takes key focus for the rest of the click; that must not
+                // count as the user clicking away from the panel we're about to show
+                keep_open_briefly(app);
                 toggle_panel(app);
             }
         })
@@ -183,8 +189,10 @@ pub fn is_detached(app: &AppHandle) -> bool {
     app.state::<Arc<Tray>>().detached.load(Ordering::Relaxed)
 }
 
-/// Detached: a titled, movable, resizable window at its remembered frame that stays open
-/// until closed. Attached: the borderless panel under the icon that hides on blur.
+/// Detached: the same floating panel, but at its remembered frame, movable by its header,
+/// and left open until closed. Attached: under the icon, hidden on blur. The style mask
+/// never changes: giving the panel a title bar makes AppKit rebuild its frame view, and
+/// WebKit's observer on the swizzled panel class then crashes the app.
 pub fn set_detached(app: &AppHandle, detached: bool) {
     let app2 = app.clone();
     let _ = app.run_on_main_thread(move || {
@@ -196,11 +204,6 @@ pub fn set_detached(app: &AppHandle, detached: bool) {
         tray.detached.store(detached, Ordering::Relaxed);
         ui.set("panel.detached", serde_json::Value::Bool(detached));
         if detached {
-            panel.set_style_mask(StyleMask::empty().titled().closable().resizable().full_size_content_view().into());
-            panel.set_level(PanelLevel::Normal.value());
-            panel.set_floating_panel(false);
-            panel.set_collection_behavior(CollectionBehavior::new().managed().participates_in_cycle().into());
-            let _ = window.set_title_bar_style(tauri::TitleBarStyle::Overlay);
             let frame = ui.get("panel.detachedFrame").and_then(|v| serde_json::from_value::<[f64; 4]>(v).ok());
             if let Some([x, y, w, h]) = frame {
                 let _ = window.set_size(tauri::LogicalSize::new(w, h));
@@ -208,12 +211,6 @@ pub fn set_detached(app: &AppHandle, detached: bool) {
             }
         } else {
             save_detached_frame(&app);
-            panel.set_style_mask(StyleMask::empty().nonactivating_panel().resizable().into());
-            panel.set_level(PanelLevel::Floating.value());
-            panel.set_floating_panel(true);
-            panel.set_collection_behavior(
-                CollectionBehavior::new().full_screen_auxiliary().can_join_all_spaces().into(),
-            );
             if panel.is_visible() {
                 place_panel(&app, &window);
             }
@@ -279,6 +276,12 @@ fn hide_if_unfocused(app: &AppHandle) {
         return;
     }
     if tray.suppress_hide_until.lock().unwrap().is_some_and(|t| Instant::now() < t) {
+        // Take key focus back so the next click away still resigns it
+        if let Ok(panel) = app.get_webview_panel(PANEL)
+            && panel.is_visible()
+        {
+            panel.make_key_window();
+        }
         return;
     }
     let ours_focused = app.webview_windows().values().any(|w| w.is_focused().unwrap_or(false));
@@ -345,7 +348,11 @@ pub fn hide_panel(app: &AppHandle) {
             && let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor())
         {
             let logical = size.to_logical::<f64>(scale);
-            app.state::<Arc<UiState>>().set("panel.size", serde_json::json!([logical.width, logical.height]));
+            let applied = *app.state::<Arc<Tray>>().applied_size.lock().unwrap();
+            // Remember a size only when the user dragged the edge, not our own clamping
+            if applied.is_some_and(|(w, h)| (w - logical.width).abs() > 1.0 || (h - logical.height).abs() > 1.0) {
+                app.state::<Arc<UiState>>().set("panel.size", serde_json::json!([logical.width, logical.height]));
+            }
         }
         panel.hide();
         let _ = app.emit("panel://hidden", ());
@@ -384,6 +391,8 @@ fn place_panel(app: &AppHandle, window: &tauri::WebviewWindow) {
         .state::<Arc<UiState>>()
         .get("panel.size")
         .and_then(|v| Some((v.get(0)?.as_f64()?, v.get(1)?.as_f64()?)))
+        // A saved height at the minimum came from clamping against a wrong startup rect
+        .filter(|(_, h)| *h > 320.0)
         .unwrap_or((360.0, 640.0));
     let top = icon_pos.y + icon_size.height;
     if let Some(m) = &monitor {
@@ -393,6 +402,7 @@ fn place_panel(app: &AppHandle, window: &tauri::WebviewWindow) {
         width = width.max(300.0);
     }
     let _ = window.set_size(tauri::LogicalSize::new(width, height));
+    *tray.applied_size.lock().unwrap() = Some((width, height));
     let phys_w = width * scale;
     let mut x = icon_pos.x + icon_size.width / 2.0 - phys_w / 2.0;
     if let Some(m) = &monitor {

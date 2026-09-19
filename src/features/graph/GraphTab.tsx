@@ -123,7 +123,7 @@ function Details({ root, row }: { root: string; row: GraphRow }) {
                       title={node.tooltip}
                       onClick={() => openFileChange({ root, sha: row.id, parent, file })}
                     >
-                      <span className="min-w-0 shrink truncate">{node.label}</span>
+                      <span className="min-w-0 max-w-full shrink-0 truncate">{node.label}</span>
                       <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs">{node.description}</span>
                       <StatusLetter status={file.status} />
                     </button>

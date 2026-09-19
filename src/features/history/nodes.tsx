@@ -1,5 +1,6 @@
 // Tree nodes shared by the GitLens history views: commits (expanding to their files),
 // files in a commit, and "Load more".
+import { ArrowUpIcon } from 'lucide-react'
 import { gl } from '@/i18n'
 import { type CommitFile, type CommitInfo, type FileStatus, git, type LogPage } from '@/lib/git'
 import { ipc } from '@/lib/ipc'
@@ -92,7 +93,11 @@ export function commitNode(root: string, commit: CommitInfo, options: CommitNode
     id: `${options.idPrefix}/${commit.id}`,
     label: commit.subject.trim() || gl('(no message)'),
     description: `${commit.author.name}, ${relativeTime(commit.author.time, options.locale)}`,
-    icon: <Avatar root={root} name={commit.author.name} email={commit.author.email} sha={commit.id} />,
+    icon: options.flags?.includes('unpublished') ? (
+      <ArrowUpIcon className="text-[var(--git-added)]" />
+    ) : (
+      <Avatar root={root} name={commit.author.name} email={commit.author.email} sha={commit.id} />
+    ),
     tooltip: commitTooltip(commit, options.locale),
     contextValue: ['gitlens:commit', ...(options.flags ?? []).map((f) => `+${f}`)].join(''),
     arg,

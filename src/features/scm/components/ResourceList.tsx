@@ -106,7 +106,7 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
   const rows = useMemo<Row[]>(() => {
     const list: Row[] = []
     for (const group of groups) {
-      if (group.changes.length === 0) continue
+      if (group.changes.length === 0 && group.id !== 'workingTree') continue
       list.push({ kind: 'group', group })
       if (collapsed.includes(group.id)) continue
       const changes = sortChanges(group.changes, sortKey)
@@ -344,7 +344,7 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
                   />
                 }
               >
-                <span className={cn('min-w-0 shrink truncate', deleted && 'line-through opacity-70')} style={{ color: statusColor(change.status) }}>
+                <span className={cn('min-w-0 max-w-full shrink-0 truncate', deleted && 'line-through opacity-70')} style={{ color: statusColor(change.status) }}>
                   {name}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs">

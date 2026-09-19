@@ -34,6 +34,7 @@ const status = {
   ],
   untracked: [{ path: 'notes/todo.txt', originalPath: null, status: 'untracked', submodule: false }],
   remotes: ['origin'],
+  fetchedAt: Math.floor(Date.now() / 1000) - 120,
 }
 
 const authors = [

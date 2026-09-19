@@ -45,6 +45,7 @@ export interface RepoStatus {
   workingTree: FileChange[]
   untracked: FileChange[]
   remotes: string[]
+  fetchedAt: number | null
 }
 
 export interface RefInfo {

@@ -77,6 +77,8 @@ pub struct RepoStatus {
     pub working_tree: Vec<FileChange>,
     pub untracked: Vec<FileChange>,
     pub remotes: Vec<String>,
+    /// Seconds since epoch of the last fetch (FETCH_HEAD), if any
+    pub fetched_at: Option<i64>,
 }
 
 fn path(bytes: &gix::bstr::BStr) -> String {
@@ -166,6 +168,11 @@ pub fn status(repo: &gix::Repository) -> Result<RepoStatus> {
             }
         }),
         remotes: repo.remote_names().iter().map(|n| n.to_str_lossy().into_owned()).collect(),
+        fetched_at: std::fs::metadata(repo.common_dir().join("FETCH_HEAD"))
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs() as i64),
         head,
         upstream,
         merge,

@@ -216,7 +216,7 @@ export function ViewTree({ viewId, nodes, label }: { viewId: string; nodes: Tree
                 <span className="w-3.5 shrink-0" />
               )}
               {node.icon && <span className="flex size-4 shrink-0 items-center justify-center [&_svg]:size-4">{node.icon}</span>}
-              <span className="min-w-0 shrink truncate">{node.label}</span>
+              <span className="min-w-0 max-w-full shrink-0 truncate">{node.label}</span>
               {node.description && <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs">{node.description}</span>}
               {!node.description && <span className="flex-1" />}
               {node.contextValue && <InlineActions menu="view/item/context" context={context} args={args} />}
