@@ -6,7 +6,7 @@ cask "gitmenu" do
 
   url "https://github.com/semanticist21/gitmenu/releases/download/v#{version}/gitmenu_#{version}_universal.dmg"
   name "gitmenu"
-  desc "Menu bar git panel with VS Code Source Control and GitLens features"
+  desc "Menu bar git panel inspired by VS Code Source Control and GitLens"
   homepage "https://kkom.net/gitmenu"
 
   # The app updates itself; brew only installs it
