@@ -178,7 +178,7 @@ function BranchBar({ root, branch, commit, ahead, behind, hasUpstream }: {
         onClick={() => void executeCommand('git.checkout', root)}
       >
         <GitBranchIcon className="size-3.5 shrink-0" />
-        <span className="truncate">{branch ?? commit?.slice(0, 8) ?? '—'}</span>
+        <span className="min-w-0 truncate">{branch ?? commit?.slice(0, 8) ?? '—'}</span>
       </button>
       {hasUpstream ? (
         <button

@@ -344,11 +344,11 @@ export function ResourceList({ root, groups }: { root: string; groups: Group[] }
                   />
                 }
               >
-                <span className={cn('min-w-0 max-w-full shrink-0 truncate', deleted && 'line-through opacity-70')} style={{ color: statusColor(change.status) }}>
-                  {name}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs">
-                  {change.originalPath ? `${change.originalPath} → ${dir}` : tree ? '' : dir}
+                <span className="min-w-0 flex-1 truncate">
+                  <span className={cn(deleted && 'line-through opacity-70')} style={{ color: statusColor(change.status) }}>
+                    {name}
+                  </span>
+                  <span className="ms-1.5 text-muted-foreground text-xs">{change.originalPath ? `${change.originalPath} → ${dir}` : tree ? '' : dir}</span>
                 </span>
                 <InlineActions menu="scm/resourceState/context" context={context} args={[selectionFor(group, change)]} />
                 <span className="w-3 shrink-0 text-center font-mono text-[11px] font-semibold" style={{ color: statusColor(change.status) }}>

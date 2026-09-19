@@ -69,7 +69,7 @@ export function PanelHeader({ projects, active, pinned, onTogglePin, detached, o
                 />
               }
             >
-              <span className="truncate">{project.name}</span>
+              <span className="min-w-0 truncate">{project.name}</span>
               {project.dirty && (
                 <span aria-label={t('project.changed')} className="size-1.5 shrink-0 rounded-full bg-primary" />
               )}
@@ -95,8 +95,8 @@ export function PanelHeader({ projects, active, pinned, onTogglePin, detached, o
             {recentClosed.length === 0 && <MenuItem disabled>{t('project.noRecent')}</MenuItem>}
             {recentClosed.map((path) => (
               <MenuItem key={path} onClick={() => void ipc.projectOpen(path)}>
-                <span className="truncate">{basename(path)}</span>
-                <span className="ms-auto truncate ps-3 text-muted-foreground text-xs">{tildify(path)}</span>
+                <span className="min-w-0 truncate">{basename(path)}</span>
+                <span className="ms-auto min-w-0 max-w-48 truncate ps-3 text-muted-foreground text-xs">{tildify(path)}</span>
               </MenuItem>
             ))}
           </MenuGroup>
