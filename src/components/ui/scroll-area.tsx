@@ -28,7 +28,7 @@ export function ScrollArea({
       className={cn(
         "relative size-full min-h-0",
         scrollFade &&
-          "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-10 before:hidden before:h-[3px] before:shadow-[var(--vsc-scrollbar-shadow)_0_6px_6px_-6px_inset] data-overflow-y-start:before:block",
+          "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-10 before:hidden before:h-[3px] before:shadow-scroll-top data-overflow-y-start:before:block",
         className,
       )}
       {...props}
@@ -66,7 +66,7 @@ export function ScrollBar({
   return (
     <ScrollAreaPrimitive.Scrollbar
       className={cn(
-        "flex opacity-0 transition-opacity duration-800 ease-linear data-[orientation=horizontal]:h-2.5 data-[orientation=vertical]:w-2.5 data-[orientation=horizontal]:flex-col data-hovering:opacity-100 data-scrolling:opacity-100 data-hovering:duration-100 data-scrolling:duration-100",
+        "flex opacity-0 transition-opacity duration-800 ease-linear data-[orientation=horizontal]:h-2.5 data-[orientation=vertical]:w-2.5 data-[orientation=horizontal]:flex-col data-hovering:opacity-100 data-scrolling:opacity-100 data-hovering:duration-fade data-scrolling:duration-fade",
         className,
       )}
       data-slot="scroll-area-scrollbar"
@@ -74,7 +74,7 @@ export function ScrollBar({
       {...props}
     >
       <ScrollAreaPrimitive.Thumb
-        className="relative min-h-5 min-w-5 flex-1 bg-(--vsc-scrollbarSlider-background) hover:bg-(--vsc-scrollbarSlider-hoverBackground) active:bg-(--vsc-scrollbarSlider-activeBackground) data-[orientation=horizontal]:min-h-0 data-[orientation=vertical]:min-w-0"
+        className="relative min-h-5 min-w-5 flex-1 bg-scrollbar-slider hover:bg-scrollbar-slider-hover active:bg-scrollbar-slider-active data-[orientation=horizontal]:min-h-0 data-[orientation=vertical]:min-w-0"
         data-slot="scroll-area-thumb"
       />
     </ScrollAreaPrimitive.Scrollbar>

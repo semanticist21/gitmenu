@@ -15,6 +15,7 @@ import { ContextMenu, ContextMenuPopup, ContextMenuTrigger } from '@/components/
 import { gl, useLocale } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { useSetting } from '@/settings/settings'
+import { INDENT, ROW_HEIGHT } from '@/theme/metrics'
 
 export interface AsyncChildren<T = unknown> {
   queryKey: unknown[]
@@ -78,23 +79,22 @@ interface Row {
   ancestors: string[]
 }
 
-export const ROW_HEIGHT = 22
-/** `workbench.tree.indent` */
-export const INDENT = 8
-
 /** A list row: hover, selection (active while the list has focus) and the focus outline. The
  * list element carries `group/list`. */
 export const treeRowClass = cn(
-  'group/row absolute inset-x-0 top-0 flex h-[22px] cursor-default items-center whitespace-nowrap pe-3 leading-[22px] outline-none',
-  'hover:not-aria-selected:bg-(--vsc-list-hoverBackground) aria-selected:bg-(--vsc-list-inactiveSelectionBackground)',
-  'group-focus-within/list:aria-selected:bg-(--vsc-list-activeSelectionBackground) group-focus-within/list:aria-selected:text-(--vsc-list-activeSelectionForeground)',
-  'focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-(--vsc-list-focusOutline) aria-selected:focus:outline-(--vsc-list-focusAndSelectionOutline)',
+  'group/row absolute inset-x-0 top-0 flex h-row cursor-default items-center whitespace-nowrap pe-3 leading-row outline-none',
+  'hover:not-aria-selected:bg-list-hover aria-selected:bg-list-inactive',
+  'group-focus-within/list:aria-selected:bg-list-active group-focus-within/list:aria-selected:text-list-active-foreground',
+  'focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-list-focus-outline aria-selected:focus:outline-list-selection-outline',
 )
+
+/** A tree's message in place of rows (views.css `.message`). */
+export const viewMessageClass = 'flex select-text py-1 ps-[18px] pe-3'
 
 /** `.label-description`: .9em, .95 opacity in light themes and .7 in dark, 1 when focused or
  * selected; no color of its own. */
 export const descriptionClass =
-  'ms-[.5em] whitespace-pre text-[.9em] opacity-95 dark:opacity-70 group-focus/row:opacity-100 group-aria-selected/row:opacity-100'
+  'ms-[.5em] whitespace-pre text-label-description opacity-95 dark:opacity-70 group-focus/row:opacity-100 group-aria-selected/row:opacity-100'
 
 /** Label and description on one line with a single trailing ellipsis, so the description is
  * cut first. `color` tints both (a decoration color); a selected row in a focused list drops it. */
@@ -137,10 +137,10 @@ export function IndentGuides({ ancestors, active }: { ancestors: string[]; activ
         <span
           key={id}
           className={cn(
-            'h-full w-2 shrink-0 border-s',
+            'h-full w-indent shrink-0 border-s',
             id === active
-              ? 'border-(--vsc-tree-indentGuidesStroke)'
-              : 'border-(--vsc-tree-inactiveIndentGuidesStroke) opacity-0 transition-opacity duration-100 ease-linear group-hover/list:opacity-100 motion-reduce:transition-none',
+              ? 'border-indent-guide'
+              : 'border-indent-guide-inactive opacity-0 transition-opacity duration-fade ease-linear group-hover/list:opacity-100 motion-reduce:transition-none',
           )}
         />
       ))}
@@ -225,7 +225,7 @@ export function ViewTree({ viewId, nodes, label }: { viewId: string; nodes: Tree
     return (
       <div className="h-full overflow-auto">
         {nodes.map((node) => (
-          <p key={node.id} className="flex select-text py-1 ps-[18px] pe-3">
+          <p key={node.id} className={viewMessageClass}>
             {node.label}
           </p>
         ))}
@@ -318,7 +318,7 @@ export function ViewTree({ viewId, nodes, label }: { viewId: string; nodes: Tree
             <>
               <IndentGuides ancestors={row.ancestors} active={activeGuide} />
               <Twistie indent={(row.depth + 1) * INDENT} state={twistie} />
-              {node.icon ? <span className="me-1.5 flex size-4 shrink-0 items-center justify-center empty:hidden">{node.icon}</span> : null}
+              {node.icon ? <span className="me-1.5 flex size-icon shrink-0 items-center justify-center empty:hidden">{node.icon}</span> : null}
               <RowLabel label={node.label} description={node.description} color={node.color} />
               {node.decoration}
               {node.contextValue && <InlineActions menu="view/item/context" context={context} args={args} />}

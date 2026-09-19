@@ -53,7 +53,7 @@ export function GroupText({
 }: useRender.ComponentProps<"div">): React.ReactElement {
   const defaultProps = {
     className: cn(
-      "inline-flex items-center whitespace-nowrap border border-(--vsc-input-border) bg-(--vsc-input-background) px-1.5 text-[13px]",
+      "inline-flex items-center whitespace-nowrap border border-input-border bg-input-background px-1.5 text-ui",
       className,
     ),
     "data-slot": "group-text",
@@ -74,7 +74,7 @@ export function GroupSeparator({
     <div
       aria-hidden
       className={cn(
-        "relative w-px shrink-0 border-(--vsc-button-border) border-y bg-(--vsc-button-background) py-1 before:block before:h-full before:w-px before:bg-(--vsc-button-separator)",
+        "relative w-px shrink-0 border-button-border border-y bg-button py-1 before:block before:h-full before:w-px before:bg-button-separator",
         className,
       )}
       data-slot="group-separator"

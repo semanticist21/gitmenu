@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 // the border (offset -1px); validation swaps the border color. No ring, no shadow.
 
 export const inputBoxClassName =
-  "relative inline-flex w-full rounded-[4px] border border-(--vsc-input-border) bg-(--vsc-input-background) text-(--vsc-input-foreground) text-[13px] has-[input:focus,textarea:focus]:outline-solid has-[input:focus,textarea:focus]:outline-1 has-[input:focus,textarea:focus]:-outline-offset-1 has-[input:focus,textarea:focus]:outline-(--vsc-focusBorder) has-aria-invalid:border-(--vsc-inputValidation-errorBorder) has-aria-invalid:outline-(--vsc-inputValidation-errorBorder) has-disabled:opacity-40";
+  "relative inline-flex w-full rounded-control border border-input-border bg-input-background text-input-foreground text-ui has-[input:focus,textarea:focus]:outline-solid has-[input:focus,textarea:focus]:outline-1 has-[input:focus,textarea:focus]:-outline-offset-1 has-[input:focus,textarea:focus]:outline-focus has-aria-invalid:border-validation-error-border has-aria-invalid:outline-validation-error-border has-disabled:opacity-40";
 
 export type InputProps = Omit<
   InputPrimitive.Props & React.RefAttributes<HTMLInputElement>,
@@ -30,12 +30,12 @@ export function Input({
   ...props
 }: InputProps): React.ReactElement {
   const inputClassName = cn(
-    "h-6 w-full min-w-0 rounded-[inherit] bg-transparent px-1.5 py-1 text-inherit text-ellipsis leading-4 outline-none focus:outline-none autofill:[-webkit-text-fill-color:var(--vsc-input-foreground)]",
-    size === "sm" && "h-[22px] py-[3px] text-[12px]",
+    "h-6 w-full min-w-0 rounded-[inherit] bg-transparent px-1.5 py-1 text-inherit text-ellipsis leading-4 outline-none focus:outline-none autofill:[-webkit-text-fill-color:--theme(--color-input-foreground)]",
+    size === "sm" && "h-control-sm py-[3px] text-small",
     props.type === "search" &&
       "[&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none [&::-webkit-search-results-button]:appearance-none [&::-webkit-search-results-decoration]:appearance-none",
     props.type === "file" &&
-      "file:me-3 file:bg-transparent file:text-inherit file:text-[13px]",
+      "file:me-3 file:bg-transparent file:text-inherit file:text-ui",
   );
 
   return (

@@ -12,13 +12,13 @@ import { cn } from "@/lib/utils";
 // 83ms opacity fade; closes and opens submenus instantly.
 
 export const menuPopupClassName =
-  "relative flex min-w-[160px] max-w-[calc(100vw-8px)] overflow-hidden rounded-[8px] border border-(--vsc-menu-border) bg-(--vsc-menu-background) text-[13px] text-(--vsc-menu-foreground) leading-[normal] outline-none [box-shadow:var(--vsc-shadow-lg)]";
+  "relative flex min-w-[160px] max-w-[calc(100vw-8px)] overflow-hidden rounded-menu border border-menu-border bg-menu text-ui text-menu-foreground leading-[normal] outline-none shadow-widget";
 
 export const menuScrollClassName =
   "max-h-[calc(var(--available-height)-8px)] w-full overflow-y-auto py-1 [&::-webkit-scrollbar]:size-[7px]";
 
 export const menuItemClassName =
-  "relative mx-1 flex h-6 cursor-default select-none items-center rounded-[6px] outline-none data-disabled:text-(--vsc-disabledForeground) data-highlighted:bg-(--vsc-list-hoverBackground) data-popup-open:bg-(--vsc-list-hoverBackground)";
+  "relative mx-1 flex h-6 cursor-default select-none items-center rounded-action outline-none data-disabled:text-disabled data-highlighted:bg-list-hover data-popup-open:bg-list-hover";
 
 export const menuLabelClassName =
   "min-w-0 flex-[1_1_auto] truncate px-[2em] leading-none";
@@ -27,7 +27,7 @@ export const menuCheckClassName =
   "absolute inset-y-0 left-0 flex w-[2em] items-center justify-center";
 
 export const menuSeparatorClassName =
-  "my-[5px] block h-0 border-(--vsc-menu-separatorBackground) border-b first:hidden last:hidden [[data-slot$=separator]+&]:hidden";
+  "my-[5px] block h-0 border-menu-separator border-b first:hidden last:hidden [[data-slot$=separator]+&]:hidden";
 
 export const menuGroupLabelClassName =
   "block truncate px-[1em] pt-[.7em] pb-[.1em] font-bold";
@@ -143,7 +143,7 @@ export function MenuPopup({
         <MenuPrimitive.Popup
           className={cn(
             menuPopupClassName,
-            !submenu && "animate-[fadeIn_83ms_linear]",
+            !submenu && "animate-menu-in",
             className,
           )}
           data-slot="menu-popup"

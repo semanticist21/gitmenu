@@ -9,15 +9,15 @@ import { cn } from "@/lib/utils";
 // VS Code's count badge (base/browser/ui/countBadge/countBadge.css): 18px pill, 11px text,
 // badge colors, no border. `long` is the squarer 2px-radius form.
 export const badgeVariants = cva(
-  "inline-block min-w-[18px] shrink-0 whitespace-nowrap text-center font-normal text-[11px] bg-(--vsc-badge-background) text-(--vsc-badge-foreground)",
+  "inline-block min-w-[18px] shrink-0 whitespace-nowrap text-center font-normal text-caption bg-badge text-badge-foreground",
   {
     defaultVariants: {
       variant: "default",
     },
     variants: {
       variant: {
-        default: "min-h-[18px] rounded-[11px] px-[5px] py-[3px] leading-[11px]",
-        long: "rounded-[2px] px-[3px] py-[2px] leading-[normal]",
+        default: "min-h-[18px] rounded-badge px-[5px] py-[3px] leading-[11px]",
+        long: "rounded-xs px-[3px] py-[2px] leading-[normal]",
       },
     },
   },

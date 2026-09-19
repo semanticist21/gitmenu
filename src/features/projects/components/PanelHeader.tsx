@@ -59,10 +59,10 @@ function ProjectTab({ project, active, windowFocused }: { project: ProjectInfo; 
             className={cn(
               // sizing "fit": at least 120px, as wide as the label; 10px before the label, the
               // 28px close area after it
-              'group/tab relative flex h-[22px] min-w-[120px] max-w-[240px] shrink-0 cursor-pointer items-center whitespace-nowrap border-(--vsc-tab-border) border-e ps-2.5 text-[13px] leading-[22px] outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-(--vsc-focusBorder)',
+              'group/tab relative flex h-tab-compact min-w-tab-min max-w-[240px] shrink-0 cursor-pointer items-center whitespace-nowrap border-tab-border border-e ps-2.5 text-ui leading-tab-compact outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-focus',
               active
-                ? 'bg-(--vsc-tab-activeBackground) text-(--vsc-tab-activeForeground)'
-                : 'bg-(--vsc-tab-inactiveBackground) text-(--vsc-tab-inactiveForeground) hover:bg-(--vsc-tab-hoverBackground)',
+                ? 'bg-tab-active text-tab-active-foreground'
+                : 'bg-tab-inactive text-tab-inactive-foreground hover:bg-tab-hover',
             )}
             onClick={activate}
             onKeyDown={(e: KeyboardEvent) => {
@@ -84,10 +84,10 @@ function ProjectTab({ project, active, windowFocused }: { project: ProjectInfo; 
               aria-hidden
               className={cn(
                 'pointer-events-none absolute inset-x-0 top-0 z-[6] h-px',
-                windowFocused ? 'bg-(--vsc-tab-activeBorderTop)' : 'bg-(--vsc-tab-unfocusedActiveBorderTop)',
+                windowFocused ? 'bg-tab-active-border-top' : 'bg-tab-unfocused-active-border-top',
               )}
             />
-            <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-px bg-(--vsc-tab-activeBorder)" />
+            <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-px bg-tab-active-border" />
           </>
         )}
         {/* A missing folder reads like a deleted file's tab: struck through */}
@@ -100,7 +100,7 @@ function ProjectTab({ project, active, windowFocused }: { project: ProjectInfo; 
             tabIndex={-1}
             aria-label={t('project.close')}
             className={cn(
-              'group/close flex size-5 items-center justify-center rounded-[6px] hover:bg-(--vsc-toolbar-hoverBackground)',
+              'group/close flex size-action-sm items-center justify-center rounded-action hover:bg-toolbar-hover',
               active || project.dirty ? 'opacity-100' : 'opacity-0 group-hover/tab:opacity-100 group-focus-within/tab:opacity-100',
             )}
             onClick={(e) => {
@@ -136,7 +136,7 @@ export function PanelHeader({ projects, active, pinned, onTogglePin, detached, o
   return (
     // The header is the drag area when the panel is detached (anything but its controls)
     <header
-      className="relative flex h-[22px] shrink-0 bg-(--vsc-editorGroupHeader-tabsBackground) after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:z-[9] after:h-px after:bg-(--vsc-editorGroupHeader-tabsBorder)"
+      className="relative flex h-tab-compact shrink-0 bg-tab-strip after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:z-[9] after:h-px after:bg-tab-strip-border"
       onPointerDown={(e) => {
         if (!detached || e.button !== 0 || (e.target as HTMLElement).closest('button, [role="tab"], [role="menu"]')) return
         void getCurrentWindow().startDragging()

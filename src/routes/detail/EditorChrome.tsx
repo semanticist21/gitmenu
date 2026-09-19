@@ -78,7 +78,7 @@ export function Breadcrumbs({ path, className }: { path: string; className?: str
     <nav
       aria-label={path}
       className={cn(
-        'flex h-[22px] shrink-0 cursor-default items-center overflow-hidden whitespace-nowrap bg-(--vsc-editor-background) text-(--vsc-breadcrumb-foreground) text-[13px] border-(--vsc-editorWidget-border) border-b dark:border-b-0',
+        'flex h-breadcrumbs shrink-0 cursor-default items-center overflow-hidden whitespace-nowrap bg-editor text-breadcrumb-foreground text-ui border-editor-widget-border border-b dark:border-b-0',
         className,
       )}
     >
@@ -88,7 +88,7 @@ export function Breadcrumbs({ path, className }: { path: string; className?: str
         return (
           <span key={i} className={cn('flex h-full min-w-0 items-center', last ? 'max-w-[80%] shrink pe-2' : 'shrink-[2]')}>
             {last && <Icon name="file" className="me-1.5" />}
-            <span className="truncate leading-[22px]">{part}</span>
+            <span className="truncate leading-breadcrumbs">{part}</span>
             {!last && <Icon name="chevron-right" />}
           </span>
         )
@@ -123,8 +123,8 @@ export function NativeSelect({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          'w-full min-w-0 cursor-pointer appearance-none truncate rounded-[4px] border border-(--vsc-dropdown-border) bg-(--vsc-dropdown-background) text-(--vsc-dropdown-foreground) outline-none focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-(--vsc-focusBorder)',
-          compact ? 'h-6 py-0.5 ps-2 pe-[23px] text-[11px]' : 'h-[26px] py-0.5 ps-1.5 pe-6 text-[13px]',
+          'w-full min-w-0 cursor-pointer appearance-none truncate rounded-control border border-dropdown-border bg-dropdown text-dropdown-foreground outline-none focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-focus',
+          compact ? 'h-6 py-0.5 ps-2 pe-[23px] text-caption' : 'h-control py-0.5 ps-1.5 pe-6 text-ui',
         )}
         {...props}
       >

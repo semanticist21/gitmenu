@@ -108,7 +108,7 @@ function EditorForm({ prompt, onDone }: { prompt: Extract<Prompt, { kind: 'edito
             <Textarea
               autoFocus
               aria-label={t('prompt.editor')}
-              className="[&_textarea]:h-[216px] [&_textarea]:min-h-[216px] [&_textarea]:font-(family-name:--font-editor) [&_textarea]:text-[12px] [&_textarea]:leading-[18px] [&_textarea]:[field-sizing:fixed]"
+              className="[&_textarea]:h-[216px] [&_textarea]:min-h-[216px] [&_textarea]:font-editor [&_textarea]:text-code [&_textarea]:[field-sizing:fixed]"
               spellCheck={false}
               value={value}
               onChange={(e) => setEdited(e.target.value)}

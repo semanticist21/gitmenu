@@ -7,6 +7,7 @@ import { Menu, MenuPopup, MenuTrigger } from '@/components/ui/menu'
 import { t, useLocale } from '@/i18n'
 import type { RepoInfo } from '@/lib/ipc'
 import { ActionButton, commandIcon } from './ActionButton'
+import { viewMessageClass } from './ViewTree'
 
 export interface ViewProps {
   repo: RepoInfo
@@ -29,7 +30,7 @@ export function registerView(id: string, component: ComponentType<ViewProps>) {
 /** A view without a component yet: VS Code's tree message. */
 function EmptyView() {
   useLocale()
-  return <p className="flex select-text py-1 ps-[18px] pe-3">{t('view.empty')}</p>
+  return <p className={viewMessageClass}>{t('view.empty')}</p>
 }
 
 export function renderView(id: string, repo: RepoInfo) {

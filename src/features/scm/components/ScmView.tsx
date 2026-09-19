@@ -16,17 +16,21 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from '@/components/ui/tooltip'
 import { type RunningOp, useRunningOps } from '@/features/ops/operations'
 import { ActionButton } from '@/features/views/ActionButton'
 import type { ViewProps } from '@/features/views/registry'
+import { viewMessageClass } from '@/features/views/ViewTree'
 import { t, useLocale, vs, vsb } from '@/i18n'
 import { git, type RepoStatus } from '@/lib/git'
 import { cn } from '@/lib/utils'
 import { useSetting } from '@/settings/settings'
+import { SCM_INPUT_LINE_HEIGHT } from '@/theme/metrics'
 import { useRepoStatus } from '../api'
 import { loadCommitInput, setCommitInput, useCommitInput } from '../state'
 import { type Group, ResourceList } from './ResourceList'
 
-/** The input box's line height and the most lines it grows to (scmInput.ts) */
-const LINE = 20
+/** The most lines the input box grows to (scmInput.ts) */
 const MAX_LINES = 10
+/** The inset of the rows above the changes (banner, input, action button): 8px indent + 11px,
+ * 12px on the right */
+const headerInset = 'ps-[19px] pe-3'
 
 /** VS Code's `renderLabelWithIcons` as a button label: `$(name)` / `$(name~spin)` become codicons,
  * the text between them is trimmed (button.ts `getContentElements`). */
@@ -98,7 +102,7 @@ function CommitInput({ root, branch }: { root: string; branch: string | null }) 
     const el = ref.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, LINE * MAX_LINES + 4)}px`
+    el.style.height = `${Math.min(el.scrollHeight, SCM_INPUT_LINE_HEIGHT * MAX_LINES + 4)}px`
   }, [value])
 
   const placeholder = branch
@@ -109,13 +113,13 @@ function CommitInput({ root, branch }: { root: string; branch: string | null }) 
 
   const ai = aiState.data
   return (
-    // The input row: 8px indent + 11px, 12px on the right, 5px above and below (row = box + 10)
-    <div className="py-[5px] ps-[19px] pe-3" data-context={JSON.stringify({ scmRepository: true })}>
+    // The input row: 5px above and below (row = box + 10)
+    <div className={cn('py-[5px]', headerInset)} data-context={JSON.stringify({ scmRepository: true })}>
       <div
         className={cn(
-          'flex items-start rounded-[4px] border border-(--vsc-input-border) bg-(--vsc-input-background) text-(--vsc-input-foreground)',
-          'focus-within:outline-solid focus-within:outline-1 focus-within:-outline-offset-1 focus-within:outline-(--vsc-focusBorder)',
-          warning && 'outline-solid outline-1 -outline-offset-1 outline-(--vsc-inputValidation-warningBorder) focus-within:outline-(--vsc-inputValidation-warningBorder)',
+          'flex items-start rounded-control border border-input-border bg-input-background text-input-foreground',
+          'focus-within:outline-solid focus-within:outline-1 focus-within:-outline-offset-1 focus-within:outline-focus',
+          warning && 'outline-solid outline-1 -outline-offset-1 outline-validation-warning-border focus-within:outline-validation-warning-border',
         )}
       >
         <textarea
@@ -125,7 +129,7 @@ function CommitInput({ root, branch }: { root: string; branch: string | null }) 
           placeholder={placeholder}
           aria-label={vsb('Message')}
           spellCheck
-          className="block min-h-6 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-0.5 text-[13px] leading-5 outline-none [scrollbar-width:none] placeholder:text-(--vsc-input-placeholderForeground) [&::-webkit-scrollbar]:hidden"
+          className="block min-h-6 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-0.5 text-ui leading-scm-input outline-none [scrollbar-width:none] placeholder:text-input-placeholder [&::-webkit-scrollbar]:hidden"
           onChange={(e) => setCommitInput(root, e.target.value)}
         />
         <div className="flex shrink-0 py-px ps-px pe-[3px]">
@@ -140,9 +144,9 @@ function CommitInput({ root, branch }: { root: string; branch: string | null }) 
       {warning && (
         <div
           role="status"
-          className="flex rounded-b-[2px] border border-(--vsc-inputValidation-warningBorder) border-t-0 bg-(--vsc-inputValidation-warningBackground) p-0.5"
+          className="flex rounded-b-xs border border-validation-warning-border border-t-0 bg-validation-warning p-0.5"
         >
-          <p className="px-[3px] py-px text-[.9em]">{warning}</p>
+          <p className="px-[3px] py-px text-label-description">{warning}</p>
         </div>
       )}
     </div>
@@ -203,7 +207,7 @@ function scmActionButton({
   }
 
   // scm.css: the sync and cloud-upload icons sit 4px before the text, the arrows are small
-  const syncIcons = (name: string) => (name === 'arrow-up' || name === 'arrow-down' ? 'me-1 text-[13px]' : 'me-1')
+  const syncIcons = (name: string) => (name === 'arrow-up' || name === 'arrow-down' ? 'me-1 text-ui' : 'me-1')
   const enabled = !ops.checkout && !ops.sync
 
   if (canCommit) return commit(true)
@@ -251,8 +255,8 @@ function OperationBanner({ root, operation }: { root: string; operation: string 
   const label =
     operation === 'rebase' ? vsb('Continue Rebase') : operation === 'merge' ? vsb('Continue Merge') : t('scm.continue')
   return (
-    <div role="status" className="flex items-center gap-1 pt-[5px] ps-[19px] pe-3">
-      <Icon name="git-branch-conflicts" className="me-0.5 text-(--vsc-gitlens-statusMergingOrRebasing)" />
+    <div role="status" className={cn('flex items-center gap-1 pt-[5px]', headerInset)}>
+      <Icon name="git-branch-conflicts" className="me-0.5 text-gitlens-merging" />
       <span className="min-w-0 flex-1 truncate">{t(`scm.operation.${operation}` as never)}</span>
       <Button size="small" className="min-w-0" onClick={() => void executeCommand('git.continueOperation', root)}>
         <span className="truncate">{label}</span>
@@ -274,12 +278,12 @@ function StatusItem({ icon, text, tooltip, onClick, label }: { icon?: string; te
     </>
   )
   const className =
-    'mx-[3px] flex h-full min-w-0 items-center gap-1 px-[5px] leading-[22px] outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-(--vsc-focusBorder)'
+    'mx-[3px] flex h-full min-w-0 items-center gap-1 px-[5px] leading-status-bar outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-focus'
   const item = onClick ? (
     <button
       type="button"
       aria-label={label ?? tooltip}
-      className={cn(className, 'cursor-pointer hover:bg-(--vsc-statusBarItem-hoverBackground) hover:text-(--vsc-statusBarItem-hoverForeground)')}
+      className={cn(className, 'cursor-pointer hover:bg-status-bar-item-hover hover:text-status-bar-item-hover-foreground')}
       onClick={onClick}
     >
       {content}
@@ -382,7 +386,7 @@ export function ScmStatusBar({ root }: { root: string }) {
   return (
     <footer
       data-bottom-bar
-      className="flex h-[22px] shrink-0 items-center overflow-hidden border-(--vsc-statusBar-border) border-t bg-(--vsc-statusBar-background) ps-1 text-(--vsc-statusBar-foreground) text-[12px]"
+      className="flex h-status-bar shrink-0 items-center overflow-hidden border-status-bar-border border-t bg-status-bar ps-1 text-status-bar-foreground text-small"
     >
       {items}
     </footer>
@@ -427,7 +431,7 @@ export function ScmView({ repo }: ViewProps) {
   // Loading: VS Code shows the view's progress bar over an empty view
   if (isPending) return <ProgressBar />
   if (error || !status) {
-    return <p className="flex select-text py-1 ps-[18px] pe-3 text-(--vsc-errorForeground)">{String((error as { message?: string })?.message ?? error)}</p>
+    return <p className={cn(viewMessageClass, 'text-error')}>{String((error as { message?: string })?.message ?? error)}</p>
   }
 
   const canCommit = status.index.length + status.workingTree.length + (untrackedMode === 'hidden' ? 0 : status.untracked.length) > 0
@@ -437,7 +441,7 @@ export function ScmView({ repo }: ViewProps) {
       {status.operation && <OperationBanner root={repo.root} operation={status.operation} />}
       {showInput && <CommitInput root={repo.root} branch={status.head.branch} />}
       {/* The action button row: 28px + 8, the button centered and indented like the input */}
-      {button && <div className="flex h-9 items-center ps-[19px] pe-3">{button}</div>}
+      {button && <div className={cn('flex h-9 items-center', headerInset)}>{button}</div>}
     </>
   )
   return (

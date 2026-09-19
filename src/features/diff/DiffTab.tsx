@@ -108,14 +108,14 @@ export function EditorPlaceholder({ icon, message, detail, children }: { icon: '
         name={icon}
         className={cn(
           'text-[48px]',
-          icon === 'error' && 'text-(--vsc-editorError-foreground)',
-          icon === 'warning' && 'text-(--vsc-editorWarning-foreground)',
-          icon === 'info' && 'text-(--vsc-editorInfo-foreground)',
+          icon === 'error' && 'text-editor-error',
+          icon === 'warning' && 'text-editor-warning',
+          icon === 'info' && 'text-editor-info',
         )}
       />
-      <div className="max-w-[450px] select-text break-words text-center text-[14px]">
+      <div className="max-w-[450px] select-text break-words text-center text-large">
         {message}
-        {detail && <div className="mt-1 text-[13px] opacity-90">{detail}</div>}
+        {detail && <div className="mt-1 text-ui opacity-90">{detail}</div>}
       </div>
       {children && <div className="flex [&>*]:mx-[5px] [&>*]:my-1 [&>*]:w-fit">{children}</div>}
     </div>
@@ -129,7 +129,7 @@ export function NonTextDiff({ result, path, root }: { result: DiffResult; path: 
     return (
       <div className="grid h-full grid-cols-2 overflow-auto">
         {(['left', 'right'] as const).map((side) => (
-          <figure key={side} className={cn('flex min-w-0 flex-col items-center justify-center gap-2 p-4', side === 'right' && 'border-(--vsc-editorGroupHeader-tabsBorder) border-l')}>
+          <figure key={side} className={cn('flex min-w-0 flex-col items-center justify-center gap-2 p-4', side === 'right' && 'border-tab-strip-border border-l')}>
             {result[side].dataUrl ? (
               <img
                 src={result[side].dataUrl!}
@@ -141,9 +141,9 @@ export function NonTextDiff({ result, path, root }: { result: DiffResult; path: 
                 }}
               />
             ) : (
-              <span className="text-[13px] opacity-90">{t('diff.none')}</span>
+              <span className="text-ui opacity-90">{t('diff.none')}</span>
             )}
-            <figcaption data-dims className="text-[12px] opacity-90">
+            <figcaption data-dims className="text-small opacity-90">
               {result[side].exists ? formatSize(result[side].size) : ''}
             </figcaption>
           </figure>

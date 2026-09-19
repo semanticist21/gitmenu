@@ -8,7 +8,7 @@ export function Skeleton({
 }: React.ComponentProps<"div">): React.ReactElement {
   return (
     <div
-      className={cn("bg-(--vsc-list-hoverBackground)", className)}
+      className={cn("bg-list-hover", className)}
       data-slot="skeleton"
       {...props}
     />

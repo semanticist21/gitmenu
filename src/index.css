@@ -47,9 +47,6 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar: var(--sidebar);
-  --color-code-highlight: var(--code-highlight);
-  --color-code-foreground: var(--code-foreground);
-  --color-code: var(--code);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-ring: var(--ring);
@@ -77,6 +74,237 @@
   --color-destructive-foreground: var(--destructive-foreground);
 }
 
+/* Layout, type, radius, shadow and motion tokens. Each value has one owner here (or in the
+   VS Code variables below); TypeScript mirrors the few it needs in src/theme/metrics.ts. */
+@theme {
+  /* heights and fixed sizes (workbench layout constants) */
+  --spacing-row: 22px;
+  --spacing-pane-header: 22px;
+  --spacing-tab: 35px;
+  --spacing-tab-compact: 22px;
+  --spacing-breadcrumbs: 22px;
+  --spacing-status-bar: 22px;
+  --spacing-control: 26px;
+  --spacing-control-sm: 22px;
+  --spacing-action: 22px;
+  --spacing-action-sm: 20px;
+  --spacing-icon: 16px;
+  --spacing-indent: 8px;
+  --spacing-code-line: 18px;
+  --spacing-notification-margin: 3px;
+  --spacing-tab-min: 120px;
+  --container-welcome-button: 300px;
+
+  /* type: size-only steps (they inherit the line height, like text-[13px] did), plus code */
+  --text-caption: 11px;
+  --text-small: 12px;
+  --text-ui: 13px;
+  --text-large: 14px;
+  --text-label-description: 0.9em;
+  --text-code: 12px;
+  --text-code--line-height: var(--spacing-code-line);
+
+  /* line heights: a bar's text is centered by its height */
+  --leading-ui: 1.4em;
+  --leading-row: var(--spacing-row);
+  --leading-pane-header: var(--spacing-pane-header);
+  --leading-tab: var(--spacing-tab);
+  --leading-tab-compact: var(--spacing-tab-compact);
+  --leading-breadcrumbs: var(--spacing-breadcrumbs);
+  --leading-status-bar: var(--spacing-status-bar);
+  --leading-scm-input: 20px;
+
+  /* corner radii: roles on VS Code's corner-radius scale; 3/5/10/11px have no step on it */
+  --radius-inset: 3px;
+  --radius-control: var(--vsc-cornerRadius-small);
+  --radius-hover: 5px;
+  --radius-action: var(--vsc-cornerRadius-medium);
+  --radius-menu: var(--vsc-cornerRadius-large);
+  --radius-label: 10px;
+  --radius-badge: 11px;
+  --radius-dialog: var(--vsc-cornerRadius-xLarge);
+
+  /* elevation and edge shadows */
+  --shadow-widget: var(--vsc-shadow-lg);
+  --shadow-quick-pick: var(--vsc-shadow-xl);
+  --shadow-dialog: 0 0 8px var(--vsc-widget-shadow), var(--vsc-shadow-xl);
+  --shadow-key: inset 0 -1px 0 var(--vsc-widget-shadow);
+  --shadow-scroll-top: inset 0 6px 6px -6px var(--vsc-scrollbar-shadow);
+  --shadow-scroll-left: inset 6px 0 6px -6px var(--vsc-scrollbar-shadow);
+  --shadow-diff-original: 6px 0 5px -5px var(--vsc-scrollbar-shadow);
+  --shadow-diff-modified: -6px 0 5px -5px var(--vsc-scrollbar-shadow);
+  --shadow-unchanged-region: inset 0 -5px 5px -7px var(--diff-unchanged-shadow), inset 0 5px 5px -7px var(--diff-unchanged-shadow);
+
+  /* motion; the curves are Tailwind's ease-out, which the code used (CSS's `ease-out` keyword is
+     cubic-bezier(0, 0, 0.58, 1)) */
+  --transition-duration-pane: 150ms;
+  --ease-pane: cubic-bezier(0, 0, 0.2, 1);
+  --transition-duration-sash: 100ms;
+  --transition-delay-sash: 300ms;
+  --ease-sash: cubic-bezier(0, 0, 0.2, 1);
+  --transition-duration-columns: 200ms;
+  --ease-columns: cubic-bezier(0, 0, 0.2, 1);
+  --transition-duration-fade: 100ms;
+  --animate-menu-in: fadeIn 83ms linear;
+  --animate-hover-in: fadein 100ms linear;
+  --animate-progress: progress 4s linear infinite;
+}
+
+/* Semantic colors: a role name over each VS Code color (light/dark switch in :root/.dark) */
+@theme inline {
+  --color-description: var(--vsc-descriptionForeground);
+  --color-disabled: var(--vsc-disabledForeground);
+  --color-error: var(--vsc-errorForeground);
+  --color-icon: var(--vsc-icon-foreground);
+  --color-focus: var(--vsc-focusBorder);
+  --color-link: var(--vsc-textLink-foreground);
+  --color-link-active: var(--vsc-textLink-activeForeground);
+  --color-preformat: var(--vsc-textPreformat-background);
+  --color-preformat-foreground: var(--vsc-textPreformat-foreground);
+  --color-code-block: var(--vsc-textCodeBlock-background);
+  --color-widget-border: var(--vsc-widget-border);
+  --color-progress: var(--vsc-progressBar-background);
+  --color-sash-hover: var(--vsc-sash-hoverBorder);
+  --color-toolbar-hover: var(--vsc-toolbar-hoverBackground);
+  --color-toolbar-active: var(--vsc-toolbar-activeBackground);
+
+  --color-list-hover: var(--vsc-list-hoverBackground);
+  --color-list-active: var(--vsc-list-activeSelectionBackground);
+  --color-list-active-foreground: var(--vsc-list-activeSelectionForeground);
+  --color-list-inactive: var(--vsc-list-inactiveSelectionBackground);
+  --color-list-focus-outline: var(--vsc-list-focusOutline);
+  --color-list-selection-outline: var(--vsc-list-focusAndSelectionOutline);
+  --color-list-highlight: var(--vsc-list-highlightForeground);
+  --color-indent-guide: var(--vsc-tree-indentGuidesStroke);
+  --color-indent-guide-inactive: var(--vsc-tree-inactiveIndentGuidesStroke);
+  --color-table-odd-row: var(--vsc-tree-tableOddRowsBackground);
+  --color-table-column-border: var(--vsc-tree-tableColumnsBorder);
+
+  --color-section-header: var(--vsc-sideBarSectionHeader-background);
+  --color-section-header-foreground: var(--vsc-sideBarSectionHeader-foreground);
+  --color-section-header-border: var(--vsc-sideBarSectionHeader-border);
+  --color-section-header-description: var(--vsc-panelTitle-inactiveForeground);
+
+  --color-button: var(--vsc-button-background);
+  --color-button-foreground: var(--vsc-button-foreground);
+  --color-button-hover: var(--vsc-button-hoverBackground);
+  --color-button-border: var(--vsc-button-border);
+  --color-button-separator: var(--vsc-button-separator);
+  --color-button-secondary: var(--vsc-button-secondaryBackground);
+  --color-button-secondary-foreground: var(--vsc-button-secondaryForeground);
+  --color-button-secondary-hover: var(--vsc-button-secondaryHoverBackground);
+  --color-button-secondary-border: var(--vsc-button-secondaryBorder);
+
+  --color-input-background: var(--vsc-input-background);
+  --color-input-foreground: var(--vsc-input-foreground);
+  --color-input-border: var(--vsc-input-border);
+  --color-input-placeholder: var(--vsc-input-placeholderForeground);
+  --color-input-option-hover: var(--vsc-inputOption-hoverBackground);
+  --color-input-option-active: var(--vsc-inputOption-activeBackground);
+  --color-input-option-active-foreground: var(--vsc-inputOption-activeForeground);
+  --color-input-option-active-border: var(--vsc-inputOption-activeBorder);
+  --color-validation-error: var(--vsc-inputValidation-errorBackground);
+  --color-validation-error-border: var(--vsc-inputValidation-errorBorder);
+  --color-validation-warning: var(--vsc-inputValidation-warningBackground);
+  --color-validation-warning-border: var(--vsc-inputValidation-warningBorder);
+  --color-validation-info: var(--vsc-inputValidation-infoBackground);
+  --color-validation-info-border: var(--vsc-inputValidation-infoBorder);
+  --color-dropdown: var(--vsc-dropdown-background);
+  --color-dropdown-foreground: var(--vsc-dropdown-foreground);
+  --color-dropdown-border: var(--vsc-dropdown-border);
+  --color-dropdown-list: var(--vsc-dropdown-listBackground);
+  --color-checkbox: var(--vsc-checkbox-background);
+  --color-checkbox-foreground: var(--vsc-checkbox-foreground);
+  --color-checkbox-border: var(--vsc-checkbox-border);
+  --color-checkbox-disabled: var(--vsc-checkbox-disabled-background);
+  --color-checkbox-disabled-foreground: var(--vsc-checkbox-disabled-foreground);
+  --color-badge: var(--vsc-badge-background);
+  --color-badge-foreground: var(--vsc-badge-foreground);
+  --color-keybinding: var(--vsc-keybindingLabel-background);
+  --color-keybinding-foreground: var(--vsc-keybindingLabel-foreground);
+  --color-keybinding-border: var(--vsc-keybindingLabel-border);
+  --color-keybinding-bottom-border: var(--vsc-keybindingLabel-bottomBorder);
+
+  --color-menu: var(--vsc-menu-background);
+  --color-menu-foreground: var(--vsc-menu-foreground);
+  --color-menu-border: var(--vsc-menu-border);
+  --color-menu-separator: var(--vsc-menu-separatorBackground);
+  --color-quick-input: var(--vsc-quickInput-background);
+  --color-quick-input-foreground: var(--vsc-quickInput-foreground);
+  --color-quick-input-title: var(--vsc-quickInputTitle-background);
+  --color-quick-input-focus: var(--vsc-quickInputList-focusBackground);
+  --color-quick-input-focus-foreground: var(--vsc-quickInputList-focusForeground);
+  --color-quick-input-focus-highlight: var(--vsc-quickInputList-focusHighlightForeground);
+  --color-picker-group-border: var(--vsc-pickerGroup-border);
+  --color-picker-group-foreground: var(--vsc-pickerGroup-foreground);
+  --color-hover-widget: var(--vsc-editorHoverWidget-background);
+  --color-hover-widget-foreground: var(--vsc-editorHoverWidget-foreground);
+  --color-hover-widget-border: var(--vsc-editorHoverWidget-border);
+  --color-editor-widget: var(--vsc-editorWidget-background);
+  --color-editor-widget-foreground: var(--vsc-editorWidget-foreground);
+  --color-editor-widget-border: var(--vsc-editorWidget-border);
+  --color-notification: var(--vsc-notifications-background);
+  --color-notification-foreground: var(--vsc-notifications-foreground);
+  --color-notification-border: var(--vsc-notificationToast-border);
+  --color-notification-link: var(--vsc-notificationLink-foreground);
+  --color-notification-error: var(--vsc-notificationsErrorIcon-foreground);
+  --color-notification-info: var(--vsc-notificationsInfoIcon-foreground);
+  --color-notification-warning: var(--vsc-notificationsWarningIcon-foreground);
+
+  --color-editor: var(--vsc-editor-background);
+  --color-editor-foreground: var(--vsc-editor-foreground);
+  --color-editor-selection: var(--vsc-editor-selectionBackground);
+  --color-editor-selection-inactive: var(--vsc-editor-inactiveSelectionBackground);
+  --color-find-match: var(--vsc-editor-findMatchHighlightBackground);
+  --color-line-number: var(--vsc-editorLineNumber-foreground);
+  --color-line-number-active: var(--vsc-editorLineNumber-activeForeground);
+  --color-line-highlight-border: var(--vsc-editor-lineHighlightBorder);
+  --color-editor-error: var(--vsc-editorError-foreground);
+  --color-editor-warning: var(--vsc-editorWarning-foreground);
+  --color-editor-info: var(--vsc-editorInfo-foreground);
+  --color-breadcrumb-foreground: var(--vsc-breadcrumb-foreground);
+  --color-tab-strip: var(--vsc-editorGroupHeader-tabsBackground);
+  --color-tab-strip-border: var(--vsc-editorGroupHeader-tabsBorder);
+  --color-tab-active: var(--vsc-tab-activeBackground);
+  --color-tab-active-foreground: var(--vsc-tab-activeForeground);
+  --color-tab-inactive: var(--vsc-tab-inactiveBackground);
+  --color-tab-inactive-foreground: var(--vsc-tab-inactiveForeground);
+  --color-tab-hover: var(--vsc-tab-hoverBackground);
+  --color-tab-border: var(--vsc-tab-border);
+  --color-tab-active-border: var(--vsc-tab-activeBorder);
+  --color-tab-active-border-top: var(--vsc-tab-activeBorderTop);
+  --color-tab-unfocused-active-border-top: var(--vsc-tab-unfocusedActiveBorderTop);
+  --color-scrollbar-slider: var(--vsc-scrollbarSlider-background);
+  --color-scrollbar-slider-hover: var(--vsc-scrollbarSlider-hoverBackground);
+  --color-scrollbar-slider-active: var(--vsc-scrollbarSlider-activeBackground);
+  --color-status-bar: var(--vsc-statusBar-background);
+  --color-status-bar-foreground: var(--vsc-statusBar-foreground);
+  --color-status-bar-border: var(--vsc-statusBar-border);
+  --color-status-bar-item-hover: var(--vsc-statusBarItem-hoverBackground);
+  --color-status-bar-item-hover-foreground: var(--vsc-statusBarItem-hoverForeground);
+  --color-settings-header-foreground: var(--vsc-settings-headerForeground);
+  --color-settings-header-border: var(--vsc-settings-headerBorder);
+  --color-settings-row-hover: var(--vsc-settings-rowHoverBackground);
+  --color-settings-row-focus: var(--vsc-settings-focusedRowBackground);
+  --color-settings-modified: var(--vsc-settings-modifiedItemIndicator);
+  --color-settings-search-border: var(--settings-search-border);
+
+  --color-gitlens-unpublished: var(--vsc-gitlens-unpublishedChangesIconColor);
+  --color-gitlens-unpulled: var(--vsc-gitlens-unpulledChangesIconColor);
+  --color-gitlens-merging: var(--vsc-gitlens-statusMergingOrRebasing);
+  --color-blame: var(--vsc-gitlens-gutterBackgroundColor);
+  --color-blame-foreground: var(--vsc-gitlens-gutterForegroundColor);
+  --color-blame-uncommitted: var(--vsc-gitlens-gutterUncommittedForegroundColor);
+  --color-blame-highlight: var(--vsc-gitlens-lineHighlightBackgroundColor);
+  --color-diff-added: var(--diff-added);
+  --color-diff-removed: var(--diff-removed);
+  --color-diff-overview-added: var(--diff-overview-added);
+  --color-diff-overview-removed: var(--diff-overview-removed);
+  --color-diff-overview-ruler: var(--diff-overview-ruler);
+  --color-diff-unchanged-region: var(--diff-unchanged-region);
+  --color-diff-unchanged-code: var(--diff-unchanged-code);
+}
+
 /* Light Modern (extensions/theme-defaults/themes/light_modern.json, resolved). The kit's
    semantic names map onto VS Code colors; everything else is `--vsc-<color id>`. */
 :root {
@@ -93,42 +321,39 @@
   --vsc-cornerRadius-xLarge: 12px;
   --vsc-cornerRadius-circle: 9999px;
 
-  --background: #f8f8f8;
-  --foreground: #3b3b3b;
-  --card: #f8f8f8;
-  --card-foreground: #3b3b3b;
-  --popover: #ffffff;
-  --popover-foreground: #3b3b3b;
-  --primary: #005fb8;
-  --primary-foreground: #ffffff;
-  --secondary: #e5e5e5;
-  --secondary-foreground: #3b3b3b;
-  --muted: #f2f2f2;
-  --muted-foreground: #3b3b3b;
-  --accent: #f2f2f2;
-  --accent-foreground: #3b3b3b;
-  --border: #e5e5e5;
-  --input: #cecece;
-  --ring: #005fb8;
-  --destructive: #f85149;
-  --destructive-foreground: #f85149;
-  --info: #0063d3;
-  --info-foreground: #0063d3;
-  --warning: #bf8803;
-  --warning-foreground: #bf8803;
-  --success: #587c0c;
-  --success-foreground: #587c0c;
-  --code: #ffffff;
-  --code-foreground: #3b3b3b;
-  --code-highlight: #eeeeee;
-  --sidebar: #f8f8f8;
-  --sidebar-foreground: #3b3b3b;
-  --sidebar-border: #e5e5e5;
-  --sidebar-accent: #f2f2f2;
-  --sidebar-accent-foreground: #3b3b3b;
-  --sidebar-primary: #005fb8;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-ring: #005fb8;
+  --background: var(--vsc-sideBar-background);
+  --foreground: var(--vsc-foreground);
+  --card: var(--vsc-sideBar-background);
+  --card-foreground: var(--vsc-foreground);
+  --popover: var(--vsc-menu-background);
+  --popover-foreground: var(--vsc-menu-foreground);
+  --primary: var(--vsc-button-background);
+  --primary-foreground: var(--vsc-button-foreground);
+  --secondary: var(--vsc-button-secondaryBackground);
+  --secondary-foreground: var(--vsc-button-secondaryForeground);
+  --muted: var(--vsc-list-hoverBackground);
+  --muted-foreground: var(--vsc-descriptionForeground);
+  --accent: var(--vsc-list-hoverBackground);
+  --accent-foreground: var(--vsc-foreground);
+  --border: var(--vsc-sideBar-border);
+  --input: var(--vsc-input-border);
+  --ring: var(--vsc-focusBorder);
+  --destructive: var(--vsc-errorForeground);
+  --destructive-foreground: var(--vsc-errorForeground);
+  --info: var(--vsc-editorInfo-foreground);
+  --info-foreground: var(--vsc-editorInfo-foreground);
+  --warning: var(--vsc-editorWarning-foreground);
+  --warning-foreground: var(--vsc-editorWarning-foreground);
+  --success: var(--git-added);
+  --success-foreground: var(--git-added);
+  --sidebar: var(--vsc-sideBar-background);
+  --sidebar-foreground: var(--vsc-sideBar-foreground);
+  --sidebar-border: var(--vsc-sideBar-border);
+  --sidebar-accent: var(--vsc-list-hoverBackground);
+  --sidebar-accent-foreground: var(--vsc-foreground);
+  --sidebar-primary: var(--vsc-button-background);
+  --sidebar-primary-foreground: var(--vsc-button-foreground);
+  --sidebar-ring: var(--vsc-focusBorder);
 
   --vsc-foreground: #3b3b3b;
   --vsc-descriptionForeground: #3b3b3b;
@@ -241,6 +466,9 @@
   --vsc-editorLineNumber-foreground: #6e7681;
   --vsc-editorLineNumber-activeForeground: #171184;
   --vsc-editor-lineHighlightBorder: #eeeeee;
+  --vsc-editor-selectionBackground: #add6ff;
+  --vsc-editor-inactiveSelectionBackground: #e5ebf1;
+  --vsc-editor-findMatchHighlightBackground: #ea5c0055;
   --vsc-editorWidget-background: #f8f8f8;
   --vsc-editorWidget-foreground: #3b3b3b;
   --vsc-editorWidget-border: #3b3b3b33;
@@ -276,6 +504,8 @@
   --vsc-settings-rowHoverBackground: #f2f2f24d;
   --vsc-settings-focusedRowBackground: #f2f2f299;
   --vsc-settings-headerBorder: #e5e5e5;
+  /* settings search box border: #ddd in light themes, input.border in dark */
+  --settings-search-border: #dddddd;
   /* GitLens contributes.colors */
   --vsc-gitlens-unpublishedChangesIconColor: #35b15e;
   --vsc-gitlens-unpulledChangesIconColor: #b15e35;
@@ -284,6 +514,10 @@
   --vsc-gitlens-branchDiverged: #d8af1b;
   --vsc-gitlens-branchMissingUpstream: #ad0707;
   --vsc-gitlens-statusMergingOrRebasing: #d8af1b;
+  --vsc-gitlens-gutterBackgroundColor: #0000000c;
+  --vsc-gitlens-gutterForegroundColor: #747474;
+  --vsc-gitlens-gutterUncommittedForegroundColor: #00bcf299;
+  --vsc-gitlens-lineHighlightBackgroundColor: #00bcf233;
 
   /* git decorations (extensions/git/package.json) */
   --git-modified: #895503;
@@ -306,47 +540,12 @@
   --diff-unchanged-code: #b8b8b829;
   --diff-overview-added: #9ccc2c80;
   --diff-overview-removed: #ff000066;
+  --diff-overview-ruler: rgb(0 0 0 / 3%);
+  --diff-unchanged-shadow: #737373bf;
 }
 
 /* Dark Modern (dark_modern.json, resolved) */
 .dark {
-  --background: #181818;
-  --foreground: #cccccc;
-  --card: #181818;
-  --card-foreground: #cccccc;
-  --popover: #1f1f1f;
-  --popover-foreground: #cccccc;
-  --primary: #0078d4;
-  --primary-foreground: #ffffff;
-  --secondary: #00000000;
-  --secondary-foreground: #cccccc;
-  --muted: #2a2d2e;
-  --muted-foreground: #9d9d9d;
-  --accent: #2a2d2e;
-  --accent-foreground: #cccccc;
-  --border: #2b2b2b;
-  --input: #3c3c3c;
-  --ring: #0078d4;
-  --destructive: #f85149;
-  --destructive-foreground: #f85149;
-  --info: #59a4f9;
-  --info-foreground: #59a4f9;
-  --warning: #cca700;
-  --warning-foreground: #cca700;
-  --success: #81b88b;
-  --success-foreground: #81b88b;
-  --code: #1f1f1f;
-  --code-foreground: #cccccc;
-  --code-highlight: #282828;
-  --sidebar: #181818;
-  --sidebar-foreground: #cccccc;
-  --sidebar-border: #2b2b2b;
-  --sidebar-accent: #2a2d2e;
-  --sidebar-accent-foreground: #cccccc;
-  --sidebar-primary: #0078d4;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-ring: #0078d4;
-
   --vsc-foreground: #cccccc;
   --vsc-descriptionForeground: #9d9d9d;
   --vsc-disabledForeground: #cccccc80;
@@ -458,6 +657,8 @@
   --vsc-editorLineNumber-foreground: #6e7681;
   --vsc-editorLineNumber-activeForeground: #cccccc;
   --vsc-editor-lineHighlightBorder: #282828;
+  --vsc-editor-selectionBackground: #264f78;
+  --vsc-editor-inactiveSelectionBackground: #3a3d41;
   --vsc-editorWidget-background: #202020;
   --vsc-editorWidget-foreground: #cccccc;
   --vsc-editorWidget-border: #cccccc33;
@@ -493,7 +694,10 @@
   --vsc-settings-rowHoverBackground: #2a2d2e4d;
   --vsc-settings-focusedRowBackground: #2a2d2e99;
   --vsc-settings-headerBorder: #2b2b2b;
+  --settings-search-border: var(--vsc-input-border);
   --vsc-gitlens-branchMissingUpstream: #c74e39;
+  --vsc-gitlens-gutterBackgroundColor: #ffffff13;
+  --vsc-gitlens-gutterForegroundColor: #bebebe;
 
   --git-modified: #e2c08d;
   --git-stage-modified: #e2c08d;
@@ -514,6 +718,8 @@
   --diff-unchanged-code: #74747429;
   --diff-overview-added: #9ccc2c66;
   --diff-overview-removed: #ff000066;
+  --diff-overview-ruler: rgb(255 255 255 / 1%);
+  --diff-unchanged-shadow: #000000;
 }
 
 @layer base {
@@ -540,8 +746,8 @@
     font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", sans-serif;
   }
   body {
-    font-size: 13px;
-    line-height: 1.4em;
+    font-size: var(--text-ui);
+    line-height: var(--leading-ui);
     color: var(--vsc-foreground);
     background: var(--background);
     -webkit-user-select: none;

@@ -10,7 +10,7 @@ import { Textarea, type TextareaProps } from "@/components/ui/textarea";
 // magnifier, inline actions (16px codicons) at the right edge.
 
 const inputGroupAddonVariants = cva(
-  "flex h-auto cursor-text select-none items-center justify-center gap-0.5 [&_svg:not([class*='size-'])]:size-4",
+  "flex h-auto cursor-text select-none items-center justify-center gap-0.5 [&_svg:not([class*='size-'])]:size-icon",
   {
     defaultVariants: {
       align: "inline-start",
@@ -35,7 +35,7 @@ export function InputGroup({
   return (
     <div
       className={cn(
-        "relative inline-flex h-6 w-full min-w-0 items-center rounded-[4px] border border-(--vsc-input-border) bg-(--vsc-input-background) text-(--vsc-input-foreground) text-[12px] has-[textarea]:h-auto has-data-[align=block-end]:h-auto has-data-[align=block-start]:h-auto has-data-[align=block-end]:flex-col has-data-[align=block-start]:flex-col has-[input:focus,textarea:focus]:outline-solid has-[input:focus,textarea:focus]:outline-1 has-[input:focus,textarea:focus]:-outline-offset-1 has-[input:focus,textarea:focus]:outline-(--vsc-focusBorder) has-aria-invalid:border-(--vsc-inputValidation-errorBorder) has-[input:disabled,textarea:disabled]:opacity-40 *:[[data-slot=input-control],[data-slot=textarea-control]]:contents **:[input]:h-[22px] **:[input]:py-[3px] **:[input]:text-[12px]",
+        "relative inline-flex h-6 w-full min-w-0 items-center rounded-control border border-input-border bg-input-background text-input-foreground text-small has-[textarea]:h-auto has-data-[align=block-end]:h-auto has-data-[align=block-start]:h-auto has-data-[align=block-end]:flex-col has-data-[align=block-start]:flex-col has-[input:focus,textarea:focus]:outline-solid has-[input:focus,textarea:focus]:outline-1 has-[input:focus,textarea:focus]:-outline-offset-1 has-[input:focus,textarea:focus]:outline-focus has-aria-invalid:border-validation-error-border has-[input:disabled,textarea:disabled]:opacity-40 *:[[data-slot=input-control],[data-slot=textarea-control]]:contents **:[input]:h-control-sm **:[input]:py-[3px] **:[input]:text-small",
         className,
       )}
       data-slot="input-group"

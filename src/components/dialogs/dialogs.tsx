@@ -195,12 +195,12 @@ export function QuickPickWidget<T>({
                 className={cn(item.detail && 'flex-col items-stretch')}
                 onClick={() => onDone(item.value)}
               >
-                <span className="flex h-[22px] min-w-0 items-center">
+                <span className="flex h-row min-w-0 items-center">
                   {item.icon && <Icon name={item.icon} className="me-1 shrink-0" />}
                   <QuickInputLabel label={item.label} description={item.description} query={query} />
                 </span>
                 {item.detail && (
-                  <span className="h-[22px] truncate opacity-70 group-data-highlighted/quick-row:opacity-100">
+                  <span className="h-row truncate opacity-70 group-data-highlighted/quick-row:opacity-100">
                     {item.detail}
                   </span>
                 )}
@@ -271,9 +271,9 @@ export function InputBoxWidget({
 }
 
 const SEVERITY_COLOR: Record<Exclude<MessageSeverity, 'none'>, string> = {
-  error: 'text-(--vsc-editorError-foreground)',
-  info: 'text-(--vsc-editorInfo-foreground)',
-  warning: 'text-(--vsc-editorWarning-foreground)',
+  error: 'text-editor-error',
+  info: 'text-editor-info',
+  warning: 'text-editor-warning',
 }
 
 const CANCEL = Symbol('cancel')

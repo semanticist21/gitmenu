@@ -14,7 +14,7 @@ export function Empty({
   return (
     <div
       className={cn(
-        "flex w-full min-w-0 flex-col items-center px-5 pb-[1em] text-(--vsc-foreground) text-[13px] *:mt-[1em] *:mb-0 [&>[data-slot=button]]:w-full [&>[data-slot=button]]:max-w-[300px] [&_a]:text-(--vsc-textLink-foreground) [&>p]:w-full",
+        "flex w-full min-w-0 flex-col items-center px-5 pb-[1em] text-foreground text-ui *:mt-[1em] *:mb-0 [&>[data-slot=button]]:w-full [&>[data-slot=button]]:max-w-welcome-button [&_a]:text-link [&>p]:w-full",
         className,
       )}
       data-slot="empty"
@@ -73,7 +73,7 @@ export function EmptyDescription({
 }: React.ComponentProps<"p">): React.ReactElement {
   return (
     <p
-      className={cn("w-full [&_a]:text-(--vsc-textLink-foreground)", className)}
+      className={cn("w-full [&_a]:text-link", className)}
       data-slot="empty-description"
       {...props}
     />
@@ -87,7 +87,7 @@ export function EmptyContent({
   return (
     <div
       className={cn(
-        "flex w-full min-w-0 max-w-[300px] flex-col items-stretch gap-2 [&>[data-slot=button]]:w-full",
+        "flex w-full min-w-0 max-w-welcome-button flex-col items-stretch gap-2 [&>[data-slot=button]]:w-full",
         className,
       )}
       data-slot="empty-content"

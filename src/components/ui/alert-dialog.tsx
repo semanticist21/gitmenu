@@ -116,7 +116,7 @@ export function AlertDialogTitle({
   return (
     <AlertDialogPrimitive.Title
       className={cn(
-        "mb-1 flex min-h-[22px] items-center font-semibold text-[14px] leading-[18.2px]",
+        "mb-1 flex min-h-[22px] items-center font-semibold text-large leading-[18.2px]",
         className,
       )}
       data-slot="alert-dialog-title"
@@ -131,7 +131,7 @@ export function AlertDialogDescription({
 }: AlertDialogPrimitive.Description.Props): React.ReactElement {
   return (
     <AlertDialogPrimitive.Description
-      className={cn("whitespace-pre-wrap text-[13px] leading-5", className)}
+      className={cn("whitespace-pre-wrap text-ui leading-5", className)}
       data-slot="alert-dialog-description"
       {...props}
     />

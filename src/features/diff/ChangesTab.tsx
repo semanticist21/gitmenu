@@ -55,7 +55,7 @@ export function ChangesTab({ params, route }: DetailTabProps) {
         role="listbox"
         aria-label={changesLabel(params)}
         tabIndex={0}
-        className="group/list w-60 shrink-0 overflow-y-auto border-(--vsc-editorGroupHeader-tabsBorder) border-r bg-(--vsc-sideBar-background) outline-none"
+        className="group/list w-60 shrink-0 overflow-y-auto border-tab-strip-border border-r bg-sidebar outline-none"
         onKeyDown={onKeyDown}
       >
         {files.map((file, index) => {
@@ -71,20 +71,20 @@ export function ChangesTab({ params, route }: DetailTabProps) {
               data-index={index}
               title={`${file.path} • ${statusText(file.status)}`}
               className={cn(
-                'flex h-[22px] cursor-default items-center pe-3 ps-2 text-[13px] leading-[22px]',
+                'flex h-row cursor-default items-center pe-3 ps-2 text-ui leading-row',
                 isSelected
-                  ? 'bg-(--vsc-list-inactiveSelectionBackground) group-focus/list:bg-(--vsc-list-activeSelectionBackground) group-focus/list:text-(--vsc-list-activeSelectionForeground) group-focus/list:outline-solid group-focus/list:outline-1 group-focus/list:-outline-offset-1 group-focus/list:outline-(--vsc-list-focusAndSelectionOutline)'
-                  : 'hover:bg-(--vsc-list-hoverBackground)',
+                  ? 'bg-list-inactive group-focus/list:bg-list-active group-focus/list:text-list-active-foreground group-focus/list:outline-solid group-focus/list:outline-1 group-focus/list:-outline-offset-1 group-focus/list:outline-list-selection-outline'
+                  : 'hover:bg-list-hover',
               )}
               onClick={() => setSelected(file.path)}
             >
               <Icon name="file" className="me-1.5" />
               <span className="min-w-0 flex-1 truncate">
                 <span className={cn('whitespace-pre', LETTER[file.status] === 'D' && 'line-through')}>{name}</span>
-                {folder && <span className="ms-[.5em] whitespace-pre text-[.9em] opacity-95 dark:opacity-70">{folder}</span>}
+                {folder && <span className="ms-[.5em] whitespace-pre text-label-description opacity-95 dark:opacity-70">{folder}</span>}
               </span>
               <span
-                className="ms-[5px] me-[3px] inline-flex h-4 min-w-4 shrink-0 items-center justify-center font-semibold text-[11px] opacity-75"
+                className="ms-[5px] me-[3px] inline-flex h-4 min-w-4 shrink-0 items-center justify-center font-semibold text-caption opacity-75"
                 style={{ color: statusColor(file.status) }}
               >
                 {LETTER[file.status]}

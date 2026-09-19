@@ -5,6 +5,7 @@ import { Icon } from "@/components/Icon";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { NOTIFICATION_MARGIN } from "@/theme/metrics";
 
 // VS Code notification toasts (workbench/browser/parts/notifications): bottom-right, newest on
 // top, at most 3 on screen with the rest waiting, 4px-radius boxes with a severity codicon, the
@@ -225,9 +226,9 @@ function setInteraction(id: string, key: "hovered" | "focused", value: boolean) 
 }
 
 const SEVERITY_COLOR: Record<NotificationSeverity, string> = {
-  error: "text-(--vsc-notificationsErrorIcon-foreground)",
-  info: "text-(--vsc-notificationsInfoIcon-foreground)",
-  warning: "text-(--vsc-notificationsWarningIcon-foreground)",
+  error: "text-notification-error",
+  info: "text-notification-info",
+  warning: "text-notification-warning",
 };
 
 export interface NotificationCardProps
@@ -260,7 +261,7 @@ export function NotificationCard({
   return (
     <div
       className={cn(
-        "group/notification relative rounded-[4px] border border-(--vsc-notificationToast-border) bg-(--vsc-notifications-background) text-(--vsc-notifications-foreground) [box-shadow:var(--vsc-shadow-lg)]",
+        "group/notification relative rounded-control border border-notification-border bg-notification text-notification-foreground shadow-widget",
         className,
       )}
       data-severity={severity}
@@ -271,13 +272,13 @@ export function NotificationCard({
         <div className="flex">
           <Icon
             className={cn(
-              "mx-1 flex h-[22px] flex-[0_0_16px] items-center justify-center text-[18px]",
+              "mx-1 flex h-row flex-[0_0_16px] items-center justify-center text-[18px]",
               SEVERITY_COLOR[severity],
             )}
             name={severity}
           />
           <div
-            className="max-h-[calc(100vh-80px)] min-w-0 flex-1 select-text overflow-y-auto whitespace-normal text-[12px] leading-[22px] [overflow-wrap:anywhere] min-[480px]:text-[13px] [&_a]:text-(--vsc-notificationLink-foreground)"
+            className="max-h-[calc(100vh-80px)] min-w-0 flex-1 select-text overflow-y-auto whitespace-normal text-small leading-row [overflow-wrap:anywhere] min-[480px]:text-ui [&_a]:text-notification-link"
             data-slot="notification-message"
           >
             {title}
@@ -286,7 +287,7 @@ export function NotificationCard({
             )}
           </div>
           {onClose && !progress && (
-            <div className="hidden h-[22px] shrink-0 group-focus-within/notification:block group-hover/notification:block">
+            <div className="hidden h-row shrink-0 group-focus-within/notification:block group-hover/notification:block">
               <Button
                 aria-label={closeLabel}
                 className="mr-1"
@@ -320,7 +321,7 @@ export function NotificationCard({
         )}
       </div>
       {progress && (
-        <ProgressBar className="absolute inset-x-0 bottom-0 overflow-hidden rounded-b-[4px]" />
+        <ProgressBar className="absolute inset-x-0 bottom-0 overflow-hidden rounded-b-control" />
       )}
     </div>
   );
@@ -399,9 +400,9 @@ function Toasts(): React.ReactElement | null {
   return (
     <section
       aria-label="Notifications"
-      className="pointer-events-none fixed right-[3px] z-40 flex flex-col items-end"
+      className="pointer-events-none fixed right-notification-margin z-40 flex flex-col items-end"
       data-slot="toast-viewport"
-      style={{ bottom: 3 + inset, maxHeight: `calc(100vh - ${6 + inset}px)` }}
+      style={{ bottom: NOTIFICATION_MARGIN + inset, maxHeight: `calc(100vh - ${2 * NOTIFICATION_MARGIN + inset}px)` }}
     >
       {visible.map((toast) => (
         <ToastView key={toast.id} toast={toast} />

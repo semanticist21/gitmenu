@@ -150,11 +150,11 @@ export function DetailApp() {
 
   return (
     <TooltipProvider>
-      <div className="flex h-screen flex-col overflow-hidden bg-(--vsc-editor-background) text-(--vsc-foreground)">
+      <div className="flex h-screen flex-col overflow-hidden bg-editor text-foreground">
         {/* The title bar is overlaid: the strip leaves room for the traffic lights and drags the window */}
         <header
           data-tauri-drag-region
-          className="relative flex h-[35px] shrink-0 bg-(--vsc-editorGroupHeader-tabsBackground) after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:z-[9] after:h-px after:bg-(--vsc-editorGroupHeader-tabsBorder)"
+          className="relative flex h-tab shrink-0 bg-tab-strip after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:z-[9] after:h-px after:bg-tab-strip-border"
         >
           <div data-tauri-drag-region className="w-[78px] shrink-0" />
           <ScrollableTabs label={t('detail.tabs')} activeKey={active} scrollerRef={stripRef}>
@@ -172,10 +172,10 @@ export function DetailApp() {
                         aria-selected={isActive}
                         tabIndex={isActive ? 0 : -1}
                         className={cn(
-                          'group/tab relative flex h-[35px] w-[120px] min-w-fit shrink-0 cursor-pointer items-center whitespace-nowrap border-(--vsc-tab-border) border-r ps-2.5 text-[13px] outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-(--vsc-focusBorder)',
+                          'group/tab relative flex h-tab w-tab-min min-w-fit shrink-0 cursor-pointer items-center whitespace-nowrap border-tab-border border-r ps-2.5 text-ui outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-focus',
                           isActive
-                            ? 'bg-(--vsc-tab-activeBackground) text-(--vsc-tab-activeForeground)'
-                            : 'bg-(--vsc-tab-inactiveBackground) text-(--vsc-tab-inactiveForeground) hover:bg-(--vsc-tab-hoverBackground)',
+                            ? 'bg-tab-active text-tab-active-foreground'
+                            : 'bg-tab-inactive text-tab-inactive-foreground hover:bg-tab-hover',
                         )}
                         onClick={() => setActive(route)}
                         onAuxClick={(e) => e.button === 1 && close(route)}
@@ -187,21 +187,21 @@ export function DetailApp() {
                       <span
                         className={cn(
                           'pointer-events-none absolute inset-x-0 top-0 z-[6] h-px',
-                          focused ? 'bg-(--vsc-tab-activeBorderTop)' : 'bg-(--vsc-tab-unfocusedActiveBorderTop)',
+                          focused ? 'bg-tab-active-border-top' : 'bg-tab-unfocused-active-border-top',
                         )}
                       />
                     )}
-                    {isActive && <span className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-px bg-(--vsc-tab-activeBorder)" />}
+                    {isActive && <span className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-px bg-tab-active-border" />}
                     <TabIcon kind={kind} />
                     {/* The label fills the tab's 120px, so the close button sits at its right edge */}
-                    <span className="flex-1 leading-[35px]">{label}</span>
+                    <span className="flex-1 leading-tab">{label}</span>
                     <span className="flex w-7 shrink-0 items-center justify-center">
                       <button
                         type="button"
                         tabIndex={-1}
                         aria-label={vsb('Close Editor')}
                         className={cn(
-                          'flex size-5 cursor-pointer items-center justify-center rounded-[6px] text-inherit hover:bg-(--vsc-toolbar-hoverBackground) focus-visible:opacity-100',
+                          'flex size-action-sm cursor-pointer items-center justify-center rounded-action text-inherit hover:bg-toolbar-hover focus-visible:opacity-100',
                           isActive ? 'opacity-100' : 'opacity-0 group-hover/tab:opacity-100',
                         )}
                         onClick={(e) => {
@@ -233,7 +233,7 @@ export function DetailApp() {
             />
           </div>
         </header>
-        <main className="min-h-0 flex-1 bg-(--vsc-editor-background)">
+        <main className="min-h-0 flex-1 bg-editor">
           <EditorActionsSlot.Provider value={slot}>
             {current && Current && <Current key={active} route={active!} params={current.params} />}
           </EditorActionsSlot.Provider>

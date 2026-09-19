@@ -16,13 +16,13 @@ import type { BlameResult, DiffResult } from '@/lib/git'
 import { fullDate, relativeTime } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useSetting } from '@/settings/settings'
+import { CODE_FONT_FAMILY, CODE_FONT_SIZE, CODE_LINE_HEIGHT } from '@/theme/metrics'
 import type { TokenLine } from '@/workers/shiki.worker'
 import { type CharRange, charChanges } from './chars'
 import { useHighlight } from './highlight'
 import { collapseRows, type HiddenRow, inlineRows, pairRows } from './model'
 import { type LineSelection, splitLines } from './patch'
 
-const ROW = 18
 const HIDDEN_ROW = 24
 const GLYPH = 18
 const DECORATIONS = 10
@@ -88,7 +88,7 @@ function charWidth() {
   if (!measuredChar) {
     const context = document.createElement('canvas').getContext('2d')
     if (context) {
-      context.font = '12px Menlo, Monaco, "Courier New", monospace'
+      context.font = `${CODE_FONT_SIZE}px ${CODE_FONT_FAMILY}`
       measuredChar = context.measureText('0').width
     }
     measuredChar ||= 7.224
@@ -139,7 +139,7 @@ function Code({ text, tokens, limit, ranges, strong }: { text: string; tokens: T
   let offset = 0
   let r = 0
   const marker = (key: string) => (
-    <span key={key} className="inline-block h-[18px] align-top" style={{ borderLeft: `3px solid ${strong}`, marginLeft: -1 }} />
+    <span key={key} className="inline-block h-code-line align-top" style={{ borderLeft: `3px solid ${strong}`, marginLeft: -1 }} />
   )
   for (const [i, [content, color, style]] of segments.entries()) {
     if (offset >= limit) break
@@ -189,7 +189,7 @@ function HScrollbar({ left, width, content, value, onChange }: { left: number; w
   const toValue = (px: number) => Math.min(max, Math.max(0, (px / (width - slider)) * max))
   return (
     <div
-      className="absolute bottom-0 z-[11] h-3 opacity-0 transition-opacity duration-[800ms] ease-linear group-hover/editor:opacity-100 group-hover/editor:duration-100"
+      className="absolute bottom-0 z-[11] h-3 opacity-0 transition-opacity duration-[800ms] ease-linear group-hover/editor:opacity-100 group-hover/editor:duration-fade"
       style={{ left, width }}
       onPointerDown={(e) => {
         if (e.target !== e.currentTarget) return
@@ -197,7 +197,7 @@ function HScrollbar({ left, width, content, value, onChange }: { left: number; w
       }}
     >
       <div
-        className="absolute inset-y-0 bg-(--vsc-scrollbarSlider-background) hover:bg-(--vsc-scrollbarSlider-hoverBackground) active:bg-(--vsc-scrollbarSlider-activeBackground)"
+        className="absolute inset-y-0 bg-scrollbar-slider hover:bg-scrollbar-slider-hover active:bg-scrollbar-slider-active"
         style={{ left: position, width: slider }}
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId)
@@ -248,7 +248,7 @@ function OverviewRuler({
     <div
       ref={ref}
       aria-hidden
-      className="absolute inset-y-0 right-0 z-[9] bg-black/[.03] dark:bg-white/[.01]"
+      className="absolute inset-y-0 right-0 z-[9] bg-diff-overview-ruler"
       style={{ width: OVERVIEW }}
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId)
@@ -261,13 +261,13 @@ function OverviewRuler({
       {marks.map((mark, i) => (
         <div
           key={i}
-          className={cn('absolute', mark.side === 'left' ? 'left-0 bg-(--diff-overview-removed)' : 'right-0 bg-(--diff-overview-added)')}
+          className={cn('absolute', mark.side === 'left' ? 'left-0 bg-diff-overview-removed' : 'right-0 bg-diff-overview-added')}
           style={{ top: mark.top * scale, height: Math.max(2, mark.height * scale), width: OVERVIEW / 2 }}
         />
       ))}
       {total > viewport && (
         <div
-          className="absolute inset-x-0 z-10 bg-(--vsc-scrollbarSlider-background) hover:bg-(--vsc-scrollbarSlider-hoverBackground) active:bg-(--vsc-scrollbarSlider-activeBackground)"
+          className="absolute inset-x-0 z-10 bg-scrollbar-slider hover:bg-scrollbar-slider-hover active:bg-scrollbar-slider-active"
           style={{ top: scrollTop * scale, height: slider }}
         />
       )}
@@ -342,7 +342,7 @@ export function DiffView({
     const rowOfLeft = new Map<number, number>()
     const rowOfRight = new Map<number, number>()
     rows.forEach((row, i) => {
-      offsets[i + 1] = offsets[i] + (row.hidden !== undefined ? HIDDEN_ROW : ROW)
+      offsets[i + 1] = offsets[i] + (row.hidden !== undefined ? HIDDEN_ROW : CODE_LINE_HEIGHT)
       if (row.hidden !== undefined) return
       if (row.left !== null) rowOfLeft.set(row.left, i)
       if (row.right !== null) rowOfRight.set(row.right, i)
@@ -357,9 +357,9 @@ export function DiffView({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (i) => (rows[i]?.hidden !== undefined ? HIDDEN_ROW : ROW),
+    estimateSize: (i) => (rows[i]?.hidden !== undefined ? HIDDEN_ROW : CODE_LINE_HEIGHT),
     // editor.scrollBeyondLastLine: the last line can scroll to the top
-    paddingEnd: Math.max(0, size.height - ROW),
+    paddingEnd: Math.max(0, size.height - CODE_LINE_HEIGHT),
     overscan: 20,
   })
 
@@ -466,7 +466,7 @@ export function DiffView({
   // ---- rendering pieces ----
 
   const selectionClass =
-    'bg-[#e5ebf1] dark:bg-[#3a3d41] group-focus-within/editor:bg-[#add6ff] dark:group-focus-within/editor:bg-[#264f78]'
+    'bg-editor-selection-inactive group-focus-within/editor:bg-editor-selection'
 
   const lineNumber = (side: Side, line: number | null, columnWidth: number) => {
     if (line === null) return <span className="shrink-0" style={{ width: columnWidth }} />
@@ -479,7 +479,7 @@ export function DiffView({
         aria-pressed={selection[side].has(line)}
         className={cn(
           'h-full shrink-0 cursor-default text-end tabular-nums outline-none',
-          active ? 'text-(--vsc-editorLineNumber-activeForeground)' : 'text-(--vsc-editorLineNumber-foreground)',
+          active ? 'text-line-number-active' : 'text-line-number',
         )}
         style={{ width: columnWidth }}
         // Clicking a line number focuses the editor, not the button (the selection turns active)
@@ -496,7 +496,7 @@ export function DiffView({
 
   const sign = (kind: 'added' | 'removed' | null) => (
     <span className="flex shrink-0 items-center justify-center opacity-70" style={{ width: DECORATIONS }}>
-      {kind && <Icon name={kind === 'added' ? 'add' : 'remove'} className="text-[11px]" />}
+      {kind && <Icon name={kind === 'added' ? 'add' : 'remove'} className="text-caption" />}
     </span>
   )
 
@@ -508,10 +508,10 @@ export function DiffView({
     return (
       <span
         className={cn(
-          'relative flex h-full shrink-0 items-center overflow-hidden border-r-2 bg-[#0000000c] ps-[18px] dark:bg-[#ffffff13]',
-          commit ? 'text-[#747474] dark:text-[#bebebe]' : 'text-[#00bcf299]',
+          'relative flex h-full shrink-0 items-center overflow-hidden border-r-2 bg-blame ps-[18px]',
+          commit ? 'text-blame-foreground' : 'text-blame-uncommitted',
           info?.first && 'shadow-[inset_0_1px_0_rgba(0,0,0,.2)]',
-          info?.commit && info.commit === anchorCommit && 'bg-[#00bcf233] dark:bg-[#00bcf233]',
+          info?.commit && info.commit === anchorCommit && 'bg-blame-highlight',
         )}
         style={{ width: blameWidth, marginRight: BLAME_MARGIN, borderRightColor: info?.commit ? heat.get(info.commit) : 'transparent' }}
         title={commit ? `${commit.author}, ${relativeTime(commit.time, locale)} (${fullDate(commit.time, locale)})\n\n${commit.summary}\n${commit.id.slice(0, 8)}` : undefined}
@@ -519,7 +519,7 @@ export function DiffView({
         {info?.first &&
           (commit ? (
             <>
-              <Avatar root={root} name={commit.author} email={commit.email} sha={commit.id} className="absolute top-px left-px size-4 rounded-none" />
+              <Avatar root={root} name={commit.author} email={commit.email} sha={commit.id} className="absolute top-px left-px size-icon rounded-none" />
               <span className="min-w-0 flex-1 truncate">{commit.summary}</span>
               <span className="ms-[1ch] shrink-0" style={{ width: '14ch' }}>
                 {relativeTime(commit.time, locale)}
@@ -550,15 +550,15 @@ export function DiffView({
         className={cn(
           'absolute inset-y-0 right-0 overflow-hidden',
           opts.kind === 'filler' && 'diff-filler',
-          opts.unchanged && 'bg-(--diff-unchanged-code)',
-          sameCommit && 'bg-[#00bcf233]',
+          opts.unchanged && 'bg-diff-unchanged-code',
+          sameCommit && 'bg-blame-highlight',
         )}
         style={{
           left: opts.gutter,
           backgroundImage: opts.whole && (opts.kind === 'added' || opts.kind === 'removed') ? `linear-gradient(${strong}, ${strong})` : undefined,
         }}
       >
-        {isAnchor && <span className="pointer-events-none absolute inset-0 border-2 border-(--vsc-editor-lineHighlightBorder)" />}
+        {isAnchor && <span className="pointer-events-none absolute inset-0 border-2 border-line-highlight-border" />}
         {line !== null && (
           <div className="relative flex h-full w-max items-center whitespace-pre" style={{ transform: `translateX(calc(var(${scrollVar}) * -1))` }}>
             {opts.blame !== 'none' && blameCell(line, opts.blame)}
@@ -582,7 +582,7 @@ export function DiffView({
 
   const hiddenRow = (row: HiddenRow, pane: { x: number; width: number; gutter: number }) => (
     <div
-      className="absolute inset-y-0 flex items-center bg-(--diff-unchanged-region) text-[13px] leading-[14px] shadow-[inset_0_-5px_5px_-7px_#737373bf,inset_0_5px_5px_-7px_#737373bf] dark:shadow-[inset_0_-5px_5px_-7px_#000,inset_0_5px_5px_-7px_#000]"
+      className="absolute inset-y-0 flex items-center bg-diff-unchanged-region text-ui leading-[14px] shadow-unchanged-region"
       style={{ left: pane.x, width: pane.width }}
       onDoubleClick={() => setExpanded(new Set([...expanded, row.from]))}
     >
@@ -590,7 +590,7 @@ export function DiffView({
         <button
           type="button"
           aria-label="Show Unchanged Region"
-          className="flex cursor-pointer rounded-[4px] text-inherit hover:text-(--vsc-textLink-activeForeground)"
+          className="flex cursor-pointer rounded-control text-inherit hover:text-link-active"
           onClick={() => setExpanded(new Set([...expanded, row.from]))}
         >
           <Icon name="unfold" />
@@ -619,7 +619,7 @@ export function DiffView({
       return (
         <>
           <div
-            className={cn('absolute inset-y-0', leftKind === 'removed' && 'bg-(--diff-removed)')}
+            className={cn('absolute inset-y-0', leftKind === 'removed' && 'bg-diff-removed')}
             style={{ left: panes.left.x, width: panes.left.width }}
           >
             <div className="absolute inset-y-0 left-0 flex" style={{ width: panes.left.gutter }}>
@@ -630,7 +630,7 @@ export function DiffView({
             {codeArea('left', row.left, { kind: leftKind, ...leftInfo, blame: 'none', gutter: panes.left.gutter, unchanged })}
           </div>
           <div
-            className={cn('absolute inset-y-0', rightKind === 'added' && 'bg-(--diff-added)')}
+            className={cn('absolute inset-y-0', rightKind === 'added' && 'bg-diff-added')}
             style={{ left: panes.right.x, width: panes.right.width }}
           >
             <div className="absolute inset-y-0 left-0 flex" style={{ width: panes.right.gutter }}>
@@ -651,7 +651,7 @@ export function DiffView({
     const pane = panes.right
     return (
       <div
-        className={cn('absolute inset-y-0', kind === 'removed' && 'bg-(--diff-removed)', kind === 'added' && 'bg-(--diff-added)')}
+        className={cn('absolute inset-y-0', kind === 'removed' && 'bg-diff-removed', kind === 'added' && 'bg-diff-added')}
         style={{ left: pane.x, width: pane.width }}
       >
         <div className="absolute inset-y-0 left-0 flex" style={{ width: pane.gutter }}>
@@ -698,7 +698,7 @@ export function DiffView({
   const gutterItem = ({ key, range, actions, always }: (typeof gutterItems)[number]) => {
     const top = layout.offsets[range[0]]
     const itemHeight = layout.offsets[range[1]] - top
-    const buttonsHeight = actions.length * ROW
+    const buttonsHeight = actions.length * CODE_LINE_HEIGHT
     // Centered on the change, kept inside the viewport and the change when there is room
     let buttonsTop = top + itemHeight / 2 - buttonsHeight / 2
     const margin = buttonsHeight
@@ -714,13 +714,13 @@ export function DiffView({
         key={key}
         className={cn(
           'absolute left-0',
-          always ? 'opacity-100' : 'opacity-0 transition-opacity duration-700 group-hover/gutter:opacity-100 group-hover/gutter:duration-100 group-hover/gutter:ease-in-out',
+          always ? 'opacity-100' : 'opacity-0 transition-opacity duration-700 group-hover/gutter:opacity-100 group-hover/gutter:duration-fade group-hover/gutter:ease-in-out',
         )}
         style={{ top, height: itemHeight, width: HUNK_GUTTER }}
       >
-        <div className="absolute inset-y-0 left-1/2 w-px border-(--vsc-menu-separatorBackground) border-l-2" />
+        <div className="absolute inset-y-0 left-1/2 w-px border-menu-separator border-l-2" />
         <div className="absolute flex w-full justify-center" style={{ top: buttonsTop - top }}>
-          <div className="flex flex-col rounded-[4px] bg-(--vsc-editor-background)">
+          <div className="flex flex-col rounded-control bg-editor">
             {actions.map((action) => (
               // The gutter's hover shows at once, to the right (WorkbenchHoverDelegate with instantHover)
               <Tooltip key={action.label}>
@@ -730,7 +730,7 @@ export function DiffView({
                     <button
                       type="button"
                       aria-label={action.label}
-                      className="flex h-[18px] w-5 cursor-pointer items-center justify-center rounded-[4px] text-inherit hover:bg-(--vsc-toolbar-hoverBackground)"
+                      className="flex h-code-line w-5 cursor-pointer items-center justify-center rounded-control text-inherit hover:bg-toolbar-hover"
                       onClick={action.run}
                     />
                   }
@@ -753,8 +753,8 @@ export function DiffView({
     for (const [hunk, [start]] of layout.hunks) {
       const h = result.hunks[hunk]
       const top = layout.offsets[start]
-      if (h.leftCount) found.push({ side: 'left', top, height: h.leftCount * ROW })
-      if (h.rightCount) found.push({ side: 'right', top: sideBySide ? top : top + h.leftCount * ROW, height: h.rightCount * ROW })
+      if (h.leftCount) found.push({ side: 'left', top, height: h.leftCount * CODE_LINE_HEIGHT })
+      if (h.rightCount) found.push({ side: 'right', top: sideBySide ? top : top + h.leftCount * CODE_LINE_HEIGHT, height: h.rightCount * CODE_LINE_HEIGHT })
     }
     return found
   }, [layout, result.hunks, sideBySide])
@@ -764,8 +764,8 @@ export function DiffView({
       role="separator"
       aria-orientation="vertical"
       className={cn(
-        'absolute inset-y-0 z-[35] w-1 cursor-ew-resize transition-[background-color] duration-100 ease-out hover:bg-(--vsc-sash-hoverBorder) hover:delay-300',
-        sashActive && 'bg-(--vsc-sash-hoverBorder)',
+        'absolute inset-y-0 z-[35] w-1 cursor-ew-resize transition-[background-color] duration-sash ease-sash hover:bg-sash-hover hover:delay-sash',
+        sashActive && 'bg-sash-hover',
       )}
       style={{ left: gutterX - 2 }}
       onPointerDown={(e) => {
@@ -785,7 +785,7 @@ export function DiffView({
   return (
     <div
       ref={rootRef}
-      className="group/editor relative h-full overflow-hidden bg-(--vsc-editor-background) font-editor text-(--vsc-editor-foreground) text-[12px] leading-[18px] [font-feature-settings:'liga'_0,'calt'_0]"
+      className="group/editor relative h-full overflow-hidden bg-editor font-editor text-editor-foreground text-code [font-feature-settings:'liga'_0,'calt'_0]"
       data-context={JSON.stringify({ gitmenuDiffFocus: true })}
     >
       <div
@@ -813,18 +813,18 @@ export function DiffView({
         </div>
       </div>
       {/* Shadows: under the top edge once scrolled, at a side's left edge once scrolled sideways, and between the sides */}
-      {scrollTop > 0 && <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[3px] shadow-[inset_0_6px_6px_-6px_var(--vsc-scrollbar-shadow)]" />}
+      {scrollTop > 0 && <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[3px] shadow-scroll-top" />}
       {panes.left && sx.left > 0 && (
-        <div className="pointer-events-none absolute inset-y-0 z-10 w-[3px] shadow-[inset_6px_0_6px_-6px_var(--vsc-scrollbar-shadow)]" style={{ left: panes.left.gutter }} />
+        <div className="pointer-events-none absolute inset-y-0 z-10 w-[3px] shadow-scroll-left" style={{ left: panes.left.gutter }} />
       )}
       {sx.right > 0 && (
-        <div className="pointer-events-none absolute inset-y-0 z-10 w-[3px] shadow-[inset_6px_0_6px_-6px_var(--vsc-scrollbar-shadow)]" style={{ left: panes.right.x + panes.right.gutter }} />
+        <div className="pointer-events-none absolute inset-y-0 z-10 w-[3px] shadow-scroll-left" style={{ left: panes.right.x + panes.right.gutter }} />
       )}
       {sideBySide && panes.left && (
         <>
-          <div className="pointer-events-none absolute inset-y-0 left-0 shadow-[6px_0_5px_-5px_var(--vsc-scrollbar-shadow)]" style={{ width: panes.left.width }} />
+          <div className="pointer-events-none absolute inset-y-0 left-0 shadow-diff-original" style={{ width: panes.left.width }} />
           <div
-            className="pointer-events-none absolute inset-y-0 shadow-[-6px_0_5px_-5px_var(--vsc-scrollbar-shadow)]"
+            className="pointer-events-none absolute inset-y-0 shadow-diff-modified"
             style={{ left: panes.right.x, width: panes.right.width }}
           />
         </>

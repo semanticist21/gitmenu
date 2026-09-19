@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 export const Select: typeof SelectPrimitive.Root = SelectPrimitive.Root;
 
 export const selectTriggerVariants = cva(
-  "relative inline-flex h-[26px] w-full min-w-0 cursor-pointer select-none items-center rounded-[4px] border border-(--vsc-dropdown-border) bg-(--vsc-dropdown-background) py-0.5 ps-1.5 pe-6 text-left text-(--vsc-dropdown-foreground) text-[13px] outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-(--vsc-focusBorder) data-popup-open:outline-solid data-popup-open:outline-1 data-popup-open:-outline-offset-1 data-popup-open:outline-(--vsc-focusBorder) data-disabled:cursor-default data-disabled:opacity-40",
+  "relative inline-flex h-control w-full min-w-0 cursor-pointer select-none items-center rounded-control border border-dropdown-border bg-dropdown py-0.5 ps-1.5 pe-6 text-left text-dropdown-foreground text-ui outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-focus data-popup-open:outline-solid data-popup-open:outline-1 data-popup-open:-outline-offset-1 data-popup-open:outline-focus data-disabled:cursor-default data-disabled:opacity-40",
   {
     defaultVariants: {
       size: "default",
@@ -94,7 +94,7 @@ export function SelectValue({
   return (
     <SelectPrimitive.Value
       className={cn(
-        "min-w-0 flex-1 truncate data-placeholder:text-(--vsc-input-placeholderForeground)",
+        "min-w-0 flex-1 truncate data-placeholder:text-input-placeholder",
         className,
       )}
       data-slot="select-value"
@@ -137,7 +137,7 @@ export function SelectPopup({
         sideOffset={sideOffset}
       >
         <SelectPrimitive.Popup
-          className="min-w-(--anchor-width) max-w-[calc(100vw-8px)] overflow-hidden rounded-[8px] border border-(--vsc-dropdown-border) bg-(--vsc-dropdown-listBackground) text-(--vsc-dropdown-foreground) text-[13px] outline-none [box-shadow:var(--vsc-shadow-lg)]"
+          className="min-w-(--anchor-width) max-w-[calc(100vw-8px)] overflow-hidden rounded-menu border border-dropdown-border bg-dropdown-list text-dropdown-foreground text-ui outline-none shadow-widget"
           data-slot="select-popup"
           {...props}
         >
@@ -164,7 +164,7 @@ export function SelectItem({
   return (
     <SelectPrimitive.Item
       className={cn(
-        "flex h-[22px] cursor-default items-center ps-0.5 outline-none hover:bg-(--vsc-list-hoverBackground) data-disabled:text-(--vsc-disabledForeground) data-highlighted:bg-(--vsc-quickInputList-focusBackground) data-highlighted:text-(--vsc-quickInputList-focusForeground)",
+        "flex h-row cursor-default items-center ps-0.5 outline-none hover:bg-list-hover data-disabled:text-disabled data-highlighted:bg-quick-input-focus data-highlighted:text-quick-input-focus-foreground",
         className,
       )}
       data-slot="select-item"
@@ -184,7 +184,7 @@ export function SelectSeparator({
   return (
     <SelectPrimitive.Separator
       className={cn(
-        "my-[5px] h-0 border-(--vsc-menu-separatorBackground) border-b",
+        "my-[5px] h-0 border-menu-separator border-b",
         className,
       )}
       data-slot="select-separator"
@@ -205,7 +205,7 @@ export function SelectLabel({
 }: SelectPrimitive.Label.Props): React.ReactElement {
   return (
     <SelectPrimitive.Label
-      className={cn("mb-1 inline-flex cursor-default text-[13px]", className)}
+      className={cn("mb-1 inline-flex cursor-default text-ui", className)}
       data-slot="select-label"
       {...props}
     />
@@ -217,7 +217,7 @@ export function SelectGroupLabel(
 ): React.ReactElement {
   return (
     <SelectPrimitive.GroupLabel
-      className="truncate px-2 pt-1 font-semibold text-[11px]"
+      className="truncate px-2 pt-1 font-semibold text-caption"
       data-slot="select-group-label"
       {...props}
     />

@@ -77,7 +77,7 @@ export function ContextMenuPopup({
         <ContextMenuPrimitive.Popup
           className={cn(
             menuPopupClassName,
-            !submenu && "animate-[fadeIn_83ms_linear]",
+            !submenu && "animate-menu-in",
             className,
           )}
           data-slot="context-menu-popup"

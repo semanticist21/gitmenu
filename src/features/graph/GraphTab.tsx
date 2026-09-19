@@ -23,11 +23,12 @@ import { cn } from '@/lib/utils'
 import type { DetailTabProps } from '@/routes/detail/DetailApp'
 import { ActionButton, NativeSelect } from '@/routes/detail/EditorChrome'
 import { useSetting } from '@/settings/settings'
+import { ROW_HEIGHT } from '@/theme/metrics'
 import { Avatar } from '../avatars/Avatar'
 import { type CommitArg, fileNode, openFileChange, shortSha, StatusLetter } from '../history/nodes'
 import { parseSearch } from '../history/search'
 import type { RefArg, StashArg } from '../refs/views'
-import { LANE_WIDTH, Lanes, laneColor, ROW_HEIGHT } from './Lanes'
+import { LANE_WIDTH, Lanes, laneColor } from './Lanes'
 
 const PAGE = 200
 const MAX_LANES_SHOWN = 24
@@ -75,16 +76,16 @@ function RefLabel({ root, row, refs, named, dark }: { root: string; row: GraphRo
   const colored = ref.kind !== 'tag' && ref.kind !== 'stash'
   const label = (
     <span
-      className={cn('flex h-[18px] min-w-0 shrink-0 items-center rounded-[10px] text-[12px] leading-[18px]', ref.kind === 'head' && 'font-semibold')}
-      style={
-        colored
-          ? { backgroundColor: laneColor(row.lane, dark), color: 'var(--background)' }
-          : { backgroundColor: 'var(--vsc-badge-background)', color: 'var(--vsc-foreground)' }
-      }
+      className={cn(
+        'flex h-[18px] min-w-0 shrink-0 items-center rounded-label text-small leading-[18px]',
+        ref.kind === 'head' && 'font-semibold',
+        colored ? 'text-background' : 'bg-badge text-foreground',
+      )}
+      style={colored ? { backgroundColor: laneColor(row.lane, dark) } : undefined}
       title={refs.map((r) => r.name).join('\n')}
     >
       {refs.length > 1 && <span className="ps-1">{refs.length}</span>}
-      <Icon name={REF_ICON[ref.kind]} className={ref.kind === 'branch' ? 'p-[3px] text-[12px]' : 'p-px'} />
+      <Icon name={REF_ICON[ref.kind]} className={ref.kind === 'branch' ? 'p-[3px] text-small' : 'p-px'} />
       {named && <span className="max-w-[100px] truncate pe-1">{ref.name}</span>}
     </span>
   )
@@ -125,18 +126,18 @@ function Details({ root, row }: { root: string; row: GraphRow }) {
   const parent = row.parents[0] ?? null
   return (
     <aside
-      className="flex w-80 shrink-0 flex-col overflow-hidden border-(--vsc-sideBar-border) border-l bg-(--vsc-sideBar-background) text-(--vsc-sideBar-foreground)"
+      className="flex w-80 shrink-0 flex-col overflow-hidden border-sidebar-border border-l bg-sidebar text-sidebar-foreground"
       aria-label={gl('Commit Details')}
     >
-      <div className="flex h-[22px] shrink-0 items-center truncate ps-5 pe-2 font-bold text-[11px] text-(--vsc-sideBarSectionHeader-foreground) uppercase">
+      <div className="flex h-pane-header shrink-0 items-center truncate ps-5 pe-2 font-bold text-caption text-section-header-foreground uppercase">
         {gl('Commit Details')}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="flex items-center gap-2 px-3 pt-2">
-          <Avatar root={root} name={row.author.name} email={row.author.email} sha={row.id} className="size-8 text-[11px]" />
+          <Avatar root={root} name={row.author.name} email={row.author.email} sha={row.id} className="size-8 text-caption" />
           <div className="min-w-0 flex-1 leading-[18px]">
             <div className="truncate font-semibold">{row.author.name}</div>
-            <div className="truncate text-[12px] opacity-95 dark:opacity-70" title={fullDate(row.author.time, locale)}>
+            <div className="truncate text-small opacity-95 dark:opacity-70" title={fullDate(row.author.time, locale)}>
               {relativeTime(row.author.time, locale)} ({fullDate(row.author.time, locale)})
             </div>
           </div>
@@ -149,10 +150,10 @@ function Details({ root, row }: { root: string; row: GraphRow }) {
           <ActionButton icon="copy" label={gl('Copy SHA')} small onClick={() => void ipc.clipboardWrite(row.id)} />
         </div>
         <p className="select-text whitespace-pre-wrap break-words px-3 py-2">{data?.message ?? row.subject}</p>
-        {error && <p className="select-text px-3 text-(--vsc-errorForeground)">{errorMessage(error)}</p>}
+        {error && <p className="select-text px-3 text-error">{errorMessage(error)}</p>}
         {data && (
           <>
-            <div className="flex h-[22px] items-center border-(--vsc-sideBarSectionHeader-border) border-t ps-5 font-bold text-[11px] uppercase">
+            <div className="flex h-pane-header items-center border-section-header-border border-t ps-5 font-bold text-caption uppercase">
               {data.files.length === 1 ? gl('1 file changed') : gl('{0} files changed', data.files.length)}
             </div>
             <div role="tree" aria-label={gl('{0} files changed', data.files.length)}>
@@ -163,7 +164,7 @@ function Details({ root, row }: { root: string; row: GraphRow }) {
                     key={file.path}
                     role="treeitem"
                     tabIndex={-1}
-                    className="flex h-[22px] cursor-default items-center ps-2 pe-3 leading-[22px] outline-none hover:bg-(--vsc-list-hoverBackground) focus:bg-(--vsc-list-activeSelectionBackground) focus:text-(--vsc-list-activeSelectionForeground) focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-(--vsc-list-focusOutline)"
+                    className="flex h-row cursor-default items-center ps-2 pe-3 leading-row outline-none hover:bg-list-hover focus:bg-list-active focus:text-list-active-foreground focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-list-focus-outline"
                     title={node.tooltip}
                     onClick={() => openFileChange({ root, sha: row.id, parent, file })}
                     onKeyDown={(e) => e.key === 'Enter' && openFileChange({ root, sha: row.id, parent, file })}
@@ -171,7 +172,7 @@ function Details({ root, row }: { root: string; row: GraphRow }) {
                     <Icon name="file" className="me-1.5" />
                     <span className="min-w-0 flex-1 truncate">
                       <span className="whitespace-pre">{node.label}</span>
-                      {node.description && <span className="ms-[.5em] whitespace-pre text-[.9em] opacity-95 dark:opacity-70">{node.description}</span>}
+                      {node.description && <span className="ms-[.5em] whitespace-pre text-label-description opacity-95 dark:opacity-70">{node.description}</span>}
                     </span>
                     <span className="ms-[5px] me-[3px] inline-flex">
                       <StatusLetter status={file.status} />
@@ -284,10 +285,10 @@ export function GraphTab({ params }: DetailTabProps) {
 
   // Column borders show while the table is hovered (table.css: 0.2s)
   const columnBorder =
-    'border-l border-transparent first:border-l-0 group-hover/grid:border-(--vsc-tree-tableColumnsBorder) transition-[border-color] duration-200 ease-out motion-reduce:transition-none'
+    'border-l border-transparent first:border-l-0 group-hover/grid:border-table-column-border transition-[border-color] duration-columns ease-columns motion-reduce:transition-none'
   const header = cn('flex h-full shrink-0 items-center overflow-hidden truncate ps-2.5', columnBorder)
   const columnHeaders = (
-    <div className="sticky top-0 z-10 flex h-[22px] min-w-[640px] border-(--vsc-editorGroupHeader-tabsBorder) border-b bg-(--vsc-editor-background) font-semibold text-[12px]" role="row">
+    <div className="sticky top-0 z-10 flex h-row min-w-[640px] border-tab-strip-border border-b bg-editor font-semibold text-small" role="row">
       <div role="columnheader" className={header} style={{ width: COLUMNS.refs }}>
         {gl('Branch / Tag')}
       </div>
@@ -342,12 +343,12 @@ export function GraphTab({ params }: DetailTabProps) {
                       aria-rowindex={item.index + 1}
                       aria-selected={isSelected}
                       className={cn(
-                        'absolute inset-x-0 top-0 flex cursor-default items-center text-[13px]',
+                        'absolute inset-x-0 top-0 flex cursor-default items-center text-ui',
                         isSelected
-                          ? 'bg-(--vsc-list-inactiveSelectionBackground) group-focus/grid:bg-(--vsc-list-activeSelectionBackground) group-focus/grid:text-(--vsc-list-activeSelectionForeground) group-focus/grid:outline-solid group-focus/grid:outline-1 group-focus/grid:-outline-offset-1 group-focus/grid:outline-(--vsc-list-focusAndSelectionOutline)'
+                          ? 'bg-list-inactive group-focus/grid:bg-list-active group-focus/grid:text-list-active-foreground group-focus/grid:outline-solid group-focus/grid:outline-1 group-focus/grid:-outline-offset-1 group-focus/grid:outline-list-selection-outline'
                           : matches.has(row.id)
-                            ? 'bg-[#ea5c0055]'
-                            : 'hover:bg-(--vsc-list-hoverBackground)',
+                            ? 'bg-find-match'
+                            : 'hover:bg-list-hover',
                       )}
                       style={{ transform: `translateY(${item.start - ROW_HEIGHT}px)`, height: ROW_HEIGHT }}
                       onClick={() => setSelected(row.id)}
@@ -369,7 +370,7 @@ export function GraphTab({ params }: DetailTabProps) {
                   <div role="gridcell" className={cell} style={{ width: COLUMNS.date }} title={fullDate(row.author.time, locale)}>
                     <span className="truncate">{relativeTime(row.author.time, locale)}</span>
                   </div>
-                  <div role="gridcell" className={cn(cell, 'font-mono text-[12px]')} style={{ width: COLUMNS.sha }}>
+                  <div role="gridcell" className={cn(cell, 'font-mono text-small')} style={{ width: COLUMNS.sha }}>
                     {shortSha(row.id)}
                   </div>
                 </ContextMenuTrigger>
@@ -392,7 +393,7 @@ export function GraphTab({ params }: DetailTabProps) {
   return (
     <div className="flex h-full flex-col">
       {/* The graph's toolbar: branch scope, filters, then the commit search (a find widget) */}
-      <div className="flex h-[35px] shrink-0 items-center gap-1 border-(--vsc-editorGroupHeader-tabsBorder) border-b px-2">
+      <div className="flex h-[35px] shrink-0 items-center gap-1 border-tab-strip-border border-b px-2">
         <NativeSelect
           compact
           aria-label={gl('All Branches')}
@@ -438,7 +439,7 @@ export function GraphTab({ params }: DetailTabProps) {
                 <button
                   type="button"
                   aria-label={gl('Clear Results')}
-                  className="flex cursor-pointer rounded-[3px] text-inherit hover:bg-(--vsc-inputOption-hoverBackground)"
+                  className="flex cursor-pointer rounded-inset text-inherit hover:bg-input-option-hover"
                   onClick={() => {
                     setSearch('')
                     setResults(null)
@@ -450,7 +451,7 @@ export function GraphTab({ params }: DetailTabProps) {
             )}
           </InputGroup>
           {results && (
-            <span className="min-w-14 shrink-0 px-1 text-center text-[12px] tabular-nums">
+            <span className="min-w-14 shrink-0 px-1 text-center text-small tabular-nums">
               {results.ids.length ? `${results.index + 1} / ${results.ids.length}` : gl('No results')}
             </span>
           )}

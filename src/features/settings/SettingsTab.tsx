@@ -98,7 +98,7 @@ function Markdown({ text, onReveal }: { text: string; onReveal: (key: string) =>
         <a
           key={match.index}
           href={`#${rowId(setting)}`}
-          className="text-(--vsc-textLink-foreground) hover:text-(--vsc-textLink-activeForeground) hover:underline"
+          className="text-link hover:text-link-active hover:underline"
           onClick={(e) => {
             e.preventDefault()
             onReveal(setting)
@@ -111,7 +111,7 @@ function Markdown({ text, onReveal }: { text: string; onReveal: (key: string) =>
       parts.push(
         <code
           key={match.index}
-          className="rounded-[4px] bg-(--vsc-textPreformat-background) px-[3px] py-px font-mono text-(--vsc-textPreformat-foreground) text-[11px] leading-[15px]"
+          className="rounded-control bg-preformat px-[3px] py-px font-mono text-preformat-foreground text-caption leading-[15px]"
         >
           {match[3]}
         </code>,
@@ -120,7 +120,7 @@ function Markdown({ text, onReveal }: { text: string; onReveal: (key: string) =>
       parts.push(<strong key={match.index}>{match[4]}</strong>)
     } else {
       parts.push(
-        <span key={match.index} className="text-(--vsc-textLink-foreground)">
+        <span key={match.index} className="text-link">
           {match[5]}
         </span>,
       )
@@ -182,7 +182,7 @@ function Control({ name, schema, value }: { name: string; schema: Schema; value:
   return (
     <button
       type="button"
-      className="cursor-pointer text-(--vsc-textLink-foreground) opacity-90 hover:text-(--vsc-textLink-activeForeground) hover:underline"
+      className="cursor-pointer text-link opacity-90 hover:text-link-active hover:underline"
       onClick={() => void ipc.settingsFilePaths().then(([settings]) => ipc.openPath(settings))}
     >
       {t('settings.editInJson')}
@@ -215,18 +215,18 @@ function SettingRow({
     <div
       id={id}
       className={cn(
-        'group/setting relative px-3.5 pt-3 leading-[1.4em] hover:bg-(--vsc-settings-rowHoverBackground) has-focus-visible:bg-(--vsc-settings-focusedRowBackground) has-focus-visible:outline-solid has-focus-visible:outline-1 has-focus-visible:-outline-offset-1 has-focus-visible:outline-(--vsc-focusBorder)',
+        'group/setting relative px-3.5 pt-3 leading-ui hover:bg-settings-row-hover has-focus-visible:bg-settings-row-focus has-focus-visible:outline-solid has-focus-visible:outline-1 has-focus-visible:-outline-offset-1 has-focus-visible:outline-focus',
         bool ? 'pb-[26px]' : 'pb-[18px]',
       )}
     >
       {modified && (
-        <span className={cn('absolute left-[5px] top-[15px] w-1.5 border-(--vsc-settings-modifiedItemIndicator) border-l-2', bool ? 'bottom-[23px]' : 'bottom-[18px]')} />
+        <span className={cn('absolute left-[5px] top-[15px] w-1.5 border-settings-modified border-l-2', bool ? 'bottom-[23px]' : 'bottom-[18px]')} />
       )}
       {onReset && (
         <div className="absolute top-2 left-[-22px] opacity-0 transition-opacity duration-300 group-focus-within/setting:opacity-100 group-hover/setting:opacity-100 has-data-popup-open:opacity-100 motion-reduce:transition-none">
           <Menu>
             <Tooltip>
-              <TooltipTrigger render={<MenuTrigger render={<button type="button" aria-label={t('settings.reset')} className="flex size-[22px] cursor-pointer items-center justify-center rounded-[6px] text-inherit hover:bg-(--vsc-toolbar-hoverBackground)" />} />}>
+              <TooltipTrigger render={<MenuTrigger render={<button type="button" aria-label={t('settings.reset')} className="flex size-action cursor-pointer items-center justify-center rounded-action text-inherit hover:bg-toolbar-hover" />} />}>
                 <Icon name="gear" />
               </TooltipTrigger>
               <TooltipPopup>{t('settings.reset')}</TooltipPopup>
@@ -241,7 +241,7 @@ function SettingRow({
       )}
       <div className="inline-block max-w-full truncate pb-0.5 align-top font-semibold">
         {category && <span className="select-text opacity-90">{category}: </span>}
-        <span className="me-[7px] select-text text-(--vsc-settings-headerForeground)">{label}</span>
+        <span className="me-[7px] select-text text-settings-header-foreground">{label}</span>
       </div>
       {bool ? (
         <label className={cn('flex', bool.disabled ? 'cursor-default' : 'cursor-pointer')}>
@@ -342,34 +342,34 @@ export function SettingsTab() {
         <ActionButton icon="go-to-file" label={t('settings.openJson')} onClick={() => void ipc.settingsFilePaths().then(([settings]) => ipc.openPath(settings))} />
       </EditorActions>
       <div className="mt-[11px] shrink-0 px-6 pt-[3px]">
-        <InputGroup className="border-[#dddddd] dark:border-(--vsc-input-border)">
+        <InputGroup className="border-settings-search-border">
           <InputGroupInput placeholder={t('settings.search')} value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t('settings.search')} />
           <InputGroupAddon align="inline-end">
-            {q && <span className="me-[3px] shrink-0 whitespace-nowrap text-(--vsc-descriptionForeground)">{count === 1 ? '1 Setting Found' : `${count} Settings Found`}</span>}
+            {q && <span className="me-[3px] shrink-0 whitespace-nowrap text-description">{count === 1 ? '1 Setting Found' : `${count} Settings Found`}</span>}
             <button
               type="button"
               aria-label="Clear Settings Search Input"
               disabled={!query}
-              className="flex cursor-pointer rounded-[3px] p-px text-inherit hover:bg-(--vsc-inputOption-hoverBackground) disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
+              className="flex cursor-pointer rounded-inset p-px text-inherit hover:bg-input-option-hover disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
               onClick={() => setQuery('')}
             >
               <Icon name="clear-all" />
             </button>
           </InputGroupAddon>
         </InputGroup>
-        <div className="mt-2.5 flex border-(--vsc-settings-headerBorder) border-b">
-          <span className="border-(--vsc-settings-headerForeground) border-b px-2 pt-[7px] pb-[6.5px] text-(--vsc-settings-headerForeground) text-[13px]">{t('keys.user')}</span>
+        <div className="mt-2.5 flex border-settings-header-border border-b">
+          <span className="border-settings-header-foreground border-b px-2 pt-[7px] pb-[6.5px] text-settings-header-foreground text-ui">{t('keys.user')}</span>
         </div>
       </div>
       <div className="mt-3.5 flex min-h-0 flex-1">
         {!narrow && (
-          <nav className="w-[200px] shrink-0 overflow-y-auto border-(--vsc-settings-headerBorder) border-r ps-6" aria-label={t('detail.settings')}>
+          <nav className="w-[200px] shrink-0 overflow-y-auto border-settings-header-border border-r ps-6" aria-label={t('detail.settings')}>
             {sections.map((section, i) => (
               <button
                 key={section.title}
                 type="button"
                 className={cn(
-                  'flex h-[22px] w-full cursor-pointer items-center truncate text-start leading-[22px]',
+                  'flex h-row w-full cursor-pointer items-center truncate text-start leading-row',
                   i === activeSection ? 'font-bold' : 'opacity-90',
                 )}
                 onClick={() => document.getElementById(section.title)?.scrollIntoView({ block: 'start' })}
@@ -384,7 +384,7 @@ export function SettingsTab() {
           {sections.length === 0 && <p className="px-6 pt-5">No Settings Found</p>}
           {sections.map((section) => (
             <section key={section.title} aria-labelledby={section.title} className={narrow ? 'ps-[33px] pe-6' : 'px-6'}>
-              <h2 id={section.title} data-section className="truncate p-2.5 ps-[15px] font-semibold text-(--vsc-settings-headerForeground) text-[26px] leading-[1.4em]">
+              <h2 id={section.title} data-section className="truncate p-2.5 ps-[15px] font-semibold text-settings-header-foreground text-[26px] leading-ui">
                 {t(section.title)}
               </h2>
               {section.login && <LoginItemSetting />}

@@ -15,8 +15,9 @@ import { ProgressBar } from '@/components/ui/progress'
 import { t, useLocale } from '@/i18n'
 import { useUiState } from '@/lib/uiState'
 import { cn } from '@/lib/utils'
+import { PANE_HEADER_HEIGHT } from '@/theme/metrics'
 import { useViewDescriptions } from './description'
-import { HEADER, MIN_EXPANDED, paneHeights } from './paneHeights'
+import { MIN_EXPANDED, paneHeights } from './paneHeights'
 import { DEFAULT_LAYOUT, VIEWS, type ViewLayout } from './views'
 
 /** paneview.ts keeps `.animated` on the pane view this long after an expand or collapse */
@@ -92,7 +93,7 @@ export function ViewContainer({ render, actions, progress }: Props) {
       // It was open, so its content exists: keep it for the next expand
       setOpened((prev) => (prev.has(id) ? prev : new Set(prev).add(id)))
       const index = visible.findIndex((v) => v.id === id)
-      const body = (heights.get(id) ?? 0) - HEADER - (index > 0 ? 1 : 0)
+      const body = (heights.get(id) ?? 0) - PANE_HEADER_HEIGHT - (index > 0 ? 1 : 0)
       setClosing((prev) => new Map(prev).set(id, body))
       timers.current.set(
         id,
@@ -120,11 +121,11 @@ export function ViewContainer({ render, actions, progress }: Props) {
     setAnimating(false)
     setResizing(below)
     const startY = event.clientY
-    const minBody = MIN_EXPANDED - HEADER
+    const minBody = MIN_EXPANDED - PANE_HEADER_HEIGHT
     // Freeze every expanded pane at its current body height; only the two around the sash move
     const frozen: Record<string, number> = {}
     visible.forEach((view, index) => {
-      if (!collapsedSet.has(view.id)) frozen[view.id] = (heights.get(view.id) ?? 0) - HEADER - (index > 0 ? 1 : 0)
+      if (!collapsedSet.has(view.id)) frozen[view.id] = (heights.get(view.id) ?? 0) - PANE_HEADER_HEIGHT - (index > 0 ? 1 : 0)
     })
     const topStart = frozen[above] ?? minBody
     const pair = topStart + (frozen[below] ?? minBody)
@@ -153,7 +154,7 @@ export function ViewContainer({ render, actions, progress }: Props) {
         const resizable = previous && !collapsed && !collapsedSet.has(previous.id)
         const label = t(view.title)
         const description = descriptions[view.id]
-        const headerSize = HEADER + (index > 0 ? 1 : 0)
+        const headerSize = PANE_HEADER_HEIGHT + (index > 0 ? 1 : 0)
         const height = heights.get(view.id) ?? headerSize
         // Laid out once at its final size and clipped while the pane animates (paneview.ts)
         const bodyHeight = collapsed ? (closing.get(view.id) ?? 0) : height - headerSize
@@ -166,8 +167,8 @@ export function ViewContainer({ render, actions, progress }: Props) {
             aria-label={label}
             className={cn(
               'group/pane relative flex shrink-0 flex-col overflow-hidden',
-              index > 0 && 'border-(--vsc-sideBarSectionHeader-border) border-t',
-              animating && 'transition-[height] duration-150 ease-out motion-reduce:transition-none',
+              index > 0 && 'border-section-header-border border-t',
+              animating && 'transition-[height] duration-pane ease-pane motion-reduce:transition-none',
             )}
             style={{ height }}
             data-context={JSON.stringify({ view: `gitmenu.views.${view.id}`, focusedView: `gitmenu.views.${view.id}` })}
@@ -177,7 +178,7 @@ export function ViewContainer({ render, actions, progress }: Props) {
                 role="separator"
                 aria-orientation="horizontal"
                 data-active={resizing === view.id || undefined}
-                className="absolute inset-x-0 -top-0.5 z-10 h-1 cursor-ns-resize transition-[background-color] duration-100 ease-out hover:bg-(--vsc-sash-hoverBorder) hover:delay-300 data-active:bg-(--vsc-sash-hoverBorder) motion-reduce:transition-none"
+                className="absolute inset-x-0 -top-0.5 z-10 h-1 cursor-ns-resize transition-[background-color] duration-sash ease-sash hover:bg-sash-hover hover:delay-sash data-active:bg-sash-hover motion-reduce:transition-none"
                 onPointerDown={(e) => startResize(previous.id, view.id, e)}
               />
             )}
@@ -189,7 +190,7 @@ export function ViewContainer({ render, actions, progress }: Props) {
                     tabIndex={0}
                     aria-expanded={!collapsed}
                     aria-label={label}
-                    className="group/header flex h-[22px] shrink-0 cursor-pointer items-center overflow-hidden bg-(--vsc-sideBarSectionHeader-background) font-bold text-(--vsc-sideBarSectionHeader-foreground) text-[11px] leading-[22px] outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-(--vsc-focusBorder) [&:lang(ja)]:font-normal [&:lang(ko)]:font-normal [&:lang(zh)]:font-normal"
+                    className="group/header flex h-pane-header shrink-0 cursor-pointer items-center overflow-hidden bg-section-header font-bold text-section-header-foreground text-caption leading-pane-header outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-focus [&:lang(ja)]:font-normal [&:lang(ko)]:font-normal [&:lang(zh)]:font-normal"
                     onClick={toggle}
                     onKeyDown={(e: KeyboardEvent) => {
                       if (e.target !== e.currentTarget) return
@@ -207,7 +208,7 @@ export function ViewContainer({ render, actions, progress }: Props) {
                 <Icon name={collapsed ? 'chevron-right' : 'chevron-down'} className={cn('mx-0.5', !collapsed && 'translate-y-px')} />
                 <h3 className="min-w-[3ch] truncate uppercase">{label}</h3>
                 {description && !collapsed && (
-                  <span className="ms-2.5 min-w-0 shrink-[100000] truncate font-normal text-(--vsc-panelTitle-inactiveForeground)">{description}</span>
+                  <span className="ms-2.5 min-w-0 shrink-[100000] truncate font-normal text-section-header-description">{description}</span>
                 )}
                 {!collapsed && actions && (
                   // Shown while the pane is hovered or holds focus, or one of its menus is open (VS Code toggles `display`)

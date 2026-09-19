@@ -13,21 +13,21 @@ import { Spinner } from "@/components/ui/spinner";
 // callers keep compiling: default/destructive -> primary, outline -> secondary,
 // ghost -> action, sm/lg/xl -> default, xs -> small, icon-xs -> icon-sm.
 const primary =
-  "border-(--vsc-button-border) bg-(--vsc-button-background) text-(--vsc-button-foreground) not-disabled:hover:bg-(--vsc-button-hoverBackground) focus-visible:bg-(--vsc-button-hoverBackground) data-popup-open:bg-(--vsc-button-hoverBackground)";
+  "border-button-border bg-button text-button-foreground not-disabled:hover:bg-button-hover focus-visible:bg-button-hover data-popup-open:bg-button-hover";
 const secondary =
-  "border-(--vsc-button-secondaryBorder) bg-(--vsc-button-secondaryBackground) text-(--vsc-button-secondaryForeground) not-disabled:hover:bg-(--vsc-button-secondaryHoverBackground) focus-visible:bg-(--vsc-button-secondaryHoverBackground) data-popup-open:bg-(--vsc-button-secondaryHoverBackground)";
+  "border-button-secondary-border bg-button-secondary text-button-secondary-foreground not-disabled:hover:bg-button-secondary-hover focus-visible:bg-button-secondary-hover data-popup-open:bg-button-secondary-hover";
 const action =
-  "border-transparent bg-transparent text-inherit not-disabled:hover:bg-(--vsc-toolbar-hoverBackground) data-popup-open:bg-(--vsc-toolbar-hoverBackground) aria-pressed:bg-(--vsc-toolbar-activeBackground) not-disabled:active:bg-(--vsc-toolbar-activeBackground) focus-visible:-outline-offset-1 disabled:text-(--vsc-disabledForeground) disabled:opacity-100";
+  "border-transparent bg-transparent text-inherit not-disabled:hover:bg-toolbar-hover data-popup-open:bg-toolbar-hover aria-pressed:bg-toolbar-active not-disabled:active:bg-toolbar-active focus-visible:-outline-offset-1 disabled:text-disabled disabled:opacity-100";
 const link =
-  "h-auto border-transparent bg-transparent p-0 text-(--vsc-textLink-foreground) hover:text-(--vsc-textLink-activeForeground) hover:underline";
+  "h-auto border-transparent bg-transparent p-0 text-link hover:text-link-active hover:underline";
 
-const text = "h-[26px] rounded-[4px] px-2 py-1 text-[12px] leading-4";
-const small = "h-[22px] rounded-[4px] px-1.5 py-[3px] text-[11px] leading-[14px]";
-const icon = "size-[22px] rounded-[6px] p-0";
-const iconSmall = "size-5 rounded-[6px] p-0";
+const text = "h-control rounded-control px-2 py-1 text-small leading-4";
+const small = "h-control-sm rounded-control px-1.5 py-[3px] text-caption leading-[14px]";
+const icon = "size-action rounded-action p-0";
+const iconSmall = "size-action-sm rounded-action p-0";
 
 export const buttonVariants = cva(
-  "relative inline-flex shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap border font-normal outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-(--vsc-focusBorder) disabled:cursor-default disabled:opacity-40 data-loading:select-none data-loading:text-transparent [&>.codicon]:mx-[.2em] [&>svg]:mx-[.2em] [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "relative inline-flex shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap border font-normal outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-default disabled:opacity-40 data-loading:select-none data-loading:text-transparent [&>.codicon]:mx-[.2em] [&>svg]:mx-[.2em] [&_svg:not([class*='size-'])]:size-icon [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     compoundVariants: [
       // Icon-only buttons are action buttons whatever variant they were given in a toolbar
@@ -41,7 +41,7 @@ export const buttonVariants = cva(
       size: {
         default: text,
         small,
-        short: "h-[28px] flex-wrap rounded-[4px] px-1 py-0 text-[12px] leading-[18px]",
+        short: "h-[28px] flex-wrap rounded-control px-1 py-0 text-small leading-[18px]",
         icon,
         "icon-sm": iconSmall,
         // legacy names
@@ -95,7 +95,7 @@ export function Button({
         {children}
         {loading && (
           <Spinner
-            className="pointer-events-none absolute text-(--vsc-button-foreground)"
+            className="pointer-events-none absolute text-button-foreground"
             data-slot="button-loading-indicator"
           />
         )}

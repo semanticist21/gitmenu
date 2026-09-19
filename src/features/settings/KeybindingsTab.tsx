@@ -115,14 +115,14 @@ function DefineKeybindingWidget({ existing, onAccept, onCancel, onShowExisting }
 
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
-      <div className="w-[420px] max-w-[calc(100%-16px)] rounded-[8px] border border-(--vsc-editorWidget-border) bg-(--vsc-editorWidget-background) p-2.5 text-(--vsc-editorWidget-foreground) [box-shadow:var(--vsc-shadow-lg)]">
+      <div className="w-[420px] max-w-[calc(100%-16px)] rounded-menu border border-editor-widget-border bg-editor-widget p-2.5 text-editor-widget-foreground shadow-widget">
         <div className="text-center">Press desired key combination and then press ENTER.</div>
         <input
           ref={inputRef}
           readOnly
           aria-label="Press desired key combination and then press ENTER."
           value={chords.map((c) => c.chord).join(' ')}
-          className="mt-2.5 block h-[26px] w-full rounded-[4px] border border-(--vsc-input-border) bg-(--vsc-input-background) px-1.5 text-center text-(--vsc-input-foreground) outline-none focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-(--vsc-focusBorder)"
+          className="mt-2.5 block h-control w-full rounded-control border border-input-border bg-input-background px-1.5 text-center text-input-foreground outline-none focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-focus"
           onKeyDown={onKeyDown}
           onBlur={onCancel}
         />
@@ -158,7 +158,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
   return (
     <>
       {text.slice(0, at)}
-      <span className="font-bold text-(--vsc-list-highlightForeground) in-data-selected:text-inherit">{text.slice(at, at + query.length)}</span>
+      <span className="font-bold text-list-highlight in-data-selected:text-inherit">{text.slice(at, at + query.length)}</span>
       {text.slice(at + query.length)}
     </>
   )
@@ -241,12 +241,12 @@ export function KeybindingsTab() {
   // Column weights (keybindingsEditor.ts): actions 40px, then .3 / .2 / .35 / .15 of the rest
   const column = (weight: number) => ({ flex: `${weight} 1 0%` })
   const columnBorder =
-    'border-l border-transparent group-hover/table:border-(--vsc-tree-tableColumnsBorder) transition-[border-color] duration-200 ease-out motion-reduce:transition-none'
+    'border-l border-transparent group-hover/table:border-table-column-border transition-[border-color] duration-columns ease-columns motion-reduce:transition-none'
   const cell = cn('flex min-w-0 items-center overflow-hidden ps-2.5', columnBorder)
 
   const header = (
-    <div role="row" className="sticky top-0 z-10 flex h-[30px] bg-(--vsc-editor-background) font-semibold">
-      <div className="flex h-full w-full bg-(--vsc-tree-tableOddRowsBackground)">
+    <div role="row" className="sticky top-0 z-10 flex h-[30px] bg-editor font-semibold">
+      <div className="flex h-full w-full bg-table-odd-row">
         <div role="columnheader" className="w-10 shrink-0" />
         <div role="columnheader" className={cell} style={column(0.3)}>
           <span className="truncate">{t('keys.command')}</span>
@@ -282,8 +282,8 @@ export function KeybindingsTab() {
                 'group/row flex cursor-default',
                 idMatched ? 'h-10' : 'h-6',
                 isSelected
-                  ? 'bg-(--vsc-list-inactiveSelectionBackground) group-focus/table:bg-(--vsc-list-activeSelectionBackground) group-focus/table:text-(--vsc-list-activeSelectionForeground) group-focus/table:outline-solid group-focus/table:outline-1 group-focus/table:-outline-offset-1 group-focus/table:outline-(--vsc-list-focusAndSelectionOutline)'
-                  : cn('hover:bg-(--vsc-list-hoverBackground)', index % 2 === 1 && 'bg-(--vsc-tree-tableOddRowsBackground)'),
+                  ? 'bg-list-inactive group-focus/table:bg-list-active group-focus/table:text-list-active-foreground group-focus/table:outline-solid group-focus/table:outline-1 group-focus/table:-outline-offset-1 group-focus/table:outline-list-selection-outline'
+                  : cn('hover:bg-list-hover', index % 2 === 1 && 'bg-table-odd-row'),
               )}
               onClick={() => setSelected(row.id)}
               onDoubleClick={() => setEditing(row)}
@@ -359,7 +359,7 @@ export function KeybindingsTab() {
           />
           <InputGroupAddon align="inline-end">
             {recording && (
-              <span className="me-2 rounded-[2px] bg-(--vsc-badge-background) px-[3px] py-0.5 text-(--vsc-badge-foreground) text-[11px] leading-none">Recording Keys</span>
+              <span className="me-2 rounded-xs bg-badge px-[3px] py-0.5 text-badge-foreground text-caption leading-none">Recording Keys</span>
             )}
             <Tooltip>
               <TooltipTrigger
@@ -368,7 +368,7 @@ export function KeybindingsTab() {
                     type="button"
                     aria-label="Record Keys"
                     aria-pressed={recording}
-                    className="flex size-5 cursor-pointer items-center justify-center rounded-[3px] border border-transparent text-inherit hover:bg-(--vsc-inputOption-hoverBackground) aria-pressed:border-(--vsc-inputOption-activeBorder) aria-pressed:bg-(--vsc-inputOption-activeBackground) aria-pressed:text-(--vsc-inputOption-activeForeground)"
+                    className="flex size-5 cursor-pointer items-center justify-center rounded-inset border border-transparent text-inherit hover:bg-input-option-hover aria-pressed:border-input-option-active-border aria-pressed:bg-input-option-active aria-pressed:text-input-option-active-foreground"
                     onClick={() => setRecording(!recording)}
                   />
                 }
@@ -381,7 +381,7 @@ export function KeybindingsTab() {
               type="button"
               aria-label="Clear Keybindings Search Input"
               disabled={!query}
-              className="flex size-5 cursor-pointer items-center justify-center rounded-[3px] text-inherit hover:bg-(--vsc-inputOption-hoverBackground) disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
+              className="flex size-5 cursor-pointer items-center justify-center rounded-inset text-inherit hover:bg-input-option-hover disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
               onClick={() => setQuery('')}
             >
               <Icon name="clear-all" />

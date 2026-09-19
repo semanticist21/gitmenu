@@ -36,7 +36,7 @@ export function Kbd({
   return (
     <kbd
       className={cn(
-        "pointer-events-none mx-0.5 inline-flex h-[18px] min-w-[24px] select-none items-center justify-center rounded-[3px] border border-(--vsc-keybindingLabel-border) border-b-(--vsc-keybindingLabel-bottomBorder) bg-(--vsc-keybindingLabel-background) px-[5px] py-[3px] font-sans text-(--vsc-keybindingLabel-foreground) text-[11px] leading-[10px] shadow-[inset_0_-1px_0_var(--vsc-widget-shadow)] first:ms-0 last:me-0",
+        "pointer-events-none mx-0.5 inline-flex h-[18px] min-w-[24px] select-none items-center justify-center rounded-inset border border-keybinding-border border-b-keybinding-bottom-border bg-keybinding px-[5px] py-[3px] font-sans text-keybinding-foreground text-caption leading-[10px] shadow-key first:ms-0 last:me-0",
         className,
       )}
       data-slot="kbd"
@@ -71,7 +71,7 @@ export function Keybinding({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 text-(--vsc-keybindingLabel-foreground) leading-[10px]",
+        "inline-flex items-center gap-1.5 text-keybinding-foreground leading-[10px]",
         className,
       )}
       data-slot="keybinding"

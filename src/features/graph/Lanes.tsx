@@ -3,10 +3,10 @@
 // a commit's node is its author's avatar ringed in the lane color; merges are small dots and
 // stashes squares.
 import type { GraphRow } from '@/lib/git'
+import { ICON_SIZE, ROW_HEIGHT } from '@/theme/metrics'
 import { Avatar } from '../avatars/Avatar'
 
 export const LANE_WIDTH = 16
-export const ROW_HEIGHT = 22
 
 // GitLens's gitlens.graphLane1Color…graphLane10Color
 const LIGHT = ['#15a0bf', '#0669f7', '#8e00c2', '#c517b6', '#d90171', '#cd0101', '#f25d2e', '#f2ca33', '#7bd938', '#2ece9d']
@@ -44,17 +44,17 @@ export function Lanes({ root, row, width, dark, avatars }: { root: string; row: 
           <path key={`o${lane}`} d={edge(row.lane, MID, lane, ROW_HEIGHT)} stroke={laneColor(lane, dark)} strokeWidth={2} fill="none" />
         ))}
         {row.stash ? (
-          <rect x={x(row.lane) - 4.5} y={MID - 4.5} width={9} height={9} rx={2} fill="var(--vsc-editor-background)" stroke={color} strokeWidth={2} />
+          <rect x={x(row.lane) - 4.5} y={MID - 4.5} width={9} height={9} rx={2} className="fill-editor" stroke={color} strokeWidth={2} />
         ) : merge ? (
           <circle cx={x(row.lane)} cy={MID} r={4} fill={color} />
         ) : (
-          !avatarNode && <circle cx={x(row.lane)} cy={MID} r={5} fill="var(--vsc-editor-background)" stroke={color} strokeWidth={2} />
+          !avatarNode && <circle cx={x(row.lane)} cy={MID} r={5} className="fill-editor" stroke={color} strokeWidth={2} />
         )}
       </svg>
       {avatarNode && (
         <span
-          className="absolute flex size-4 items-center justify-center overflow-hidden rounded-full"
-          style={{ left: x(row.lane) - 8, top: MID - 8, backgroundColor: color }}
+          className="absolute flex size-icon items-center justify-center overflow-hidden rounded-full"
+          style={{ left: x(row.lane) - ICON_SIZE / 2, top: MID - ICON_SIZE / 2, backgroundColor: color }}
         >
           <Avatar root={root} name={row.author.name} email={row.author.email} sha={row.id} className="size-3" />
         </span>

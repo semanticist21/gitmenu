@@ -11,6 +11,7 @@ import { treeRowClass, Twistie } from '@/features/views/ViewTree'
 import { plainVs, t, useLocale, vs, vsb } from '@/i18n'
 import { errorMessage, ipc, type ProjectInfo, type RepoInfo } from '@/lib/ipc'
 import { setSetting, settingDefault } from '@/settings/settings'
+import { INDENT, ROW_HEIGHT } from '@/theme/metrics'
 
 function tildify(path: string) {
   return path.replace(/^\/Users\/[^/]+/, '~')
@@ -27,7 +28,7 @@ async function run(action: () => Promise<unknown>) {
 /** Welcome view buttons: full width up to 300px, label ellipsis. */
 function WelcomeButton({ secondary, onClick, children }: { secondary?: boolean; onClick: () => void; children: string }) {
   return (
-    <Button variant={secondary ? 'secondary' : 'primary'} className="w-full max-w-[300px]" title={children} onClick={onClick}>
+    <Button variant={secondary ? 'secondary' : 'primary'} className="w-full max-w-welcome-button" title={children} onClick={onClick}>
       <span className="truncate">{children}</span>
     </Button>
   )
@@ -125,14 +126,14 @@ export function RepoList({ repos, selected, onSelect }: RepoListProps) {
   useLocale()
   return (
     <section aria-label={t('repos.title')}>
-      <h3 className="flex h-[22px] items-center truncate ps-5 font-bold text-(--vsc-sideBarSectionHeader-foreground) text-[11px] uppercase leading-[22px] [&:lang(ja)]:font-normal [&:lang(ko)]:font-normal [&:lang(zh)]:font-normal">
+      <h3 className="flex h-pane-header items-center truncate ps-5 font-bold text-section-header-foreground text-caption uppercase leading-pane-header [&:lang(ja)]:font-normal [&:lang(ko)]:font-normal [&:lang(zh)]:font-normal">
         {t('repos.title')}
       </h3>
       <div
         role="listbox"
         aria-label={t('repos.title')}
         className="group/list relative"
-        style={{ height: repos.length * 22 }}
+        style={{ height: repos.length * ROW_HEIGHT }}
         data-context={JSON.stringify({ focusedView: 'gitmenu.views.repositories', listFocus: true })}
       >
         {repos.map((repo, index) => {
@@ -146,7 +147,7 @@ export function RepoList({ repos, selected, onSelect }: RepoListProps) {
               aria-selected={isSelected}
               title={tildify(repo.root)}
               className={treeRowClass}
-              style={{ transform: `translateY(${index * 22}px)` }}
+              style={{ transform: `translateY(${index * ROW_HEIGHT}px)` }}
               onClick={() => onSelect(repo.root)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -162,11 +163,11 @@ export function RepoList({ repos, selected, onSelect }: RepoListProps) {
                 }
               }}
             >
-              <Twistie indent={8} state="leaf" />
+              <Twistie indent={INDENT} state="leaf" />
               <Icon name={isSelected ? 'repo-selected' : 'repo'} className="me-0.5" />
               <span className="min-w-0 flex-1 truncate ps-1">
                 <span className="whitespace-pre">{repo.name}</span>
-                {kind && <span className="ms-[.5em] text-[.9em] opacity-95 dark:opacity-70">{kind}</span>}
+                {kind && <span className="ms-[.5em] text-label-description opacity-95 dark:opacity-70">{kind}</span>}
               </span>
             </div>
           )

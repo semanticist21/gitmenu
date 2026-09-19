@@ -193,7 +193,7 @@ export function PanelApp() {
         {active.parentCandidate && <ParentRepoQuestion project={active} />}
         {active.repos.length === 0 && !active.parentCandidate && <NoRepository project={active} />}
         {active.repos.length > 1 && (
-          <div className="max-h-32 shrink-0 overflow-auto border-(--vsc-sideBarSectionHeader-border) border-b">
+          <div className="max-h-32 shrink-0 overflow-auto border-section-header-border border-b">
             <RepoList repos={active.repos} selected={repo} onSelect={selectRepo} />
           </div>
         )}
@@ -210,7 +210,7 @@ export function PanelApp() {
     )
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-(--vsc-sideBar-background) text-(--vsc-sideBar-foreground) select-none">
+    <div className="flex h-screen flex-col overflow-hidden bg-sidebar text-sidebar-foreground select-none">
       <PanelHeader projects={projects} active={active} pinned={pinned} onTogglePin={togglePin} detached={detached} onToggleDetach={toggleDetach} />
       <EnvBanner />
       <main className="min-h-0 flex-1">{body}</main>

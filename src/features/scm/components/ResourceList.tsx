@@ -13,12 +13,13 @@ import { executeCommand } from '@/commands/registry'
 import { Icon } from '@/components/Icon'
 import { Badge } from '@/components/ui/badge'
 import { ContextMenu, ContextMenuPopup, ContextMenuTrigger } from '@/components/ui/context-menu'
-import { IndentGuides, INDENT, ROW_HEIGHT, RowLabel, treeRowClass, Twistie } from '@/features/views/ViewTree'
+import { IndentGuides, RowLabel, treeRowClass, Twistie } from '@/features/views/ViewTree'
 import { useLocale } from '@/i18n'
 import type { FileChange } from '@/lib/git'
 import { useUiState } from '@/lib/uiState'
 import { cn } from '@/lib/utils'
 import { useSetting } from '@/settings/settings'
+import { INDENT, ROW_HEIGHT } from '@/theme/metrics'
 import type { GroupId, ScmSelection } from '../state'
 import { isDeletion, LETTER, statusColor, statusText } from '../status'
 
@@ -118,7 +119,7 @@ function FolderName({ name }: { name: string }) {
 function StatusBadge({ letter, color }: { letter: string; color: string }) {
   return (
     <span
-      className="my-auto ms-[5px] me-[3px] inline-flex h-4 min-w-4 shrink-0 items-center justify-center font-semibold text-(--deco) text-[11px] leading-none opacity-75 group-focus-within/list:group-aria-selected/row:text-inherit"
+      className="my-auto ms-[5px] me-[3px] inline-flex h-4 min-w-4 shrink-0 items-center justify-center font-semibold text-(--deco) text-caption leading-none opacity-75 group-focus-within/list:group-aria-selected/row:text-inherit"
       style={{ '--deco': color } as CSSProperties}
     >
       {letter}

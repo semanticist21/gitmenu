@@ -35,10 +35,10 @@ export function ProgressBar({
     >
       <div
         className={cn(
-          "absolute left-0 h-0.5 bg-(--vsc-progressBar-background)",
+          "absolute left-0 h-0.5 bg-progress",
           infinite
-            ? "w-[2%] animate-[progress_4s_linear_infinite]"
-            : "transition-[width] duration-100 ease-linear",
+            ? "w-[2%] animate-progress"
+            : "transition-[width] duration-fade ease-linear",
           infinite && longRunning && "[animation-timing-function:steps(100)]",
         )}
         style={infinite ? undefined : { width: `${value}%` }}
@@ -75,7 +75,7 @@ export function ProgressLabel({
 }: ProgressPrimitive.Label.Props): React.ReactElement {
   return (
     <ProgressPrimitive.Label
-      className={cn("text-[13px]", className)}
+      className={cn("text-ui", className)}
       data-slot="progress-label"
       {...props}
     />
@@ -102,7 +102,7 @@ export function ProgressIndicator({
   return (
     <ProgressPrimitive.Indicator
       className={cn(
-        "h-0.5 bg-(--vsc-progressBar-background) transition-[width] duration-100 ease-linear",
+        "h-0.5 bg-progress transition-[width] duration-fade ease-linear",
         className,
       )}
       data-slot="progress-indicator"
@@ -117,7 +117,7 @@ export function ProgressValue({
 }: ProgressPrimitive.Value.Props): React.ReactElement {
   return (
     <ProgressPrimitive.Value
-      className={cn("text-[12px] tabular-nums", className)}
+      className={cn("text-small tabular-nums", className)}
       data-slot="progress-value"
       {...props}
     />

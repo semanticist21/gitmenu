@@ -49,7 +49,7 @@ export function DecorationBadge({ text, color, title }: { text: string; color?: 
   return (
     <span
       title={title}
-      className="ms-[5px] me-1 shrink-0 text-center font-semibold text-(--deco) text-[.9em] opacity-75 group-focus-within/list:group-aria-selected/row:text-inherit"
+      className="ms-[5px] me-1 shrink-0 text-center font-semibold text-(--deco) text-label-description opacity-75 group-focus-within/list:group-aria-selected/row:text-inherit"
       style={color ? ({ '--deco': color } as CSSProperties) : undefined}
     >
       {text}
@@ -113,7 +113,7 @@ export function commitNode(root: string, commit: CommitInfo, options: CommitNode
     // GitLens: `arrow-up` for an unpublished commit, else the author's square avatar (none
     // when avatars are off)
     icon: options.flags?.includes('unpublished') ? (
-      <Icon name="arrow-up" className="text-(--vsc-gitlens-unpublishedChangesIconColor)" />
+      <Icon name="arrow-up" className="text-gitlens-unpublished" />
     ) : (
       <Avatar root={root} name={commit.author.name} email={commit.author.email} sha={commit.id} shape="square" />
     ),

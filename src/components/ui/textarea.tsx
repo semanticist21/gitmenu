@@ -37,8 +37,8 @@ export function Textarea({
         render={(defaultProps: React.ComponentProps<"textarea">) => (
           <textarea
             className={cn(
-              "field-sizing-content min-h-[26px] w-full resize-none rounded-[inherit] bg-transparent px-1.5 py-1 text-inherit leading-[18px] outline-none focus:outline-none",
-              size === "sm" && "py-[3px] text-[12px] leading-4",
+              "field-sizing-content min-h-control w-full resize-none rounded-[inherit] bg-transparent px-1.5 py-1 text-inherit leading-[18px] outline-none focus:outline-none",
+              size === "sm" && "py-[3px] text-small leading-4",
             )}
             data-slot="textarea"
             {...mergeProps(defaultProps, props)}

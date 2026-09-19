@@ -63,7 +63,7 @@ export function DialogViewport({
 
 /** The dialog box; `className` is merged onto the box. */
 export const dialogBoxClassName =
-  "relative flex max-h-[90vh] min-h-[75px] w-min min-w-[min(480px,calc(100vw-16px))] max-w-[90vw] flex-col rounded-[12px] border border-(--vsc-widget-border) bg-(--vsc-editorWidget-background) p-2 text-(--vsc-editorWidget-foreground) outline-none [box-shadow:0_0_8px_var(--vsc-widget-shadow),var(--vsc-shadow-xl)]";
+  "relative flex max-h-[90vh] min-h-[75px] w-min min-w-[min(480px,calc(100vw-16px))] max-w-[90vw] flex-col rounded-dialog border border-widget-border bg-editor-widget p-2 text-editor-widget-foreground outline-none shadow-dialog";
 
 export function DialogPopup({
   className,
@@ -158,7 +158,7 @@ export function DialogTitle({
   return (
     <DialogPrimitive.Title
       className={cn(
-        "mb-1 flex min-h-[22px] items-center font-semibold text-[14px] leading-[18.2px]",
+        "mb-1 flex min-h-[22px] items-center font-semibold text-large leading-[18.2px]",
         className,
       )}
       data-slot="dialog-title"
@@ -173,7 +173,7 @@ export function DialogDescription({
 }: DialogPrimitive.Description.Props): React.ReactElement {
   return (
     <DialogPrimitive.Description
-      className={cn("whitespace-pre-wrap text-[13px] leading-5", className)}
+      className={cn("whitespace-pre-wrap text-ui leading-5", className)}
       data-slot="dialog-description"
       {...props}
     />

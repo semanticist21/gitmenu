@@ -73,7 +73,7 @@ export function TooltipPopup({
       >
         <TooltipPrimitive.Popup
           className={cn(
-            "max-h-[50vh] max-w-[min(700px,calc(100vw-4px))] animate-[fadein_100ms_linear] select-text overflow-hidden rounded-[5px] border border-(--vsc-editorHoverWidget-border) bg-(--vsc-editorHoverWidget-background) px-2 py-0.5 text-(--vsc-editorHoverWidget-foreground) text-[12px] leading-[19px] [overflow-wrap:break-word] [box-shadow:var(--vsc-shadow-lg)] data-instant:animate-none [&_code]:rounded-[3px] [&_code]:bg-(--vsc-textCodeBlock-background) [&_code]:px-[.4em]",
+            "max-h-[50vh] max-w-[min(700px,calc(100vw-4px))] animate-hover-in select-text overflow-hidden rounded-hover border border-hover-widget-border bg-hover-widget px-2 py-0.5 text-hover-widget-foreground text-small leading-[19px] [overflow-wrap:break-word] shadow-widget data-instant:animate-none [&_code]:rounded-inset [&_code]:bg-code-block [&_code]:px-[.4em]",
             className,
           )}
           data-slot="tooltip-popup"

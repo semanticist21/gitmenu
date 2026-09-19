@@ -11,7 +11,7 @@ function Glyph({ viewBox, className, children, ...props }: GlyphProps & { viewBo
       viewBox={viewBox}
       fill="currentColor"
       aria-hidden
-      className={cn('inline-block size-4 shrink-0', className)}
+      className={cn('inline-block size-icon shrink-0', className)}
       {...props}
     >
       {children}

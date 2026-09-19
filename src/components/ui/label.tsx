@@ -12,7 +12,7 @@ export function Label({
 }: useRender.ComponentProps<"label">): React.ReactElement {
   const defaultProps = {
     className: cn(
-      "inline-flex cursor-pointer items-center gap-[9px] text-[13px]",
+      "inline-flex cursor-pointer items-center gap-[9px] text-ui",
       className,
     ),
     "data-slot": "label",

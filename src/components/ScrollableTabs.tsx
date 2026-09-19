@@ -92,10 +92,10 @@ function Chevron({ direction, onClick }: { direction: 1 | -1; onClick: () => voi
       type="button"
       tabIndex={-1}
       aria-hidden
-      className="flex w-4 shrink-0 items-center justify-center self-stretch text-(--vsc-icon-foreground) opacity-70 hover:bg-(--vsc-toolbar-hoverBackground) hover:opacity-100"
+      className="flex w-4 shrink-0 items-center justify-center self-stretch text-icon opacity-70 hover:bg-toolbar-hover hover:opacity-100"
       onClick={onClick}
     >
-      <Icon name={direction < 0 ? 'chevron-left' : 'chevron-right'} className="text-[12px]" />
+      <Icon name={direction < 0 ? 'chevron-left' : 'chevron-right'} className="text-small" />
     </button>
   )
 }

@@ -95,7 +95,7 @@ export function Avatar({
   }, [enabled, url, root, email, sha])
 
   const square = shape === 'square'
-  const size = cn('size-4 shrink-0', !square && 'rounded-full', className)
+  const size = cn('size-icon shrink-0', !square && 'rounded-full', className)
   // GitLens shows no icon on a commit when avatars are off
   if (square && !enabled) return null
   if (enabled && url && !broken) {

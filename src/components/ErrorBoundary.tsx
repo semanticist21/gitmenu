@@ -19,7 +19,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
   render() {
     if (!this.state.error) return this.props.children
     return (
-      <div role="alert" className="flex h-screen flex-col gap-2 overflow-auto p-4 text-[13px]">
+      <div role="alert" className="flex h-screen flex-col gap-2 overflow-auto p-4 text-ui">
         <p className="font-medium">{t('error.render')}</p>
         <pre className="whitespace-pre-wrap break-words text-muted-foreground text-xs">
           {this.state.error.message}

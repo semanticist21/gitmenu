@@ -38,7 +38,7 @@ export function TabsList({
       className={cn(
         "relative flex min-w-0 data-[orientation=vertical]:flex-col",
         variant === "default"
-          ? "h-[35px] shrink-0 overflow-x-auto overflow-y-hidden bg-(--vsc-editorGroupHeader-tabsBackground) shadow-[inset_0_-1px_0_var(--vsc-editorGroupHeader-tabsBorder)] [&::-webkit-scrollbar]:h-[3px]"
+          ? "h-tab shrink-0 overflow-x-auto overflow-y-hidden bg-tab-strip shadow-[inset_0_-1px_0_--theme(--color-tab-strip-border)] [&::-webkit-scrollbar]:h-[3px]"
           : "gap-0",
         className,
       )}
@@ -56,11 +56,11 @@ export function TabsTab({
   return (
     <TabsPrimitive.Tab
       className={cn(
-        "relative flex shrink-0 cursor-pointer items-center whitespace-nowrap text-[13px] outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-(--vsc-focusBorder) data-disabled:cursor-default data-disabled:opacity-40",
+        "relative flex shrink-0 cursor-pointer items-center whitespace-nowrap text-ui outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-focus data-disabled:cursor-default data-disabled:opacity-40",
         // editor tab
-        "in-data-[variant=default]:h-[35px] in-data-[variant=default]:w-[120px] in-data-[variant=default]:min-w-fit in-data-[variant=default]:border-(--vsc-tab-border) in-data-[variant=default]:border-r in-data-[variant=default]:bg-(--vsc-tab-inactiveBackground) in-data-[variant=default]:pr-2 in-data-[variant=default]:pl-2.5 in-data-[variant=default]:text-(--vsc-tab-inactiveForeground) in-data-[variant=default]:leading-[35px] in-data-[variant=default]:hover:bg-(--vsc-tab-hoverBackground) in-data-[variant=default]:data-active:bg-(--vsc-tab-activeBackground) in-data-[variant=default]:data-active:text-(--vsc-tab-activeForeground) in-data-[variant=default]:data-active:shadow-[inset_0_1px_0_var(--vsc-tab-activeBorderTop),inset_0_-1px_0_var(--vsc-tab-activeBorder)]",
+        "in-data-[variant=default]:h-tab in-data-[variant=default]:w-tab-min in-data-[variant=default]:min-w-fit in-data-[variant=default]:border-tab-border in-data-[variant=default]:border-r in-data-[variant=default]:bg-tab-inactive in-data-[variant=default]:pr-2 in-data-[variant=default]:pl-2.5 in-data-[variant=default]:text-tab-inactive-foreground in-data-[variant=default]:leading-tab in-data-[variant=default]:hover:bg-tab-hover in-data-[variant=default]:data-active:bg-tab-active in-data-[variant=default]:data-active:text-tab-active-foreground in-data-[variant=default]:data-active:shadow-[inset_0_1px_0_--theme(--color-tab-active-border-top),inset_0_-1px_0_--theme(--color-tab-active-border)]",
         // settings scope tab
-        "in-data-[variant=underline]:border-transparent in-data-[variant=underline]:border-b in-data-[variant=underline]:px-2 in-data-[variant=underline]:pt-[7px] in-data-[variant=underline]:pb-[6.5px] in-data-[variant=underline]:opacity-90 in-data-[variant=underline]:data-active:border-(--vsc-settings-headerForeground) in-data-[variant=underline]:data-active:text-(--vsc-settings-headerForeground) in-data-[variant=underline]:data-active:opacity-100",
+        "in-data-[variant=underline]:border-transparent in-data-[variant=underline]:border-b in-data-[variant=underline]:px-2 in-data-[variant=underline]:pt-[7px] in-data-[variant=underline]:pb-[6.5px] in-data-[variant=underline]:opacity-90 in-data-[variant=underline]:data-active:border-settings-header-foreground in-data-[variant=underline]:data-active:text-settings-header-foreground in-data-[variant=underline]:data-active:opacity-100",
         className,
       )}
       data-slot="tabs-tab"

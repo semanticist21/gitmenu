@@ -12,15 +12,15 @@ import { cn } from "@/lib/utils";
 // on the right. Opens and closes without animation; Escape or a click outside cancels.
 
 export const quickInputWidgetClassName =
-  "fixed top-1.5 left-1/2 z-50 flex max-h-[calc(100vh-12px)] w-[calc(100vw-16px)] -translate-x-1/2 flex-col rounded-[12px] border border-(--vsc-widget-border) bg-(--vsc-quickInput-background) text-(--vsc-quickInput-foreground) text-[13px] leading-[normal] outline-none [box-shadow:var(--vsc-shadow-xl)] min-[600px]:w-[min(62vw,600px)]";
+  "fixed top-1.5 left-1/2 z-50 flex max-h-[calc(100vh-12px)] w-[calc(100vw-16px)] -translate-x-1/2 flex-col rounded-dialog border border-widget-border bg-quick-input text-quick-input-foreground text-ui leading-[normal] outline-none shadow-quick-pick min-[600px]:w-[min(62vw,600px)]";
 
 /** The filter/input box: 26px, 6px radius, input colors, focusBorder outline. */
 export const quickInputBoxClassName =
-  "h-[26px] w-full min-w-0 rounded-[6px] border border-(--vsc-input-border) bg-(--vsc-input-background) px-1.5 py-1 text-(--vsc-input-foreground) text-[13px] text-ellipsis leading-4 outline-none focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-(--vsc-focusBorder) data-[severity=error]:border-(--vsc-inputValidation-errorBorder) data-[severity=error]:outline-(--vsc-inputValidation-errorBorder) data-[severity=info]:border-(--vsc-inputValidation-infoBorder) data-[severity=info]:outline-(--vsc-inputValidation-infoBorder) data-[severity=warning]:border-(--vsc-inputValidation-warningBorder) data-[severity=warning]:outline-(--vsc-inputValidation-warningBorder)";
+  "h-control w-full min-w-0 rounded-action border border-input-border bg-input-background px-1.5 py-1 text-input-foreground text-ui text-ellipsis leading-4 outline-none focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-focus data-[severity=error]:border-validation-error-border data-[severity=error]:outline-validation-error-border data-[severity=info]:border-validation-info-border data-[severity=info]:outline-validation-info-border data-[severity=warning]:border-validation-warning-border data-[severity=warning]:outline-validation-warning-border";
 
 /** A list row: 22px (or two 22px lines), 3px radius, focus and hover colors. */
 export const quickInputRowClassName =
-  "group/quick-row flex min-h-[22px] cursor-default select-none items-center rounded-[3px] px-1.5 leading-[22px] outline-none hover:bg-(--vsc-list-hoverBackground) data-disabled:text-(--vsc-disabledForeground) data-highlighted:bg-(--vsc-quickInputList-focusBackground) data-highlighted:text-(--vsc-quickInputList-focusForeground)";
+  "group/quick-row flex min-h-row cursor-default select-none items-center rounded-inset px-1.5 leading-row outline-none hover:bg-list-hover data-disabled:text-disabled data-highlighted:bg-quick-input-focus data-highlighted:text-quick-input-focus-foreground";
 
 export function CommandDialog({
   modal = false,
@@ -77,7 +77,7 @@ export function QuickInputTitle({
   return (
     <div
       className={cn(
-        "flex items-center rounded-t-[11px] bg-(--vsc-quickInputTitle-background)",
+        "flex items-center rounded-t-[calc(var(--radius-dialog)-1px)] bg-quick-input-title",
         className,
       )}
       data-slot="quick-input-title"
@@ -117,13 +117,13 @@ export function QuickInputMessage({
   return (
     <div
       className={cn(
-        "-mt-px select-text p-[5px] leading-[1.4em] [overflow-wrap:break-word]",
+        "-mt-px select-text p-[5px] leading-ui [overflow-wrap:break-word]",
         severity === "error" &&
-          "-mb-0.5 border border-(--vsc-inputValidation-errorBorder) bg-(--vsc-inputValidation-errorBackground)",
+          "-mb-0.5 border border-validation-error-border bg-validation-error",
         severity === "warning" &&
-          "-mb-0.5 border border-(--vsc-inputValidation-warningBorder) bg-(--vsc-inputValidation-warningBackground)",
+          "-mb-0.5 border border-validation-warning-border bg-validation-warning",
         severity === "info" &&
-          "-mb-0.5 border border-(--vsc-inputValidation-infoBorder) bg-(--vsc-inputValidation-infoBackground)",
+          "-mb-0.5 border border-validation-info-border bg-validation-info",
         className,
       )}
       data-slot="quick-input-message"
@@ -154,7 +154,7 @@ export function QuickInputHighlight({
         return (
           <>
             {text.slice(0, i)}
-            <span className="font-bold text-(--vsc-list-highlightForeground) group-data-highlighted/quick-row:text-(--vsc-quickInputList-focusHighlightForeground)">
+            <span className="font-bold text-list-highlight group-data-highlighted/quick-row:text-quick-input-focus-highlight">
               {text.slice(i, i + q.length)}
             </span>
             {text.slice(i + q.length)}
@@ -187,7 +187,7 @@ export function QuickInputLabel({
         <QuickInputHighlight query={query} text={label} />
       </span>
       {description && (
-        <span className="ms-[.5em] whitespace-pre text-[.9em] opacity-95 group-data-highlighted/quick-row:opacity-100 dark:opacity-70">
+        <span className="ms-[.5em] whitespace-pre text-label-description opacity-95 group-data-highlighted/quick-row:opacity-100 dark:opacity-70">
           <QuickInputHighlight query={query} text={description} />
         </span>
       )}
@@ -253,7 +253,7 @@ export function CommandEmpty({
 }: AutocompletePrimitive.Empty.Props): React.ReactElement {
   return (
     <AutocompletePrimitive.Empty
-      className={cn("px-3 pb-[7px] leading-[22px] empty:hidden", className)}
+      className={cn("px-3 pb-[7px] leading-row empty:hidden", className)}
       data-slot="command-empty"
       {...props}
     />
@@ -295,7 +295,7 @@ export function CommandGroupLabel({
   return (
     <AutocompletePrimitive.GroupLabel
       className={cn(
-        "border-(--vsc-pickerGroup-border) border-t px-1.5 text-right text-(--vsc-pickerGroup-foreground) text-[11px] leading-[22px] [[data-slot=command-group]:first-child_&]:border-t-0",
+        "border-picker-group-border border-t px-1.5 text-right text-picker-group-foreground text-caption leading-row [[data-slot=command-group]:first-child_&]:border-t-0",
         className,
       )}
       data-slot="command-group-label"
@@ -326,7 +326,7 @@ export function CommandSeparator({
 }: AutocompletePrimitive.Separator.Props): React.ReactElement {
   return (
     <AutocompletePrimitive.Separator
-      className={cn("my-0 h-0 border-(--vsc-pickerGroup-border) border-t", className)}
+      className={cn("my-0 h-0 border-picker-group-border border-t", className)}
       data-slot="command-separator"
       {...props}
     />
@@ -360,7 +360,7 @@ export function CommandFooter({
 }: React.ComponentProps<"div">): React.ReactElement {
   return (
     <div
-      className={cn("px-1.5 pb-1.5 text-[12px]", className)}
+      className={cn("px-1.5 pb-1.5 text-small", className)}
       data-slot="command-footer"
       {...props}
     />

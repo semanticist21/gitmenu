@@ -1,17 +1,16 @@
 // Pane heights for the view container, computed like VS Code's splitview in the sidebar.
+import { PANE_HEADER_HEIGHT } from '@/theme/metrics'
 
 export const MIN_EXPANDED = 64
-/** `--pane-header-size` */
-export const HEADER = 22
 
 /** VS Code's pane layout: headers keep their size, expanded panes share the rest by weight,
  * each at least MIN_EXPANDED tall. Returns pane heights in px (border-box). */
 export function paneHeights(ids: string[], collapsed: ReadonlySet<string>, weights: Record<string, number>, total: number): Map<string, number> {
-  const header = (index: number) => HEADER + (index > 0 ? 1 : 0)
+  const header = (index: number) => PANE_HEADER_HEIGHT + (index > 0 ? 1 : 0)
   const heights = new Map(ids.map((id, i) => [id, header(i)]))
   const open = ids.filter((id) => !collapsed.has(id))
   if (open.length === 0) return heights
-  const minBody = MIN_EXPANDED - HEADER
+  const minBody = MIN_EXPANDED - PANE_HEADER_HEIGHT
   const available = Math.max(0, total - ids.reduce((sum, _, i) => sum + header(i), 0))
   // Proportional shares, then lift any pane under the minimum and take it from the others
   const weightOf = (id: string) => Math.max(1, weights[id] ?? 1)
@@ -34,6 +33,6 @@ export function paneHeights(ids: string[], collapsed: ReadonlySet<string>, weigh
   const used = [...bodies.values()].reduce((a, b) => a + b, 0)
   const last = open[open.length - 1]
   bodies.set(last, Math.max(minBody, (bodies.get(last) ?? 0) + available - used))
-  for (const id of open) heights.set(id, (heights.get(id) ?? HEADER) + (bodies.get(id) ?? 0))
+  for (const id of open) heights.set(id, (heights.get(id) ?? PANE_HEADER_HEIGHT) + (bodies.get(id) ?? 0))
   return heights
 }
