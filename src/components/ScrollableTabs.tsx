@@ -9,6 +9,17 @@ const FADE = 16
 
 type Edges = { start: boolean; end: boolean }
 
+/** Scrolls `tab` fully into view, clear of the fade on either side (WebKit's focus scrolling
+ * and scrollIntoView ignore scroll-padding) */
+function reveal(scroller: HTMLElement, tab: HTMLElement) {
+  const box = scroller.getBoundingClientRect()
+  const rect = tab.getBoundingClientRect()
+  const start = rect.left - box.left + scroller.scrollLeft
+  const end = start + rect.width
+  if (start - FADE < scroller.scrollLeft) scroller.scrollLeft = Math.max(0, start - FADE)
+  else if (end + FADE > scroller.scrollLeft + scroller.clientWidth) scroller.scrollLeft = end + FADE - scroller.clientWidth
+}
+
 function measureEdges(el: HTMLElement, set: (update: (prev: Edges) => Edges) => void) {
   const start = el.scrollLeft > 1
   const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 1
@@ -48,12 +59,25 @@ export function ScrollableTabs({
     }
   }, [ref, children])
 
-  // Keep the active tab visible when it changes
+  // Keep the active tab, and a tab that gets keyboard focus, visible
   useEffect(() => {
     const el = ref.current
-    el?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-    if (el) measureEdges(el, setEdges)
+    if (!el) return
+    const active = el.querySelector<HTMLElement>('[aria-selected="true"]')
+    if (active) reveal(el, active)
+    measureEdges(el, setEdges)
   }, [ref, activeKey])
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const onFocus = (e: FocusEvent) => {
+      const tab = (e.target as HTMLElement).closest<HTMLElement>('[role="tab"]')
+      if (tab && el.contains(tab)) reveal(el, tab)
+    }
+    el.addEventListener('focusin', onFocus)
+    return () => el.removeEventListener('focusin', onFocus)
+  }, [ref])
 
   const scroll = (direction: 1 | -1) => {
     const el = ref.current

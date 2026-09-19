@@ -65,12 +65,22 @@ function ProjectTab({ project, active, windowFocused }: { project: ProjectInfo; 
                 : 'bg-tab-inactive text-tab-inactive-foreground hover:bg-tab-hover',
             )}
             onClick={activate}
-            onKeyDown={(e: KeyboardEvent) => {
+            onKeyDown={(e: KeyboardEvent<HTMLElement>) => {
               if (e.target !== e.currentTarget) return
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
                 activate()
+                return
               }
+              // Left/Right move to the previous/next tab and Home/End to the ends, opening it, as
+              // VS Code's editor tabs do
+              const tabs = [...(e.currentTarget.parentElement?.querySelectorAll<HTMLElement>('[role="tab"]') ?? [])]
+              const index = tabs.indexOf(e.currentTarget)
+              const target = { ArrowLeft: index - 1, ArrowRight: index + 1, Home: 0, End: tabs.length - 1 }[e.key]
+              if (target === undefined || !tabs[target] || target === index) return
+              e.preventDefault()
+              tabs[target].focus()
+              tabs[target].click()
             }}
             onAuxClick={(e) => {
               if (e.button === 1) void ipc.projectClose(project.id)

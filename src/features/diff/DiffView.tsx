@@ -714,7 +714,10 @@ export function DiffView({
         key={key}
         className={cn(
           'absolute left-0',
-          always ? 'opacity-100' : 'opacity-0 transition-opacity duration-700 group-hover/gutter:opacity-100 group-hover/gutter:duration-fade group-hover/gutter:ease-in-out',
+          // Also shown while one of its buttons has keyboard focus, so focus never lands on an invisible button
+          always
+            ? 'opacity-100'
+            : 'opacity-0 transition-opacity duration-700 focus-within:opacity-100 focus-within:duration-fade group-hover/gutter:opacity-100 group-hover/gutter:duration-fade group-hover/gutter:ease-in-out',
         )}
         style={{ top, height: itemHeight, width: HUNK_GUTTER }}
       >
