@@ -27,6 +27,7 @@ import { errorMessage, ipc, type EnvStatus, useTauriEvent } from '@/lib/ipc'
 import { useUiState } from '@/lib/uiState'
 import { useSetting } from '@/settings/settings'
 import { checkForUpdates } from '@/features/update/update'
+import { useNoInitialFocusRing } from '@/lib/initialFocus'
 
 function usePanelCommands(projectIds: string[], activeId: string | null, activeRepo: string | null, togglePin: () => void, toggleDetach: () => void) {
   useEffect(() => {
@@ -133,6 +134,7 @@ function LoginItemQuestion() {
 
 export function PanelApp() {
   useLocale()
+  useNoInitialFocusRing()
   const { projects, active, loaded } = useProjects()
   const [repo, selectRepo] = useSelectedRepo(active)
   const [pinned, setPinned] = useState(false)

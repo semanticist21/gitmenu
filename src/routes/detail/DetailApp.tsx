@@ -19,6 +19,7 @@ import { useUiState } from '@/lib/uiState'
 import { ScrollableTabs } from '@/components/ScrollableTabs'
 import { cn } from '@/lib/utils'
 import { ActionButton, EditorActionsSlot } from './EditorChrome'
+import { useNoInitialFocusRing } from '@/lib/initialFocus'
 
 export interface DetailTabProps {
   route: string
@@ -82,6 +83,7 @@ function useWindowFocused() {
 
 export function DetailApp() {
   useLocale()
+  useNoInitialFocusRing()
   useRepoChangeSync()
   useOpSync()
   const [tabs, setTabs, loaded] = useUiState<string[]>('detail.tabs', [])

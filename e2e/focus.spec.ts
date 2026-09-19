@@ -19,3 +19,20 @@ test('a diff gutter button shows while it has keyboard focus', async ({ page }) 
   await stage.focus()
   await expect.poll(() => stage.evaluate((el) => getComputedStyle(el.closest('.absolute.left-0') as Element).opacity)).toBe('1')
 })
+
+test('the panel opens without a focus ring on its first button', async ({ page }) => {
+  await page.goto('/?window=panel')
+  await page.getByRole('button', { name: 'Open Project…' }).waitFor()
+  // The panel becoming key: WebKit focuses the first control as if Tab had been pressed
+  const focused = await page.evaluate(async () => {
+    window.dispatchEvent(new FocusEvent('blur'))
+    window.dispatchEvent(new FocusEvent('focus'))
+    document.querySelector<HTMLElement>('button[aria-label="Open Project…"]')?.focus()
+    await new Promise((r) => setTimeout(r, 50))
+    return document.activeElement?.getAttribute('aria-label') ?? 'none'
+  })
+  expect(focused).toBe('none')
+  // Focus the user moves there stays
+  await page.keyboard.press('Tab')
+  await expect(page.locator(':focus')).toHaveCount(1)
+})
