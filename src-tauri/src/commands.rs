@@ -128,46 +128,48 @@ pub async fn project_init_repo(
 
 /// Shows a file or folder picker in front of other apps. The app is a non-activating accessory,
 /// so it activates itself first or the picker would open behind the frontmost app.
-#[tauri::command]
-pub async fn pick_file(app: AppHandle, title: Option<String>, directory: PathBuf) -> Result<Option<PathBuf>> {
-    use tauri_plugin_dialog::DialogExt;
+/// Runs a native picker as a standalone modal window (`runModal`). The dialog plugin's picker is
+/// a sheet on the app's main window, and while the detail window is open that is where it hangs.
+async fn run_picker(
+    app: &AppHandle,
+    pick: impl FnOnce() -> Option<PathBuf> + Send + 'static,
+) -> Result<Option<PathBuf>> {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    let app2 = app.clone();
-    tray::set_picker_open(&app, true);
-    app.run_on_main_thread(move || {
+    tray::set_picker_open(app, true);
+    let shown = app.run_on_main_thread(move || {
         activate_app();
-        let mut dialog = app2.dialog().file().set_directory(directory);
-        if let Some(title) = title {
-            dialog = dialog.set_title(title);
-        }
-        dialog.pick_file(move |file| {
-            let _ = tx.send(file.and_then(|f| f.into_path().ok()));
-        });
-    })?;
-    let picked = rx.await.unwrap_or(None);
-    tray::set_picker_open(&app, false);
+        let _ = tx.send(pick());
+    });
+    let picked = if shown.is_ok() { rx.await.unwrap_or(None) } else { None };
+    tray::set_picker_open(app, false);
+    shown?;
     Ok(picked)
 }
 
 #[tauri::command]
-pub async fn pick_folder(app: AppHandle, title: Option<String>) -> Result<Option<PathBuf>> {
-    use tauri_plugin_dialog::DialogExt;
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    let app2 = app.clone();
-    tray::set_picker_open(&app, true);
-    app.run_on_main_thread(move || {
-        activate_app();
-        let mut dialog = app2.dialog().file();
-        if let Some(title) = title {
-            dialog = dialog.set_title(title);
+pub async fn pick_file(app: AppHandle, title: Option<String>, directory: PathBuf) -> Result<Option<PathBuf>> {
+    run_picker(&app, move || {
+        let dialog = rfd::FileDialog::new().set_directory(directory);
+        match title {
+            Some(title) => dialog.set_title(title),
+            None => dialog,
         }
-        dialog.pick_folder(move |folder| {
-            let _ = tx.send(folder.and_then(|f| f.into_path().ok()));
-        });
-    })?;
-    let picked = rx.await.unwrap_or(None);
-    tray::set_picker_open(&app, false);
-    Ok(picked)
+        .pick_file()
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn pick_folder(app: AppHandle, title: Option<String>) -> Result<Option<PathBuf>> {
+    run_picker(&app, move || {
+        let dialog = rfd::FileDialog::new().set_can_create_directories(true);
+        match title {
+            Some(title) => dialog.set_title(title),
+            None => dialog,
+        }
+        .pick_folder()
+    })
+    .await
 }
 
 fn activate_app() {

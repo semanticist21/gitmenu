@@ -122,6 +122,8 @@ pub struct Tray {
     detached_frame: Mutex<Option<[f64; 4]>>,
     /// A native file picker is open: it isn't one of our windows, but the panel must stay
     pub picker_open: AtomicBool,
+    /// The detail window was kept on top when a picker opened
+    detail_on_top: AtomicBool,
     /// Blur-hide is suppressed until this instant (while a window we opened takes focus)
     suppress_hide_until: Mutex<Option<Instant>>,
     last_rect: Mutex<Option<Rect>>,
@@ -147,6 +149,7 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         detached: AtomicBool::new(false),
         detached_frame: Mutex::new(None),
         picker_open: AtomicBool::new(false),
+        detail_on_top: AtomicBool::new(false),
         suppress_hide_until: Mutex::new(None),
         last_rect: Mutex::new(None),
         applied_size: Mutex::new(None),
@@ -234,7 +237,8 @@ pub fn note_detached_frame(app: &AppHandle) {
 }
 
 /// While a native file or folder picker is open. The picker is a normal-level window, so the
-/// floating panel drops to normal level until it closes, or it would cover the picker.
+/// floating panel, and a detail window kept on top, drop to normal level until it closes, or
+/// they would cover the picker.
 pub fn set_picker_open(app: &AppHandle, open: bool) {
     app.state::<Arc<Tray>>().picker_open.store(open, Ordering::Relaxed);
     let level = if open { PanelLevel::Normal } else { PanelLevel::Floating };
@@ -242,6 +246,17 @@ pub fn set_picker_open(app: &AppHandle, open: bool) {
     let _ = app.run_on_main_thread(move || {
         if let Ok(panel) = handle.get_webview_panel(PANEL) {
             panel.set_level(level.value());
+        }
+        let Some(detail) = handle.get_webview_window(DETAIL) else { return };
+        let tray = handle.state::<Arc<Tray>>();
+        if open {
+            let on_top = detail.is_always_on_top().unwrap_or(false);
+            tray.detail_on_top.store(on_top, Ordering::Relaxed);
+            if on_top {
+                let _ = detail.set_always_on_top(false);
+            }
+        } else if tray.detail_on_top.swap(false, Ordering::Relaxed) {
+            let _ = detail.set_always_on_top(true);
         }
     });
 }
