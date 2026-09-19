@@ -61,7 +61,8 @@ function commits(count: number) {
   })
 }
 
-const ui: Record<string, unknown> = { loginItemAsked: true, 'views.layout': new URLSearchParams(window.location.search).get('views') ? { visible: new URLSearchParams(window.location.search).get('views')!.split(','), collapsed: [], weights: {} } : { visible: ['scm', 'commits', 'fileHistory', 'searchCompare'], collapsed: [], weights: { scm: 2, commits: 3, fileHistory: 1, searchCompare: 1 } }, 'fileHistory.target': { root, path: 'src/main.tsx' }, [`searchCompare.${root}`]: [{ id: 'compare:main..feature/login', kind: 'compare', base: 'main', head: 'feature/login' }] }
+const scenario = new URLSearchParams(window.location.search)
+const ui: Record<string, unknown> = { loginItemAsked: !scenario.get('login'), 'views.layout': new URLSearchParams(window.location.search).get('views') ? { visible: new URLSearchParams(window.location.search).get('views')!.split(','), collapsed: [], weights: {} } : { visible: ['scm', 'commits', 'fileHistory', 'searchCompare'], collapsed: [], weights: { scm: 2, commits: 3, fileHistory: 1, searchCompare: 1 } }, 'fileHistory.target': { root, path: 'src/main.tsx' }, [`searchCompare.${root}`]: [{ id: 'compare:main..feature/login', kind: 'compare', base: 'main', head: 'feature/login' }] }
 const settings: Record<string, unknown> = {}
 
 export function installMocks() {
@@ -96,15 +97,30 @@ export function installMocks() {
         case 'ui_state_set':
           ui[a.key as string] = a.value
           return null
-        case 'projects_list':
+        case 'projects_list': {
+          const kind = scenario.get('project')
+          if (kind === 'none') return [[], null]
+          if (kind === 'missing') return [[{ ...projects[0], missing: true, repos: [] }], root]
+          if (kind === 'parent') return [[{ ...projects[0], repos: [], parentCandidate: '/Users/me/code' }], root]
+          if (kind === 'norepo') return [[{ ...projects[0], repos: [] }], root]
           return [projects, root]
+        }
         case 'projects_recent':
           return ['/Users/me/code/archived']
         case 'env_status':
-          return { ready: true, git: '/usr/bin/git', gitVersion: 'git version 2.50.1', shellFailed: false }
+          return { ready: true, git: scenario.get('git') === 'missing' ? null : '/usr/bin/git', gitVersion: 'git version 2.50.1', shellFailed: scenario.get('git') === 'shell' }
         case 'prompt_open':
-          return []
+          return scenario.get('prompt') === 'askpass'
+            ? [{ id: 1, kind: 'askpass', prompt: "Password for 'https://me@github.com': ", input: 'secret' }]
+            : scenario.get('prompt') === 'editor'
+              ? [{ id: 2, kind: 'editor', path: '/tmp/COMMIT_EDITMSG', input: 'editor' }]
+              : []
+        case 'prompt_read_file':
+          return 'feat: add queue\n\n# Please enter the commit message for your changes.'
         case 'repo_status':
+          if (scenario.get('status') === 'merge')
+            return { ...status, operation: 'merge', merge: [{ path: 'src/app.ts', originalPath: null, status: 'bothModified', submodule: false }] }
+          if (scenario.get('status') === 'clean') return { ...status, index: [], workingTree: [], untracked: [] }
           return status
         case 'repo_refs':
           return [
@@ -213,4 +229,11 @@ export function installMocks() {
     },
     { shouldMockEvents: true },
   )
+  if (scenario.get('toast') === 'error') {
+    const message = "repository 'https://github.com/semanticist21/gitmenu-sync-test-does-not-exist.git/' not found"
+    setTimeout(() => void emit('op://finished', { id: 9, repo: root, kind: 'push', background: false, error: { kind: 'git', message, stderr: `remote: Repository not found.\nfatal: ${message}` } }), 600)
+  }
+  if (scenario.get('op')) {
+    setTimeout(() => void emit('op://started', { id: 1, repo: root, kind: 'push', label: 'git push', background: false }), 300)
+  }
 }

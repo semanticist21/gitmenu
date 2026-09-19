@@ -14,7 +14,7 @@ import { ToastProvider } from '@/components/ui/toast'
 import { setScmQueryClient } from '@/features/scm/state'
 import { setLocale } from '@/i18n'
 import { router } from '@/routes/router'
-import { settingsQuery, useSettings, useSettingsSync } from '@/settings/settings'
+import { settingDefault, settingsQuery, useSettings, useSettingsSync } from '@/settings/settings'
 import { useTheme } from '@/theme/theme'
 import '@/features'
 import './index.css'
@@ -36,7 +36,7 @@ function Shell() {
   useCommandHotkeys()
   const settings = useSettings()
   const { isFetched } = useQuery(settingsQuery)
-  const language = String(settings['gitmenu.language'] ?? 'auto')
+  const language = String(settings['gitmenu.language'] ?? settingDefault('gitmenu.language'))
 
   useEffect(() => setSettingsContext(settings), [settings])
   useEffect(() => {
@@ -55,7 +55,7 @@ function Shell() {
 // Load the language before the first paint so the UI never flashes English
 void queryClient
   .fetchQuery(settingsQuery)
-  .then((values) => setLocale(String(values['gitmenu.language'] ?? 'auto')))
+  .then((values) => setLocale(String(values['gitmenu.language'] ?? settingDefault('gitmenu.language'))))
   .catch((e: unknown) => {
     console.error('[gitmenu] settings unavailable at startup', e)
     return setLocale('auto')

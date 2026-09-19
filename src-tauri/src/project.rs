@@ -209,7 +209,7 @@ impl Projects {
         let roots: Vec<PathBuf> = project.info.repos.iter().map(|r| r.root.clone()).collect();
         inner.active = Some(id.to_path_buf());
         drop(inner);
-        self.ui.set("activeProject", serde_json::to_value(id)?);
+        self.save();
         self.emit_list();
         // Changes while the tab was inactive only set the dot; the views re-read now
         if was_dirty {
@@ -320,8 +320,10 @@ impl Projects {
         let stored: Vec<&StoredProject> =
             inner.order.iter().filter_map(|id| inner.projects.get(id)).map(|p| &p.stored).collect();
         let value = serde_json::to_value(stored).unwrap_or_default();
+        let active = serde_json::to_value(&inner.active).unwrap_or_default();
         drop(inner);
         self.ui.set("projects", value);
+        self.ui.set("activeProject", active);
     }
 
     fn emit_list(&self) {

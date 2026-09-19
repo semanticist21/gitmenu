@@ -73,7 +73,7 @@ function Toasts({
     <Toast.Portal data-slot="toast-portal" {...portalProps}>
       <Toast.Viewport
         className={cn(
-          "fixed z-60 mx-auto flex w-[calc(100%-var(--toast-inset)*2)] max-w-90 [--toast-inset:--spacing(4)] sm:[--toast-inset:--spacing(8)]",
+          "fixed z-60 mx-auto flex w-[calc(100%-var(--toast-inset)*2)] max-w-[450px] [--toast-inset:--spacing(2)]",
           // Vertical positioning
           "data-[position*=top]:top-(--toast-inset)",
           "data-[position*=bottom]:bottom-(--toast-inset)",
@@ -142,8 +142,8 @@ function Toasts({
               swipeDirection={swipeDirection}
               toast={toast}
             >
-              <Toast.Content className="pointer-events-auto flex items-center justify-between gap-1.5 overflow-hidden px-3.5 py-3 text-sm transition-opacity duration-250 data-behind:not-data-expanded:pointer-events-none data-behind:opacity-0 data-expanded:opacity-100">
-                <div className="flex gap-2">
+              <Toast.Content className="pointer-events-auto flex items-start justify-between gap-1.5 overflow-hidden px-2.5 py-2 text-xs transition-opacity duration-250 data-behind:not-data-expanded:pointer-events-none data-behind:opacity-0 data-expanded:opacity-100">
+                <div className="flex min-w-0 gap-2">
                   {Icon && (
                     <div
                       className="[&>svg]:h-lh [&>svg]:w-4 [&_svg]:pointer-events-none [&_svg]:shrink-0"
@@ -153,13 +153,13 @@ function Toasts({
                     </div>
                   )}
 
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex min-w-0 flex-col gap-0.5 [overflow-wrap:anywhere]">
                     <Toast.Title
-                      className="font-medium"
+                      className="line-clamp-3 font-medium"
                       data-slot="toast-title"
                     />
                     <Toast.Description
-                      className="text-muted-foreground"
+                      className="line-clamp-3 text-muted-foreground"
                       data-slot="toast-description"
                     />
                   </div>
@@ -231,8 +231,8 @@ function AnchoredToasts({
                     <Toast.Title data-slot="toast-title" />
                   </Toast.Content>
                 ) : (
-                  <Toast.Content className="pointer-events-auto flex items-center justify-between gap-1.5 overflow-hidden px-3.5 py-3 text-sm">
-                    <div className="flex gap-2">
+                  <Toast.Content className="pointer-events-auto flex items-start justify-between gap-1.5 overflow-hidden px-2.5 py-2 text-xs">
+                    <div className="flex min-w-0 gap-2">
                       {Icon && (
                         <div
                           className="[&>svg]:h-lh [&>svg]:w-4 [&_svg]:pointer-events-none [&_svg]:shrink-0"
@@ -242,7 +242,7 @@ function AnchoredToasts({
                         </div>
                       )}
 
-                      <div className="flex flex-col gap-0.5">
+                      <div className="flex min-w-0 flex-col gap-0.5 [overflow-wrap:anywhere]">
                         <Toast.Title
                           className="font-medium"
                           data-slot="toast-title"

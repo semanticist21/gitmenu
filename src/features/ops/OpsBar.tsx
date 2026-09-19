@@ -25,9 +25,17 @@ interface OpFinished {
   background: boolean
 }
 
+/** One short line for a git failure: git's own message with URLs and paths cut to the repo or
+ * file name (they're what makes it long), without the "fatal:"/"remote:" prefix. */
 export function errorText(error: IpcError): string {
   if (error.kind === 'alreadyRunning') return t('error.alreadyRunning', error.message.replace(/ is already running$/, ''))
-  return error.message
+  const name = (path: string) => path.replace(/\/+$/, '').split(/[/:]/).pop()?.replace(/\.git$/, '') ?? path
+  const text = error.message
+    .replace(/'?((?:https?|ssh|git):\/\/[^\s']+|[\w.-]+@[\w.-]+:[^\s']+)'?/g, (_, url: string) => name(url))
+    .replace(/'(\/[^']+)'/g, (_, path: string) => name(path))
+    .replace(/^(?:fatal|error|remote):\s*/i, '')
+    .trim()
+  return `Git: ${text.charAt(0).toUpperCase()}${text.slice(1)}`
 }
 
 export function OpsBar() {
@@ -43,7 +51,7 @@ export function OpsBar() {
     // A write finished: re-read now rather than waiting for the file watcher
     void client.invalidateQueries({ queryKey: ['repo', op.repo] })
     if (op.error && op.error.kind !== 'cancelled' && !op.background) {
-      toastManager.add({ type: 'error', title: errorText(op.error), description: op.error.stderr?.trim() || undefined })
+      toastManager.add({ type: 'error', title: errorText(op.error), description: undefined })
     }
   })
 
