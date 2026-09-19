@@ -6,7 +6,7 @@ import { MenuItems } from '@/commands/MenuItems'
 import { executeCommand } from '@/commands/registry'
 import { Button } from '@/components/ui/button'
 import { ContextMenu, ContextMenuPopup, ContextMenuTrigger } from '@/components/ui/context-menu'
-import { Menu, MenuGroupLabel, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from '@/components/ui/menu'
+import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from '@/components/ui/menu'
 import { t, useLocale } from '@/i18n'
 import { ipc, type ProjectInfo } from '@/lib/ipc'
 import { cn } from '@/lib/utils'
@@ -90,14 +90,16 @@ export function PanelHeader({ projects, active, pinned, onTogglePin, detached, o
         <MenuPopup align="end">
           <MenuItem onClick={() => void executeCommand('gitmenu.openProject')}>{t('project.open')}</MenuItem>
           <MenuSeparator />
-          <MenuGroupLabel>{t('project.openRecent')}</MenuGroupLabel>
-          {recentClosed.length === 0 && <MenuItem disabled>{t('project.noRecent')}</MenuItem>}
-          {recentClosed.map((path) => (
-            <MenuItem key={path} onClick={() => void ipc.projectOpen(path)}>
-              <span className="truncate">{basename(path)}</span>
-              <span className="ms-auto truncate ps-3 text-muted-foreground text-xs">{tildify(path)}</span>
-            </MenuItem>
-          ))}
+          <MenuGroup>
+            <MenuGroupLabel>{t('project.openRecent')}</MenuGroupLabel>
+            {recentClosed.length === 0 && <MenuItem disabled>{t('project.noRecent')}</MenuItem>}
+            {recentClosed.map((path) => (
+              <MenuItem key={path} onClick={() => void ipc.projectOpen(path)}>
+                <span className="truncate">{basename(path)}</span>
+                <span className="ms-auto truncate ps-3 text-muted-foreground text-xs">{tildify(path)}</span>
+              </MenuItem>
+            ))}
+          </MenuGroup>
         </MenuPopup>
       </Menu>
 

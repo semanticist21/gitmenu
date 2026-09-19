@@ -65,3 +65,16 @@ test('detach is in the panel menu', async ({ page }) => {
   await page.getByRole('button', { name: 'More' }).click()
   await expect(page.getByRole('menuitem', { name: 'Detach into a Window' })).toBeVisible()
 })
+
+test('every header menu opens without a render error', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  await page.goto('/?window=panel')
+  const header = page.locator('header')
+  for (const name of ['Open Project…', 'More']) {
+    await header.getByRole('button', { name }).click()
+    await expect(page.locator('[role="menu"]')).toBeVisible()
+    await page.keyboard.press('Escape')
+  }
+  expect(errors).toEqual([])
+})
