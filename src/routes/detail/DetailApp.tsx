@@ -193,7 +193,8 @@ export function DetailApp() {
                     )}
                     {isActive && <span className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-px bg-(--vsc-tab-activeBorder)" />}
                     <TabIcon kind={kind} />
-                    <span className="leading-[35px]">{label}</span>
+                    {/* The label fills the tab's 120px, so the close button sits at its right edge */}
+                    <span className="flex-1 leading-[35px]">{label}</span>
                     <span className="flex w-7 shrink-0 items-center justify-center">
                       <button
                         type="button"

@@ -56,9 +56,10 @@ export function OutputTab({ params }: DetailTabProps) {
   const text = op ? commandText(shown) : logText(shown)
   const tokens = useHighlight(text, 'git.log', dark)
 
-  // Follow new output while scrolled to the end, like the Output view's auto scrolling
+  // The log follows new output while scrolled to the end, like the Output view's auto
+  // scrolling; one command's output opens at its top, like the document VS Code opens
   const scrollRef = useRef<HTMLDivElement>(null)
-  const atEnd = useRef(true)
+  const atEnd = useRef(!op)
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (el && atEnd.current) el.scrollTop = el.scrollHeight
@@ -86,11 +87,11 @@ export function OutputTab({ params }: DetailTabProps) {
         className="h-full overflow-auto bg-(--vsc-editor-background) py-1 ps-5 pe-3.5 font-mono text-(--vsc-editor-foreground) text-[12px] leading-[18px] select-text"
         onScroll={(e) => {
           const el = e.currentTarget
-          atEnd.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 4
+          atEnd.current = !op && el.scrollTop + el.clientHeight >= el.scrollHeight - 4
         }}
       >
         {text.split('\n').map((line, i) => (
-          <div key={i} className="min-h-[18px] whitespace-pre-wrap break-all">
+          <div key={i} className="min-h-[18px] wrap-break-word whitespace-pre-wrap">
             {tokens?.[i]
               ? tokens[i].map(([content, color, style], j) => (
                   <span
