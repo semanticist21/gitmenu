@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/context-menu'
 import { MenuItem, MenuSeparator, MenuShortcut, MenuSub, MenuSubPopup, MenuSubTrigger } from '@/components/ui/menu'
 import { useLocale } from '@/i18n'
+import { useContextKeys } from './context'
 import { formatKey, useEffectiveBindings } from './keybindings'
 import { executeCommand, type MenuGroup, resolveMenu, title } from './registry'
 import type { Context } from './when'
@@ -27,6 +28,7 @@ interface Props {
 
 export function MenuItems({ menu, context, args = [], kind = 'menu', exclude = [] }: Props) {
   useLocale()
+  useContextKeys()
   const bindings = useEffectiveBindings()
   const groups: MenuGroup[] = resolveMenu(menu, context).filter((g) => g.group !== 'inline' && !exclude.includes(g.group))
   const Item = kind === 'menu' ? MenuItem : ContextMenuItem

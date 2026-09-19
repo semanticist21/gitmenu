@@ -92,6 +92,8 @@ struct OpDone<'a> {
     kind: OpKind,
     error: Option<&'a Error>,
     background: bool,
+    /// For a failure git explained on stderr: the key of its kept output (Show Command Output)
+    output: Option<String>,
 }
 
 pub struct Queue {
@@ -207,9 +209,13 @@ impl Queue {
         let _ = self.app.emit("op://started", OpEvent { id, repo: target.worktree, kind, label, background });
         let result = self.run_retrying(id, target.worktree, args, stdin).await;
         self.end(id, result.as_ref().err());
+        let output = match &result {
+            Err(Error::Cancelled | Error::AlreadyRunning(_)) | Ok(_) => None,
+            Err(_) => self.log.keep_failure(id),
+        };
         let _ = self.app.emit(
             "op://finished",
-            OpDone { id, repo: target.worktree, kind, error: result.as_ref().err(), background },
+            OpDone { id, repo: target.worktree, kind, error: result.as_ref().err(), background, output },
         );
         result
     }
@@ -249,6 +255,7 @@ impl Queue {
         let (code, stderr) = match &result {
             Ok(output) => (Some(0), output.stderr.clone()),
             Err(Error::Git { stderr, code, .. }) => (*code, stderr.clone()),
+            Err(Error::Cancelled) => (None, String::new()),
             Err(error) => (None, error.to_string()),
         };
         let entry = LogEntry {
@@ -258,6 +265,7 @@ impl Queue {
             args: args.iter().map(|a| (*a).to_owned()).collect(),
             duration_ms: started.elapsed().as_millis() as u64,
             code,
+            cancelled: matches!(result, Err(Error::Cancelled)),
             stderr,
         };
         self.log.push(&self.app, entry);

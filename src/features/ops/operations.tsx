@@ -28,6 +28,8 @@ interface OpFinished {
   kind: OpKind
   error: IpcError | null
   background: boolean
+  /** Key of the failed operation's kept output, when git wrote any */
+  output: string | null
 }
 
 /** repository.ts debounces the end of SCM progress by 300ms */
@@ -148,13 +150,22 @@ export function Operations() {
     // A write finished: re-read now rather than waiting for the file watcher
     void client.invalidateQueries({ queryKey: ['repo', op.repo] })
     if (op.error && op.error.kind !== 'cancelled' && !op.background) {
-      // VS Code's error notification offers git's full output
-      const route = `/detail/output?${new URLSearchParams({ op: String(op.id), ...(label ? { title: label } : {}) })}`
+      // VS Code's error notification: Show Command Output when git wrote something, and Open Git Log
+      const output = op.output
+      const openLog = { children: vsb('Open Git Log'), onClick: () => void ipc.detailOpen('/detail/output') }
       toastManager.add({
         type: 'error',
         title: errorText(op.error),
-        actionProps:
-          op.error.kind === 'git' ? { children: vsb('Show Command Output'), onClick: () => void ipc.detailOpen(route) } : undefined,
+        ...(output
+          ? {
+              actionProps: {
+                children: vsb('Show Command Output'),
+                onClick: () =>
+                  void ipc.detailOpen(`/detail/output?${new URLSearchParams({ failure: output, ...(label ? { title: label } : {}) })}`),
+              },
+              actions: [openLog],
+            }
+          : { actionProps: openLog }),
       })
     }
   })

@@ -42,8 +42,10 @@ function parse(route: string) {
   return { kind: path.replace(/^\/detail\/?/, ''), params: new URLSearchParams(query) }
 }
 
+// The hash is the route as `detail_open` got it, query already encoded: decoding it would
+// turn an encoded `&` inside a value into a separator
 function initialRoute() {
-  return decodeURIComponent(window.location.hash.replace(/^#/, '')) || '/detail/settings'
+  return window.location.hash.replace(/^#/, '') || '/detail/settings'
 }
 
 /** The editor's label icon: file editors show `file`, the others their editor's codicon. */

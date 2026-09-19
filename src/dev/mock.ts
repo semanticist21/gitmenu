@@ -80,6 +80,31 @@ export function installMocks() {
   })
   const params = new URLSearchParams(window.location.search)
   mockWindows(window.location.hash.startsWith('#/detail') ? 'detail' : (params.get('window') ?? 'panel'))
+  // The Git output log; e2e tests add commands with __logEntry
+  const now = Date.now()
+  const logRepo = '/Users/me/code/gitmenu'
+  const gitLog = [
+    { op: 7, time: now - 60_000, repo: logRepo, args: ['fetch', '--all'], durationMs: 812, code: 0, cancelled: false, stderr: 'From github.com:me/gitmenu\n   3f2a1c9..8b7d6e5  main       -> origin/main' },
+    { op: 8, time: now - 30_000, repo: logRepo, args: ['add', '-A', '--', 'src/main.tsx'], durationMs: 41, code: 0, cancelled: false, stderr: '' },
+    {
+      op: 9,
+      time: now - 5_000,
+      repo: logRepo,
+      args: ['pull', '--tags', 'origin', 'main'],
+      durationMs: 1234,
+      code: 128,
+      cancelled: false,
+      stderr:
+        'hint: You have divergent branches and need to specify how to reconcile them.\nhint: You can do so by running one of the following commands sometime before\nhint: your next pull:\nhint:\nhint:   git config pull.rebase false  # merge\nhint:   git config pull.rebase true   # rebase\nhint:   git config pull.ff only       # fast-forward only\nfatal: Need to specify how to reconcile divergent branches.',
+    },
+  ]
+  Object.assign(window, {
+    __emit: emit,
+    __logEntry: (entry: (typeof gitLog)[number]) => {
+      gitLog.push(entry)
+      void emit('git-log://entry', entry)
+    },
+  })
   // For the e2e tests: every command the UI invoked, in order, and their arguments
   const calls: string[] = []
   const callArgs: Record<string, unknown>[] = []
@@ -248,27 +273,14 @@ export function installMocks() {
           return 'available'
         case 'ai_commit_message':
           return 'feat(scm): add commit and push to the action button'
-        case 'git_log_entries': {
-          const now = Date.now()
-          const repo = '/Users/me/code/gitmenu'
-          return [
-            { op: 7, time: now - 60_000, repo, args: ['fetch', '--all'], durationMs: 812, code: 0, stderr: 'From github.com:me/gitmenu\n   3f2a1c9..8b7d6e5  main       -> origin/main' },
-            { op: 8, time: now - 30_000, repo, args: ['add', '-A', '--', 'src/main.tsx'], durationMs: 41, code: 0, stderr: '' },
-            {
-              op: 9,
-              time: now - 5_000,
-              repo,
-              args: ['pull', '--tags', 'origin', 'main'],
-              durationMs: 1234,
-              code: 128,
-              stderr:
-                'hint: You have divergent branches and need to specify how to reconcile them.\nhint: You can do so by running one of the following commands sometime before\nhint: your next pull:\nhint:\nhint:   git config pull.rebase false  # merge\nhint:   git config pull.rebase true   # rebase\nhint:   git config pull.ff only       # fast-forward only\nfatal: Need to specify how to reconcile divergent branches.',
-            },
-          ]
-        }
+        case 'git_log_entries':
+          return [...gitLog]
+        case 'git_log_failure':
+          return a.key === 'launch-9' ? gitLog.filter((e) => e.op === 9) : null
         case 'plugin:app|version':
           return '0.1.0'
         case 'git_log_clear':
+          gitLog.length = 0
           return null
         case 'terminal_apps':
           return ['Terminal', 'Ghostty']
@@ -283,9 +295,12 @@ export function installMocks() {
   )
   if (scenario.get('toast') === 'error') {
     const message = "repository 'https://github.com/semanticist21/gitmenu-sync-test-does-not-exist.git/' not found"
-    setTimeout(() => void emit('op://finished', { id: 9, repo: root, kind: 'push', background: false, error: { kind: 'git', message, stderr: `remote: Repository not found.\nfatal: ${message}` } }), 600)
+    setTimeout(() => void emit('op://finished', { id: 9, repo: root, kind: 'push', background: false, output: 'launch-9', error: { kind: 'git', message, stderr: `remote: Repository not found.\nfatal: ${message}` } }), 600)
   }
-  if (scenario.get('op')) {
-    setTimeout(() => void emit('op://started', { id: 1, repo: root, kind: 'push', label: 'git push', background: false }), 300)
+  // `op=1` runs a push; `op=<kind>` runs an operation of that kind, until the page closes
+  const running = scenario.get('op')
+  if (running) {
+    const kind = running === '1' ? 'push' : running
+    setTimeout(() => void emit('op://started', { id: 1, repo: root, kind, label: `git ${kind}`, background: false }), 300)
   }
 }

@@ -559,7 +559,8 @@ async function createBranch(root: string, from: boolean) {
   }
   const name = await branchName(vsb('Please provide a new branch name'))
   if (!name) return
-  await exec(root, 'checkout', vs('command.branch'), ['checkout', '-q', '-b', name, ...(base ? [base] : [])])
+  // VS Code's Branch operation is not blocking, unlike Checkout
+  await exec(root, 'other', vs('command.branch'), ['checkout', '-q', '-b', name, ...(base ? [base] : [])])
 }
 
 async function renameBranch(root: string) {
@@ -592,7 +593,8 @@ async function deleteRemoteBranch(root: string) {
   if (!ref) return
   const [remote, ...rest] = ref.short.split('/')
   if (!(await confirm(vsb('Are you sure you want to delete branch "{0}"? This action will permanently remove the branch reference from the repository.', ref.short), vsb('Delete Branch'), { destructive: true }))) return
-  await exec(root, 'push', vs('command.deleteRemoteBranch'), ['push', remote, '--delete', rest.join('/')])
+  // VS Code's DeleteRemoteRef operation is not blocking, unlike Push
+  await exec(root, 'other', vs('command.deleteRemoteBranch'), ['push', remote, '--delete', rest.join('/')])
 }
 
 async function mergeOrRebase(root: string, mode: 'merge' | 'rebase') {
@@ -781,8 +783,9 @@ async function continueOperation(root: string) {
   }
   const op = status.operation
   if (op === 'merge') await exec(root, 'commit', vsb('Continuing Merge...'), ['commit', '--no-edit'])
-  else if (op === 'rebase') await exec(root, 'commit', vsb('Continuing Rebase...'), ['rebase', '--continue'])
-  else if (op === 'cherryPick') await exec(root, 'commit', vs('command.cherryPick'), ['cherry-pick', '--continue'])
+  // VS Code's RebaseContinue and CherryPick operations don't disable other git commands
+  else if (op === 'rebase') await exec(root, 'other', vsb('Continuing Rebase...'), ['rebase', '--continue'])
+  else if (op === 'cherryPick') await exec(root, 'other', vs('command.cherryPick'), ['cherry-pick', '--continue'])
   else if (op === 'revert') await exec(root, 'commit', t('scm.continueRevert'), ['revert', '--continue'])
 }
 

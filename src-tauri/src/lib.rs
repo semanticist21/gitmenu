@@ -145,6 +145,7 @@ pub fn run() {
             commands::op_cancel,
             commands::git_log_entries,
             commands::git_log_clear,
+            commands::git_log_failure,
             commands::open_in_terminal,
             commands::reveal_in_finder,
             commands::open_path,

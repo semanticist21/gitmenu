@@ -1,6 +1,7 @@
 // Maps view ids to their components, and renders each view's title actions
 // (VS Code's `view/title` menu: `navigation` items as 20px icon actions, the rest under "…").
 import { type ComponentType, memo } from 'react'
+import { useContextKeys } from '@/commands/context'
 import { MenuItems } from '@/commands/MenuItems'
 import { executeCommand, resolveMenu, title } from '@/commands/registry'
 import { Menu, MenuPopup, MenuTrigger } from '@/components/ui/menu'
@@ -40,6 +41,8 @@ export function renderView(id: string, repo: RepoInfo) {
 
 export function ViewActions({ view, repo }: { view: string; repo: RepoInfo }) {
   useLocale()
+  // Enablement and `when` follow context changes (operationInProgress)
+  useContextKeys()
   // Source Control uses VS Code's own `scm/title` menu; the other views use `view/title`
   const menu = view === 'scm' ? 'scm/title' : 'view/title'
   const context = view === 'scm' ? { scmProvider: 'git' } : { view: `gitmenu.views.${view}` }

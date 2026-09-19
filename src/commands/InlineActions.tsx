@@ -1,6 +1,7 @@
 // A menu's `inline` group as 20px icon actions on a row, shown only on hover, focus or
 // selection (VS Code toggles `display`, it does not fade them).
 import type { ComponentType } from 'react'
+import { useContextKeys } from '@/commands/context'
 import { executeCommand, resolveMenu, title } from '@/commands/registry'
 import { Icon } from '@/components/Icon'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,8 @@ function ActionIcon({ icon }: { icon: unknown }) {
 }
 
 export function InlineActions({ menu, context, args }: { menu: string; context: Context; args: unknown[] }) {
+  // Enablement and `when` follow context changes (operationInProgress) without a parent render
+  useContextKeys()
   const items = resolveMenu(menu, context)
     .filter((g) => g.group === 'inline')
     .flatMap((g) => g.items)

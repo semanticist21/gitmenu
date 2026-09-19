@@ -23,6 +23,12 @@ Visual Studio Code git extension (MIT, Copyright (c) Microsoft Corporation) and
 GitLens (MIT, Copyright (c) 2021-2026 Axosoft, LLC dba GitKraken; Copyright (c) 2016-2021 Eric Amodio). No code from
 GitLens' `plus` directory, which is under the GitLens Pro license, is used.
 
+## GitLens icons
+
+- Source: https://github.com/gitkraken/vscode-gitlens (`images/icons`)
+- Copied into: `src/features/graph/glicons.tsx` (the Commit Graph and GitLens glyphs)
+- License: MIT, Copyright (c) 2021-2026 Axosoft, LLC dba GitKraken; Copyright (c) 2016-2021 Eric Amodio
+
 ## Codicons
 
 - Source: https://github.com/microsoft/vscode-codicons (npm `@vscode/codicons`), bundled into the app build
@@ -33,6 +39,9 @@ GitLens' `plus` directory, which is under the GitLens Pro license, is used.
 
 Colors (Light Modern and Dark Modern), metrics and component styles in `src/index.css`
 and `src/components/ui/` follow Visual Studio Code (MIT, Copyright (c) Microsoft Corporation).
+
+Visual Studio Code and GitLens are trademarks of their respective owners; gitmenu is not
+affiliated with or endorsed by Microsoft or GitKraken.
 
 ## Oniguruma
 

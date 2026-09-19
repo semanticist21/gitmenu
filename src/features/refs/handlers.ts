@@ -74,7 +74,8 @@ async function deleteBranch(arg: unknown) {
   if (ref.kind === 'remote') {
     const [remote, name] = splitRemote(ref)
     if (!(await confirm(gl('Delete the remote branch {0}?', ref.short), gl('Delete'), { destructive: true }))) return
-    return guard(() => exec(root, 'push', gl('Delete Branch'), ['push', remote, '--delete', name]))
+    // Not a blocking Push: VS Code runs remote ref deletion as its own, non-blocking operation
+    return guard(() => exec(root, 'other', gl('Delete Branch'), ['push', remote, '--delete', name]))
   }
   const mode = await showQuickPick(
     [

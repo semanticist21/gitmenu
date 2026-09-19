@@ -269,6 +269,12 @@ pub fn git_log_clear(queue: State<Arc<Queue>>) {
     queue.log().clear();
 }
 
+/// A failed operation's commands, by the key from `op://finished`
+#[tauri::command]
+pub fn git_log_failure(queue: State<Arc<Queue>>, key: String) -> Option<Vec<crate::output::LogEntry>> {
+    queue.log().failure(&key)
+}
+
 #[tauri::command]
 pub fn op_cancel(queue: State<Arc<Queue>>, id: u64) {
     queue.cancel(id);

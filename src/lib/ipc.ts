@@ -53,7 +53,9 @@ export interface GitLogEntry {
   repo: string
   args: string[]
   durationMs: number
+  /** Null when git was cancelled, killed, or couldn't start */
   code: number | null
+  cancelled: boolean
   stderr: string
 }
 
@@ -94,6 +96,8 @@ export const ipc = {
   opCancel: (id: number) => invoke<void>('op_cancel', { id }),
   gitLogEntries: () => invoke<GitLogEntry[]>('git_log_entries'),
   gitLogClear: () => invoke<void>('git_log_clear'),
+  /** A failed operation's commands, by the key from `op://finished` */
+  gitLogFailure: (key: string) => invoke<GitLogEntry[] | null>('git_log_failure', { key }),
   openInTerminal: (path: string) => invoke<void>('open_in_terminal', { path }),
   revealInFinder: (path: string) => invoke<void>('reveal_in_finder', { path }),
   openPath: (path: string) => invoke<void>('open_path', { path }),
