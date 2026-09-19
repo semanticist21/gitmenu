@@ -22,6 +22,7 @@ import { scmContribution } from './scm/contribution'
 import { commitAndThen, registerScmHandlers } from './scm/handlers'
 import { KeybindingsTab } from './settings/KeybindingsTab'
 import { SettingsTab } from './settings/SettingsTab'
+import { AboutTab, aboutLabel } from './about/AboutTab'
 import { OutputTab, outputLabel } from './output/OutputTab'
 import { registerView } from './views/registry'
 import { t } from '@/i18n'
@@ -76,4 +77,6 @@ registerDetailTab('changes', { label: changesLabel, component: ChangesTab })
 registerDetailTab('settings', { label: () => t('detail.settings'), component: SettingsTab })
 registerDetailTab('keyboard-shortcuts', { label: () => t('detail.keybindings'), component: KeybindingsTab })
 registerDetailTab('output', { label: outputLabel, component: OutputTab })
+registerDetailTab('about', { label: aboutLabel, component: AboutTab })
+registerHandler('workbench.action.showAboutDialog', () => ipc.detailOpen('/detail/about'))
 registerHandler('git.showOutput', () => ipc.detailOpen('/detail/output'))

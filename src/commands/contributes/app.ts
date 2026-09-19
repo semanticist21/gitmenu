@@ -6,6 +6,7 @@ const category = { text: 'gitmenu' }
 
 export const appContribution: Contribution = {
   commands: [
+    { command: 'workbench.action.showAboutDialog', title: { app: 'panel.about' } },
     { command: 'workbench.action.showCommands', title: { app: 'panel.commandPalette' } },
     { command: 'workbench.action.openSettings', title: { app: 'panel.settings' }, category, icon: 'settings-gear' },
     { command: 'workbench.action.openGlobalKeybindings', title: { app: 'panel.keyboardShortcuts' }, category },
@@ -34,6 +35,7 @@ export const appContribution: Contribution = {
       { command: 'workbench.action.closeActiveEditor', when: 'gitmenu.window == detail' },
     ],
     'gitmenu/panel/more': [
+      { command: 'workbench.action.showAboutDialog', group: '0_about' },
       { command: 'workbench.action.showCommands', group: '1_commands' },
       { command: 'gitmenu.toggleDetach', group: '1_commands@2' },
       { command: 'workbench.action.openSettings', group: '2_preferences@1' },

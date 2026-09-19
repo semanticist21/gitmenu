@@ -266,6 +266,8 @@ export function installMocks() {
             },
           ]
         }
+        case 'plugin:app|version':
+          return '0.1.0'
         case 'git_log_clear':
           return null
         case 'terminal_apps':

@@ -120,3 +120,12 @@ test('Unstage Changes acts on every selected staged file', async ({ page }) => {
     })
   await expect.poll(unstaged).toHaveLength(2)
 })
+
+test('About gitmenu opens from the top of the panel menu', async ({ page }) => {
+  await page.goto('/?window=panel')
+  await page.getByRole('button', { name: 'More Actions...' }).first().click()
+  const items = await menuTexts(page)
+  expect(items.slice(0, 2)).toEqual(['About gitmenu', 'Command Palette…'])
+  await page.getByRole('menuitem', { name: 'About gitmenu' }).click()
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __ipcCalls: string[] }).__ipcCalls.includes('detail_open'))).toBe(true)
+})
