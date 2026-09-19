@@ -117,11 +117,30 @@ export function installMocks() {
               : []
         case 'prompt_read_file':
           return 'feat: add queue\n\n# Please enter the commit message for your changes.'
-        case 'repo_status':
-          if (scenario.get('status') === 'merge')
-            return { ...status, operation: 'merge', merge: [{ path: 'src/app.ts', originalPath: null, status: 'bothModified', submodule: false }] }
-          if (scenario.get('status') === 'clean') return { ...status, index: [], workingTree: [], untracked: [] }
-          return status
+        case 'git_exec': {
+          const id = calls.length
+          const op = { id, repo: a.root, kind: a.kind, label: a.label, background: false }
+          ;(window as unknown as { __gitExec: string[][] }).__gitExec = [...((window as unknown as { __gitExec?: string[][] }).__gitExec ?? []), a.args as string[]]
+          void emit('op://started', op)
+          return new Promise((resolve) =>
+            setTimeout(() => {
+              void emit('op://finished', { ...op, error: null })
+              resolve({ stdout: '', stderr: '' })
+              // The file watcher reports the write a moment later (debounced)
+              setTimeout(() => void emit('repo://changed', a.root), 60)
+            }, 30),
+          )
+        }
+        case 'repo_status': {
+          const next =
+            scenario.get('status') === 'merge'
+              ? { ...status, operation: 'merge', merge: [{ path: 'src/app.ts', originalPath: null, status: 'bothModified', submodule: false }] }
+              : scenario.get('status') === 'clean'
+                ? { ...status, index: [], workingTree: [], untracked: [] }
+                : status
+          // Real status reads take a moment; a refresh landing meanwhile must not abort a command
+          return scenario.get('slow') ? new Promise((resolve) => setTimeout(() => resolve(next), 150)) : next
+        }
         case 'repo_refs':
           return [
             { name: 'refs/heads/main', short: 'main', kind: 'branch', commit: status.head.commit, time: 1_700_000_000, subject: 'feat: add queue' },

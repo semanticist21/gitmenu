@@ -5,7 +5,11 @@ import { ipc } from './ipc'
 
 /** Reads a UI state value outside React (commands). */
 export async function readUiState<T>(client: QueryClient, key: string): Promise<T | null> {
-  return client.fetchQuery({ queryKey: ['uiState', key], queryFn: async () => (await ipc.uiStateGet<T>(key)) ?? null, staleTime: Infinity })
+  const cached = client.getQueryData<T | null>(['uiState', key])
+  if (cached !== undefined) return cached
+  const value = (await ipc.uiStateGet<T>(key)) ?? null
+  client.setQueryData(['uiState', key], value)
+  return value
 }
 
 /** Writes a UI state value outside React; components using it update. */

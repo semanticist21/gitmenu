@@ -1,5 +1,6 @@
 // Implementations of the VS Code git commands declared in contribution.ts. Messages and
 // safety prompts follow the git extension (same text, so its translations apply).
+import { isCancelledError } from '@tanstack/react-query'
 import { registerHandler } from '@/commands/registry'
 import { type QuickPickItem, showInputBox, showMessage, showQuickPick } from '@/components/dialogs/dialogs'
 import { toastManager } from '@/components/ui/toast'
@@ -29,8 +30,13 @@ async function setSetting(key: string, value: unknown) {
   await ipc.settingsSet(key, value)
 }
 
+/** Reads status straight from git, then updates the views. Not through the query cache: a
+ * write finishing mid-command invalidates it, and that would cancel the read (CancelledError)
+ * and abort the command, e.g. the push half of Sync. */
 async function freshStatus(root: string): Promise<RepoStatus> {
-  return scmQueryClient().fetchQuery({ ...statusQuery(root), staleTime: 0 })
+  const status = await git.status(root)
+  scmQueryClient().setQueryData(statusQuery(root).queryKey, status)
+  return status
 }
 
 export function refresh(root: string) {
@@ -44,6 +50,11 @@ export async function guard<T>(fn: () => Promise<T>): Promise<T | undefined> {
   try {
     return await fn()
   } catch (error) {
+    // A query cancelled by a refresh isn't a failure the user can act on
+    if (isCancelledError(error)) {
+      console.warn('[gitmenu] command aborted by a cancelled query', error)
+      return undefined
+    }
     if (!(isIpcError(error) && REPORTED.has(error.kind))) {
       toastManager.add({ type: 'error', title: errorMessage(error) })
     }

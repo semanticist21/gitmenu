@@ -78,3 +78,14 @@ test('every header menu opens without a render error', async ({ page }) => {
   }
   expect(errors).toEqual([])
 })
+
+test('Sync pulls and then pushes even when the pull refreshes the views', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  await page.goto('/?window=panel&slow=1&status=clean')
+  await page.getByRole('button', { name: /Sync Changes/ }).click()
+  await page.getByRole('button', { name: 'OK', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __gitExec?: string[][] }).__gitExec?.map((a) => a[0]) ?? [])).toEqual(['pull', 'push'])
+  await expect(page.getByText('CancelledError')).toHaveCount(0)
+  expect(errors).toEqual([])
+})
