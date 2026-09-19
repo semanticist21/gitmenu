@@ -1,11 +1,10 @@
 # Cask for the gitside Homebrew tap. Copy it to the tap repository's Casks/ folder after a
-# release, replacing OWNER with the GitHub owner of the gitside repository and setting
-# version and sha256 (`shasum -a 256 gitside_<version>_universal.dmg`).
+# release, setting version and sha256 (`shasum -a 256 gitside_<version>_universal.dmg`).
 cask "gitside" do
   version "0.1.0"
   sha256 "REPLACE_WITH_DMG_SHA256"
 
-  url "https://github.com/OWNER/gitside/releases/download/v#{version}/gitside_#{version}_universal.dmg"
+  url "https://github.com/semanticist21/gitside/releases/download/v#{version}/gitside_#{version}_universal.dmg"
   name "gitside"
   desc "Menu bar git panel with VS Code Source Control and GitLens features"
   homepage "https://kkom.net/gitside"
