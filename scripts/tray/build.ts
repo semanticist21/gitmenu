@@ -13,34 +13,40 @@ const body = readFileSync(join(import.meta.dirname, 'body.svg'), 'utf8')
   .replace(/^<svg[^>]*>/, '')
   .replace(/<\/svg>\s*$/, '')
 
-// 28-unit canvas: the 24-unit body sits top-left, the badge overlaps its bottom-right corner
-const SIZE_PT = 22
-const BADGE = { cx: 22, cy: 22, r: 5.6, gap: 1.6 }
-
+// 18pt canvas (what macOS shows in the menu bar); the mark is 16pt tall like system icons.
+// The body is drawn in body.svg's 24-unit space and scaled; the badge sits bottom-right.
+const SIZE_PT = 18
+const BODY = { scale: 0.825, tx: 0.34, ty: -0.9 }
+const BADGE = { cx: 14.1, cy: 14.1, r: 3.6, gap: 1.0 }
+// Badge glyphs are drawn around (0,0) in a 10-unit space
 const glyphs: Record<string, string> = {
-  push: '<path d="M22 25v-6M19.4 21.4 22 18.8l2.6 2.6"/>',
-  pull: '<path d="M22 19v6M19.4 22.6 22 25.2l2.6-2.6"/>',
-  fetch: '<path d="M24.6 20.4a3 3 0 1 0 .4 2.2"/><path d="M25 18.6v2.2h-2.2"/>',
-  commit: '<circle cx="22" cy="22" r="2" fill="currentColor" stroke="none"/>',
-  conflict: '<path d="M22 19v3.4"/><circle cx="22" cy="25" r="0.3"/>',
-  failure: '<path d="m19.9 19.9 4.2 4.2m0-4.2-4.2 4.2"/>',
+  push: '<path d="M0 3v-6M-2.6-0.6 0-3.2l2.6 2.6"/>',
+  pull: '<path d="M0-3v6M-2.6 0.6 0 3.2l2.6-2.6"/>',
+  fetch: '<path d="M2.6-1.6a3 3 0 1 0 .4 2.2"/><path d="M3-3.4v2.2H.8"/>',
+  commit: '<circle r="2" fill="currentColor" stroke="none"/>',
+  conflict: '<path d="M0-3v3.4"/><circle cy="3" r="0.3"/>',
+  failure: '<path d="m-2.1-2.1 4.2 4.2m0-4.2-4.2 4.2"/>',
 }
 
 function svg(state: string, bodyColor: string): string {
+  // The knockout is applied inside the body's transformed space
+  const kx = (BADGE.cx - BODY.tx) / BODY.scale
+  const ky = (BADGE.cy - BODY.ty) / BODY.scale
+  const kr = (BADGE.r + BADGE.gap) / BODY.scale
   const knockout = state === 'idle'
     ? ''
-    : `<mask id="k"><rect width="28" height="28" fill="#fff"/><circle cx="${BADGE.cx}" cy="${BADGE.cy}" r="${BADGE.r + BADGE.gap}" fill="#000"/></mask>`
+    : `<mask id="k" maskUnits="userSpaceOnUse" x="-10" y="-10" width="60" height="60"><rect x="-10" y="-10" width="60" height="60" fill="#fff"/><circle cx="${kx}" cy="${ky}" r="${kr}" fill="#000"/></mask>`
   const mask = state === 'idle' ? '' : ' mask="url(#k)"'
-  const bodyGroup = `<g${mask} color="${bodyColor}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body.replaceAll('#000', 'currentColor')}</g>`
+  const bodyGroup = `<g transform="translate(${BODY.tx} ${BODY.ty}) scale(${BODY.scale})"${mask} color="${bodyColor}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body.replaceAll('#000', 'currentColor')}</g>`
   let badge = ''
   if (state === 'conflict' || state === 'failure') {
     badge = `<circle cx="${BADGE.cx}" cy="${BADGE.cy}" r="${BADGE.r}" fill="#ff3b30"/>`
-      + `<g color="#fff" stroke="currentColor" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${glyphs[state]}</g>`
+      + `<g transform="translate(${BADGE.cx} ${BADGE.cy}) scale(0.62)" color="#fff" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${glyphs[state]}</g>`
   } else if (state !== 'idle') {
-    badge = `<g color="${bodyColor}" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">`
-      + `<circle cx="${BADGE.cx}" cy="${BADGE.cy}" r="${BADGE.r - 0.6}"/>${glyphs[state]}</g>`
+    badge = `<g transform="translate(${BADGE.cx} ${BADGE.cy})" color="${bodyColor}" stroke="currentColor" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">`
+      + `<circle r="${BADGE.r - 0.5}"/><g transform="scale(0.62)">${glyphs[state]}</g></g>`
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="28" height="28"><defs>${knockout}</defs>${bodyGroup}${badge}</svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" width="18" height="18"><defs>${knockout}</defs>${bodyGroup}${badge}</svg>`
 }
 
 function render(name: string, source: string) {

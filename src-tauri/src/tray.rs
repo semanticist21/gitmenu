@@ -33,8 +33,9 @@ pub const PANEL: &str = "panel";
 pub const DETAIL: &str = "detail";
 const TRAY_ID: &str = "main";
 const BLINK: Duration = Duration::from_millis(500);
-const REOPEN_GUARD: Duration = Duration::from_millis(300);
 const BLUR_GRACE: Duration = Duration::from_millis(80);
+/// After opening another of our windows, blur-hide waits this long for it to take focus
+const WINDOW_OPEN_GRACE: Duration = Duration::from_millis(600);
 const MARGIN: f64 = 6.0;
 
 tauri_panel! {
@@ -115,7 +116,10 @@ pub struct Tray {
     state: Mutex<IconState>,
     wake: Condvar,
     pinned: AtomicBool,
-    hidden_at: Mutex<Option<Instant>>,
+    /// A native file picker is open: it isn't one of our windows, but the panel must stay
+    pub picker_open: AtomicBool,
+    /// Blur-hide is suppressed until this instant (while a window we opened takes focus)
+    suppress_hide_until: Mutex<Option<Instant>>,
     last_rect: Mutex<Option<Rect>>,
     conflicted: Mutex<std::collections::HashSet<std::path::PathBuf>>,
 }
@@ -134,7 +138,8 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         state: Mutex::new(IconState::default()),
         wake: Condvar::new(),
         pinned: AtomicBool::new(false),
-        hidden_at: Mutex::new(None),
+        picker_open: AtomicBool::new(false),
+        suppress_hide_until: Mutex::new(None),
         last_rect: Mutex::new(None),
         conflicted: Mutex::new(Default::default()),
     });
@@ -146,20 +151,15 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .icon_as_template(true)
         .tooltip("gitmenu")
         .show_menu_on_left_click(false)
+        // Mouse down, not up: it arrives before the panel resigns key, so the toggle sees the
+        // panel's real state instead of racing the blur-hide
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
-                button: MouseButton::Left, button_state: MouseButtonState::Up, rect, ..
+                button: MouseButton::Left, button_state: MouseButtonState::Down, rect, ..
             } = event
             {
                 let app = tray.app_handle();
-                let state = app.state::<Arc<Tray>>();
-                *state.last_rect.lock().unwrap() = Some(rect);
-                // A click that lands right after the panel hid itself on blur is the same
-                // click that caused the blur; don't reopen
-                let just_hidden = state.hidden_at.lock().unwrap().is_some_and(|t| t.elapsed() < REOPEN_GUARD);
-                if just_hidden {
-                    return;
-                }
+                *app.state::<Arc<Tray>>().last_rect.lock().unwrap() = Some(rect);
                 toggle_panel(app);
             }
         })
@@ -195,10 +195,14 @@ fn setup_panel(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Hides the panel after it lost key status, unless pinned or another of our windows took focus.
+/// Hides the panel after it lost key status, unless pinned, a picker is open, or another of
+/// our windows took (or is about to take) focus.
 fn hide_if_unfocused(app: &AppHandle) {
     let tray = app.state::<Arc<Tray>>();
-    if tray.pinned.load(Ordering::Relaxed) {
+    if tray.pinned.load(Ordering::Relaxed) || tray.picker_open.load(Ordering::Relaxed) {
+        return;
+    }
+    if tray.suppress_hide_until.lock().unwrap().is_some_and(|t| Instant::now() < t) {
         return;
     }
     let ours_focused = app.webview_windows().values().any(|w| w.is_focused().unwrap_or(false));
@@ -207,12 +211,16 @@ fn hide_if_unfocused(app: &AppHandle) {
     }
 }
 
+/// Call before opening another window of ours, so the panel doesn't hide while focus moves.
+pub fn keep_open_briefly(app: &AppHandle) {
+    *app.state::<Arc<Tray>>().suppress_hide_until.lock().unwrap() = Some(Instant::now() + WINDOW_OPEN_GRACE);
+}
+
 pub fn toggle_panel(app: &AppHandle) {
-    let visible = app.get_webview_panel(PANEL).map(|p| p.is_visible()).unwrap_or(false);
-    if visible {
-        hide_panel(app);
-    } else {
-        show_panel(app);
+    match app.get_webview_panel(PANEL) {
+        Ok(panel) if panel.is_visible() => hide_panel(app),
+        Ok(_) => show_panel(app),
+        Err(e) => log::error!("panel handle lost: {e:?}"),
     }
 }
 
@@ -228,7 +236,9 @@ pub fn show_panel(app: &AppHandle) {
             panel.show_and_make_key();
             return;
         }
-        if let Some(window) = panel.to_window() {
+        // Never `panel.to_window()` here: in this nspanel revision it converts the panel back
+        // into a plain window and drops the delegate
+        if let Some(window) = app.get_webview_window(PANEL) {
             place_panel(&app, &window);
         }
         panel.show_and_make_key();
@@ -249,14 +259,13 @@ pub fn hide_panel(app: &AppHandle) {
         if !panel.is_visible() {
             return;
         }
-        if let Some(window) = panel.to_window()
+        if let Some(window) = app.get_webview_window(PANEL)
             && let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor())
         {
             let logical = size.to_logical::<f64>(scale);
             app.state::<Arc<UiState>>().set("panel.size", serde_json::json!([logical.width, logical.height]));
         }
         panel.hide();
-        *app.state::<Arc<Tray>>().hidden_at.lock().unwrap() = Some(Instant::now());
         let _ = app.emit("panel://hidden", ());
     });
 }
