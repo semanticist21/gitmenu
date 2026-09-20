@@ -34,15 +34,15 @@ export function FileHistoryView({ repo }: ViewProps) {
   useEffect(() => setContext('gitmenu:views:fileHistory:pinned', pinned), [pinned])
   useEffect(() => {
     const disposers = [
-      registerHandler('gitlens.views.fileHistory.pick', async () => {
+      registerHandler('gitmenu.views.fileHistory.pick', async () => {
         const picked = await pickRepoFile(root)
         if (picked) {
           setTarget({ root, path: picked })
           setPinned(true)
         }
       }),
-      registerHandler('gitlens.views.fileHistory.setEditorFollowingOff', () => setPinned(true)),
-      registerHandler('gitlens.views.fileHistory.setEditorFollowingOn', () => setPinned(false)),
+      registerHandler('gitmenu.views.fileHistory.setEditorFollowingOff', () => setPinned(true)),
+      registerHandler('gitmenu.views.fileHistory.setEditorFollowingOn', () => setPinned(false)),
     ]
     return () => disposers.forEach((d) => d())
   }, [root, setTarget, setPinned])

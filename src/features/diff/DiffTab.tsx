@@ -247,7 +247,7 @@ export function DiffTab({ params }: DetailTabProps) {
       registerHandler('workbench.action.editor.nextChange', () => setFocusHunk((h) => Math.min((h ?? -1) + 1, (result?.hunks.length ?? 1) - 1))),
       registerHandler('workbench.action.editor.previousChange', () => setFocusHunk((h) => Math.max((h ?? 1) - 1, 0))),
       registerHandler('toggle.diff.renderSideBySide', () => setSetting('diffEditor.renderSideBySide', !sideBySide)),
-      registerHandler('gitlens.toggleFileBlame', () => setBlameOn(!blameOn)),
+      registerHandler('gitmenu.toggleFileBlame', () => setBlameOn(!blameOn)),
     ]
     return () => disposers.forEach((d) => d())
   }, [selection, canStage, canUnstage, apply, result, sideBySide, blameOn, setBlameOn])
@@ -336,7 +336,7 @@ export function DiffTab({ params }: DetailTabProps) {
         <ActionButton
           icon={blameOn ? <LogoBadgeFilledIcon /> : <LogoBadgeIcon />}
           label={blameLabel}
-          command="gitlens.toggleFileBlame"
+          command="gitmenu.toggleFileBlame"
           pressed={blameOn}
           onClick={() => setBlameOn(!blameOn)}
         />

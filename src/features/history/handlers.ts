@@ -207,7 +207,7 @@ async function openAllChanges(arg: unknown, withWorking: boolean) {
   if (!isCommitArg(arg)) return
   const { root, commit } = arg
   const details = await git.commitDetails(root, commit.id)
-  if (details.files.length > 10 && !(await confirm(gl('Are you sure you want to open the changes for all {0} files?', details.files.length), gl('Open Files')))) return
+  if (details.filesTotal > 10 && !(await confirm(gl('Are you sure you want to open the changes for all {0} files?', details.filesTotal), gl('Open Files')))) return
   for (const file of details.files) {
     if (withWorking) openWithWorking({ root, sha: commit.id, parent: commit.parents[0] ?? null, file })
     else openFileChange({ root, sha: commit.id, parent: commit.parents[0] ?? null, file })
@@ -237,32 +237,32 @@ async function openFileHistory(arg: unknown) {
 export function registerHistoryHandlers() {
   const commitRoot = (arg: unknown) => (isCommitArg(arg) ? arg.root : repoFrom(arg))
   const handlers: Record<string, (arg?: unknown) => unknown> = {
-    'gitlens.views.searchAndCompare.searchCommits': searchCommits,
-    'gitlens.views.searchAndCompare.selectForCompare': compareReferences,
-    'gitlens.views.searchAndCompare.clear': async (arg) => {
+    'gitmenu.views.searchAndCompare.searchCommits': searchCommits,
+    'gitmenu.views.searchAndCompare.selectForCompare': compareReferences,
+    'gitmenu.views.searchAndCompare.clear': async (arg) => {
       const root = repoFrom(arg)
       if (root) await updateResults(root, () => [])
     },
-    'gitlens.views.dismissNode': async (arg) => {
+    'gitmenu.views.dismissNode': async (arg) => {
       const { root, item } = arg as ResultArg
       await updateResults(root, (items) => items.filter((i) => i.id !== item.id))
     },
-    'gitlens.views.swapComparison': async (arg) => {
+    'gitmenu.views.swapComparison': async (arg) => {
       const { root, item } = arg as ResultArg
       if (item.kind !== 'compare') return
       const swapped: SearchCompareItem = { id: `compare:${item.head}..${item.base}`, kind: 'compare', base: item.head, head: item.base }
       await updateResults(root, (items) => items.map((i) => (i.id === item.id ? swapped : i)))
     },
-    'gitlens.views.compareWithHead': async (arg) => {
+    'gitmenu.views.compareWithHead': async (arg) => {
       if (!isCommitArg(arg)) return
       await addResult(arg.root, { id: `compare:${arg.commit.id}..HEAD`, kind: 'compare', base: arg.commit.id, head: 'HEAD' })
     },
-    'gitlens.views.selectForCompare': (arg) => {
+    'gitmenu.views.selectForCompare': (arg) => {
       if (!isCommitArg(arg)) return
       selectedForCompare = { root: arg.root, ref: arg.commit.id }
       setContext('gitlens:views:canCompare', true)
     },
-    'gitlens.views.compareWithSelected': async (arg) => {
+    'gitmenu.views.compareWithSelected': async (arg) => {
       if (!isCommitArg(arg) || !selectedForCompare || selectedForCompare.root !== arg.root) return
       const base = selectedForCompare.ref
       selectedForCompare = null
@@ -270,62 +270,62 @@ export function registerHistoryHandlers() {
       await addResult(arg.root, { id: `compare:${base}..${arg.commit.id}`, kind: 'compare', base, head: arg.commit.id })
     },
 
-    'gitlens.copyShaToClipboard': (arg) => {
+    'gitmenu.copyShaToClipboard': (arg) => {
       const sha = isCommitArg(arg) ? arg.commit.id : isFileArg(arg) ? arg.sha : null
       if (sha) return copy(sha)
     },
-    'gitlens.copyMessageToClipboard': async (arg) => {
+    'gitmenu.copyMessageToClipboard': async (arg) => {
       if (!isCommitArg(arg)) return
       await copy((await git.commitDetails(arg.root, arg.commit.id)).message)
     },
-    'gitlens.openCommitOnRemote': async (arg) => {
+    'gitmenu.openCommitOnRemote': async (arg) => {
       const url = await remoteUrl(arg, 'commit')
       if (url) await ipc.openPath(url)
     },
-    'gitlens.copyRemoteCommitUrl': async (arg) => {
+    'gitmenu.copyRemoteCommitUrl': async (arg) => {
       const url = await remoteUrl(arg, 'commit')
       if (url) await copy(url)
     },
-    'gitlens.openFileOnRemote': async (arg) => {
+    'gitmenu.openFileOnRemote': async (arg) => {
       const url = await remoteUrl(arg, 'file')
       if (url) await ipc.openPath(url)
     },
-    'gitlens.copyRemoteFileUrlToClipboard': async (arg) => {
+    'gitmenu.copyRemoteFileUrlToClipboard': async (arg) => {
       const url = await remoteUrl(arg, 'file')
       if (url) await copy(url)
     },
-    'gitlens.openRepoOnRemote': async (arg) => {
+    'gitmenu.openRepoOnRemote': async (arg) => {
       const root = repoFrom(arg)
       const provider = root ? await pickProvider(root) : undefined
       if (provider) await ipc.openPath(provider.repository())
     },
 
-    'gitlens.views.cherryPick': cherryPick,
-    'gitlens.views.revert': revert,
-    'gitlens.views.resetToCommit': (arg) => reset(arg, false),
-    'gitlens.views.resetCommit': (arg) => reset(arg, true),
-    'gitlens.views.rebaseOntoCommit': rebaseOnto,
-    'gitlens.views.switchToCommit': switchToCommit,
-    'gitlens.views.createBranch': createBranchAt,
-    'gitlens.views.createTag': createTagAt,
-    'gitlens.views.openChanges': (arg) => (isFileArg(arg) ? openFileChange(arg) : openAllChanges(arg, false)),
-    'gitlens.views.openChangesWithWorking': (arg) => (isFileArg(arg) ? openWithWorking(arg) : openAllChanges(arg, true)),
-    'gitlens.views.openFile': (arg) => {
+    'gitmenu.views.cherryPick': cherryPick,
+    'gitmenu.views.revert': revert,
+    'gitmenu.views.resetToCommit': (arg) => reset(arg, false),
+    'gitmenu.views.resetCommit': (arg) => reset(arg, true),
+    'gitmenu.views.rebaseOntoCommit': rebaseOnto,
+    'gitmenu.views.switchToCommit': switchToCommit,
+    'gitmenu.views.createBranch': createBranchAt,
+    'gitmenu.views.createTag': createTagAt,
+    'gitmenu.views.openChanges': (arg) => (isFileArg(arg) ? openFileChange(arg) : openAllChanges(arg, false)),
+    'gitmenu.views.openChangesWithWorking': (arg) => (isFileArg(arg) ? openWithWorking(arg) : openAllChanges(arg, true)),
+    'gitmenu.views.openFile': (arg) => {
       if (isFileArg(arg)) void ipc.openPath(`${arg.root}/${arg.file.path}`)
     },
-    'gitlens.views.openFileRevision': (arg) => {
+    'gitmenu.views.openFileRevision': (arg) => {
       if (isFileArg(arg)) openRevision(arg)
     },
-    'gitlens.openFileHistory': openFileHistory,
+    'gitmenu.openFileHistory': openFileHistory,
 
-    'gitlens.views.refresh': (arg) => {
+    'gitmenu.views.refresh': (arg) => {
       const root = commitRoot(arg)
       if (root) refresh(root)
     },
-    'gitlens.views.push': (arg) => executeCommand('git.push', repoFrom(arg)),
-    'gitlens.views.pull': (arg) => executeCommand('git.pull', repoFrom(arg)),
-    'gitlens.views.fetch': (arg) => executeCommand('git.fetch', repoFrom(arg)),
-    'gitlens.views.publishBranch': (arg) => executeCommand('git.publish', repoFrom(arg)),
+    'gitmenu.views.push': (arg) => executeCommand('git.push', repoFrom(arg)),
+    'gitmenu.views.pull': (arg) => executeCommand('git.pull', repoFrom(arg)),
+    'gitmenu.views.fetch': (arg) => executeCommand('git.fetch', repoFrom(arg)),
+    'gitmenu.views.publishBranch': (arg) => executeCommand('git.publish', repoFrom(arg)),
   }
   for (const [id, handler] of Object.entries(handlers)) registerHandler(id, handler)
 }

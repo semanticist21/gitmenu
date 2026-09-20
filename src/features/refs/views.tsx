@@ -1,7 +1,7 @@
 // GitLens's Branches, Remotes, Tags, Stashes, Worktrees and Contributors views.
 import { useQuery } from '@tanstack/react-query'
 import { Icon } from '@/components/Icon'
-import { gl, useLocale } from '@/i18n'
+import { gl, t, useLocale } from '@/i18n'
 import { type BranchInfo, type Contributor, git, type RefInfo, type StashInfo, type Upstream, type WorktreeInfo } from '@/lib/git'
 import { errorMessage } from '@/lib/ipc'
 import { relativeTime } from '@/lib/time'
@@ -177,8 +177,13 @@ export function StashesView({ repo }: ViewProps) {
       loadChildren: asyncChildren({
         queryKey: ['repo', root, 'commit', stash.commit],
         queryFn: () => git.commitDetails(root, stash.commit),
-        build: (details) =>
-          details.files.map((f) => ({ ...fileNode(root, stash.commit, details.parents[0] ?? null, f, `stash:${stash.commit}`), contextValue: 'gitlens:file+stashed' })),
+        build: (details) => {
+          const files: TreeNode[] = details.files.map((f) => ({ ...fileNode(root, stash.commit, details.parents[0] ?? null, f, `stash:${stash.commit}`), contextValue: 'gitlens:file+stashed' }))
+          if (details.filesTotal > details.files.length) {
+            files.push(messageNode(`stash:${stash.commit}/capped`, t('commit.filesCapped', details.files.length, details.filesTotal)))
+          }
+          return files
+        },
       }),
     }),
   )

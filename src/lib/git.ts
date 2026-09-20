@@ -159,6 +159,8 @@ export interface CommitFile {
 
 export interface CommitDetails extends CommitInfo {
   message: string
+  /** The full count; `files` holds at most the first 10,000 */
+  filesTotal: number
   files: CommitFile[]
 }
 
@@ -168,6 +170,8 @@ export interface Comparison {
   mergeBase: string | null
   ahead: number
   behind: number
+  /** The full count; `files` holds at most the first 10,000 */
+  filesTotal: number
   files: CommitFile[]
 }
 

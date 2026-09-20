@@ -45,7 +45,7 @@ export function FileTab({ params }: DetailTabProps) {
   const [anchor, setAnchor] = useState<number | null>(null)
   const dark = useDarkMode()
 
-  useEffect(() => registerHandler('gitlens.toggleFileBlame', () => setBlameOn(!blameOn)), [blameOn, setBlameOn])
+  useEffect(() => registerHandler('gitmenu.toggleFileBlame', () => setBlameOn(!blameOn)), [blameOn, setBlameOn])
 
   const onSelectLine = (_side: 'left' | 'right', line: number, extend: boolean) => {
     const right = new Set<number>()
@@ -85,7 +85,7 @@ export function FileTab({ params }: DetailTabProps) {
         <ActionButton
           icon={blameOn ? <LogoBadgeFilledIcon /> : <LogoBadgeIcon />}
           label={gl('Toggle File Blame')}
-          command="gitlens.toggleFileBlame"
+          command="gitmenu.toggleFileBlame"
           pressed={blameOn}
           onClick={() => setBlameOn(!blameOn)}
         />

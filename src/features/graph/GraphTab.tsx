@@ -14,7 +14,7 @@ import { Menu, MenuCheckboxItem, MenuPopup, MenuTrigger } from '@/components/ui/
 import { ProgressBar } from '@/components/ui/progress'
 import { Tooltip, TooltipPopup, TooltipTrigger } from '@/components/ui/tooltip'
 import { EditorPlaceholder, useDarkMode } from '@/features/diff/DiffTab'
-import { gl, useLocale } from '@/i18n'
+import { gl, t, useLocale } from '@/i18n'
 import { git, type GraphQuery, type GraphRef, type GraphRow, type RefInfo } from '@/lib/git'
 import { errorMessage, ipc } from '@/lib/ipc'
 import { fullDate, relativeTime } from '@/lib/time'
@@ -128,6 +128,7 @@ function Details({ root, row }: { root: string; row: GraphRow }) {
   const headerRef = useRef<HTMLDivElement>(null)
   const [headerHeight, setHeaderHeight] = useState(0)
   const files = data?.files
+  const filesTotal = data?.filesTotal ?? files?.length ?? 0
 
   // The file rows start below the commit's author, SHA and message, which scroll with them
   useLayoutEffect(() => {
@@ -180,12 +181,12 @@ function Details({ root, row }: { root: string; row: GraphRow }) {
           {error && <p className="select-text px-3 text-error">{errorMessage(error)}</p>}
           {files && (
             <div className="flex h-pane-header items-center border-section-header-border border-t ps-5 font-bold text-caption uppercase">
-              {files.length === 1 ? gl('1 file changed') : gl('{0} files changed', files.length)}
+              {filesTotal === 1 ? gl('1 file changed') : gl('{0} files changed', filesTotal)}
             </div>
           )}
         </div>
         {files && (
-          <div role="tree" aria-label={gl('{0} files changed', files.length)} className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+          <div role="tree" aria-label={gl('{0} files changed', filesTotal)} className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
             {virtualizer.getVirtualItems().map((item) => {
               const file = files[item.index]
               const node = fileNode(root, row.id, parent, file, row.id)
@@ -214,6 +215,9 @@ function Details({ root, row }: { root: string; row: GraphRow }) {
               )
             })}
           </div>
+        )}
+        {files && filesTotal > files.length && (
+          <p className="select-text px-3 py-2 text-caption opacity-80">{t('commit.filesCapped', files.length, filesTotal)}</p>
         )}
       </div>
     </aside>

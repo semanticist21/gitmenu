@@ -201,51 +201,51 @@ function addCoauthor(arg: unknown) {
 
 export function registerRefHandlers() {
   const handlers: Record<string, (arg?: unknown) => unknown> = {
-    'gitlens.views.switchToBranch': switchTo,
-    'gitlens.views.switchToTag': switchTo,
-    'gitlens.views.merge': mergeIntoCurrent,
-    'gitlens.views.rebaseOntoBranch': rebaseCurrentOnto,
-    'gitlens.views.renameBranch': renameBranch,
-    'gitlens.views.deleteBranch': deleteBranch,
-    'gitlens.views.createBranchFrom': createBranchFrom,
-    'gitlens.views.pushBranch': pushRef,
-    'gitlens.views.pushTag': pushRef,
-    'gitlens.views.deleteTag': deleteTag,
-    'gitlens.views.compareRefWithHead': async (arg) => {
+    'gitmenu.views.switchToBranch': switchTo,
+    'gitmenu.views.switchToTag': switchTo,
+    'gitmenu.views.merge': mergeIntoCurrent,
+    'gitmenu.views.rebaseOntoBranch': rebaseCurrentOnto,
+    'gitmenu.views.renameBranch': renameBranch,
+    'gitmenu.views.deleteBranch': deleteBranch,
+    'gitmenu.views.createBranchFrom': createBranchFrom,
+    'gitmenu.views.pushBranch': pushRef,
+    'gitmenu.views.pushTag': pushRef,
+    'gitmenu.views.deleteTag': deleteTag,
+    'gitmenu.views.compareRefWithHead': async (arg) => {
       if (isRef(arg)) await addResult(arg.root, { id: `compare:${arg.ref.short}..HEAD`, kind: 'compare', base: arg.ref.short, head: 'HEAD' })
     },
-    'gitlens.openBranchOnRemote': (arg) => openRefOnRemote(arg, false),
-    'gitlens.copyRemoteBranchUrl': (arg) => openRefOnRemote(arg, true),
-    'gitlens.views.copyRefName': (arg) => (isRef(arg) ? copy(arg.ref.short) : undefined),
+    'gitmenu.openBranchOnRemote': (arg) => openRefOnRemote(arg, false),
+    'gitmenu.copyRemoteBranchUrl': (arg) => openRefOnRemote(arg, true),
+    'gitmenu.views.copyRefName': (arg) => (isRef(arg) ? copy(arg.ref.short) : undefined),
 
-    'gitlens.views.fetchRemote': (arg) => (isRemote(arg) ? guard(() => exec(arg.root, 'fetch', gl('Fetch'), ['fetch', arg.remote])) : undefined),
-    'gitlens.views.pruneRemote': (arg) => (isRemote(arg) ? guard(() => exec(arg.root, 'fetch', gl('Prune'), ['remote', 'prune', arg.remote])) : undefined),
-    'gitlens.views.removeRemote': async (arg) => {
+    'gitmenu.views.fetchRemote': (arg) => (isRemote(arg) ? guard(() => exec(arg.root, 'fetch', gl('Fetch'), ['fetch', arg.remote])) : undefined),
+    'gitmenu.views.pruneRemote': (arg) => (isRemote(arg) ? guard(() => exec(arg.root, 'fetch', gl('Prune'), ['remote', 'prune', arg.remote])) : undefined),
+    'gitmenu.views.removeRemote': async (arg) => {
       if (!isRemote(arg)) return
       if (!(await confirm(gl('Remove the remote {0}?', arg.remote), gl('Remove'), { destructive: true }))) return
       await guard(() => exec(arg.root, 'other', gl('Remove Remote'), ['remote', 'remove', arg.remote]))
     },
-    'gitlens.openRemoteOnRemote': async (arg) => {
+    'gitmenu.openRemoteOnRemote': async (arg) => {
       if (!isRemote(arg) || !arg.url) return
       const provider = providerFor(arg.url, setting<RemoteSetting[] | null>('gitmenu.remotes') ?? [])
       if (provider) await ipc.openPath(provider.repository())
     },
-    'gitlens.views.copyRemoteUrl': (arg) => (isRemote(arg) && arg.url ? copy(arg.url) : undefined),
+    'gitmenu.views.copyRemoteUrl': (arg) => (isRemote(arg) && arg.url ? copy(arg.url) : undefined),
 
-    'gitlens.views.stash.apply': (arg) => stashCommand(arg, 'apply'),
-    'gitlens.views.stash.pop': (arg) => stashCommand(arg, 'pop'),
-    'gitlens.views.stash.delete': (arg) => stashCommand(arg, 'drop'),
-    'gitlens.views.stash.openAll': stashOpenAll,
+    'gitmenu.views.stash.apply': (arg) => stashCommand(arg, 'apply'),
+    'gitmenu.views.stash.pop': (arg) => stashCommand(arg, 'pop'),
+    'gitmenu.views.stash.delete': (arg) => stashCommand(arg, 'drop'),
+    'gitmenu.views.stash.openAll': stashOpenAll,
 
-    'gitlens.views.openWorktree': (arg) => worktreeCommand(arg, 'open'),
-    'gitlens.views.revealWorktreeInFinder': (arg) => worktreeCommand(arg, 'finder'),
-    'gitlens.views.openWorktreeInTerminal': (arg) => worktreeCommand(arg, 'terminal'),
-    'gitlens.views.deleteWorktree': (arg) => worktreeCommand(arg, 'delete'),
-    'gitlens.views.lockWorktree': (arg) => worktreeCommand(arg, 'lock'),
-    'gitlens.views.unlockWorktree': (arg) => worktreeCommand(arg, 'unlock'),
+    'gitmenu.views.openWorktree': (arg) => worktreeCommand(arg, 'open'),
+    'gitmenu.views.revealWorktreeInFinder': (arg) => worktreeCommand(arg, 'finder'),
+    'gitmenu.views.openWorktreeInTerminal': (arg) => worktreeCommand(arg, 'terminal'),
+    'gitmenu.views.deleteWorktree': (arg) => worktreeCommand(arg, 'delete'),
+    'gitmenu.views.lockWorktree': (arg) => worktreeCommand(arg, 'lock'),
+    'gitmenu.views.unlockWorktree': (arg) => worktreeCommand(arg, 'unlock'),
 
-    'gitlens.views.addAuthor': addCoauthor,
-    'gitlens.views.copyEmail': (arg) => (isContributor(arg) ? copy(arg.contributor.email) : undefined),
+    'gitmenu.views.addAuthor': addCoauthor,
+    'gitmenu.views.copyEmail': (arg) => (isContributor(arg) ? copy(arg.contributor.email) : undefined),
   }
   for (const [id, handler] of Object.entries(handlers)) registerHandler(id, handler)
 }

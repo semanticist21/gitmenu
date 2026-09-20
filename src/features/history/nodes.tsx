@@ -2,7 +2,7 @@
 // files in a commit, and "Load more".
 import type { CSSProperties } from 'react'
 import { Icon } from '@/components/Icon'
-import { gl } from '@/i18n'
+import { gl, t } from '@/i18n'
 import { type CommitFile, type CommitInfo, type FileStatus, git, type LogPage } from '@/lib/git'
 import { ipc } from '@/lib/ipc'
 import { fullDate, relativeTime } from '@/lib/time'
@@ -135,7 +135,13 @@ export function commitNode(root: string, commit: CommitInfo, options: CommitNode
   node.loadChildren = asyncChildren({
     queryKey: ['repo', root, 'commit', commit.id],
     queryFn: () => git.commitDetails(root, commit.id),
-    build: (details) => details.files.map((f) => fileNode(root, commit.id, commit.parents[0] ?? null, f, node.id)),
+    build: (details) => {
+      const files = details.files.map((f) => fileNode(root, commit.id, commit.parents[0] ?? null, f, node.id))
+      if (details.filesTotal > details.files.length) {
+        files.push(messageNode(`${node.id}/capped`, t('commit.filesCapped', details.files.length, details.filesTotal)))
+      }
+      return files
+    },
   })
   return node
 }

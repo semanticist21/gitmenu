@@ -349,6 +349,10 @@ pub struct CommitFile {
     pub status: FileStatus,
 }
 
+/// The most files a commit or comparison lists, like VS Code's `git.statusLimit` caps status
+/// reads; the rest are only counted (`filesTotal`).
+const FILE_LIMIT: usize = 10_000;
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommitDetails {
@@ -356,7 +360,16 @@ pub struct CommitDetails {
     pub info: CommitInfo,
     pub message: String,
     /// Changes against the first parent (the empty tree for a root commit)
+    pub files_total: usize,
+    /// The first [`FILE_LIMIT`] of `filesTotal`
     pub files: Vec<CommitFile>,
+}
+
+/// Sorts and caps a file list, returning it with the full count.
+fn capped(mut files: Vec<CommitFile>) -> (Vec<CommitFile>, usize) {
+    let total = files.len();
+    files.truncate(FILE_LIMIT);
+    (files, total)
 }
 
 fn files(changes: Vec<ChangeDetached>) -> Vec<CommitFile> {
@@ -399,7 +412,8 @@ pub fn commit_details(repo: &gix::Repository, rev: &str) -> Result<CommitDetails
     let message = commit.message_raw().map_err(|e| err(&e))?.to_str_lossy().trim_end().to_owned();
     let tree = commit.tree().map_err(|e| err(&e))?;
     let parent = commit.parent_ids().next().map(|p| tree_of(repo, p.detach())).transpose()?;
-    Ok(CommitDetails { info, message, files: files(tree_changes(repo, parent.as_ref(), &tree)?) })
+    let (files, files_total) = capped(files(tree_changes(repo, parent.as_ref(), &tree)?));
+    Ok(CommitDetails { info, message, files_total, files })
 }
 
 #[derive(Debug, Serialize)]
@@ -413,6 +427,8 @@ pub struct Comparison {
     /// Commits in `base` but not `head`
     pub behind: usize,
     /// Files changed from the merge base to `head` (`git diff base...head`)
+    pub files_total: usize,
+    /// The first [`FILE_LIMIT`] of `filesTotal`
     pub files: Vec<CommitFile>,
 }
 
@@ -424,13 +440,15 @@ pub fn compare(repo: &gix::Repository, base: &str, head: &str) -> Result<Compari
     };
     let merge_base = repo.merge_base(base_id, head_id).ok().map(|id| id.detach());
     let from = merge_base.unwrap_or(base_id);
-    let files = files(tree_changes(repo, Some(&tree_of(repo, from)?), &tree_of(repo, head_id)?)?);
+    let (files, files_total) =
+        capped(files(tree_changes(repo, Some(&tree_of(repo, from)?), &tree_of(repo, head_id)?)?));
     Ok(Comparison {
         base: base_id.to_string(),
         head: head_id.to_string(),
         merge_base: merge_base.map(|id| id.to_string()),
         ahead: count(head_id, base_id)?,
         behind: count(base_id, head_id)?,
+        files_total,
         files,
     })
 }
@@ -533,9 +551,20 @@ mod tests {
         assert_eq!(details.files.len(), 1);
         assert_eq!(details.files[0].status, FileStatus::Renamed);
         assert_eq!(details.files[0].original_path.as_deref(), Some("a.txt"));
+        assert_eq!(details.files_total, 1);
 
         let cmp = compare(&repo, "HEAD~2", "HEAD").unwrap();
         assert_eq!((cmp.ahead, cmp.behind), (2, 0));
         assert_eq!(cmp.files.len(), 1);
+    }
+
+    #[test]
+    fn file_lists_are_capped() {
+        let many: Vec<CommitFile> = (0..FILE_LIMIT + 5)
+            .map(|i| CommitFile { path: format!("f{i}"), original_path: None, status: FileStatus::Added })
+            .collect();
+        let (files, total) = capped(many);
+        assert_eq!(total, FILE_LIMIT + 5);
+        assert_eq!(files.len(), FILE_LIMIT);
     }
 }

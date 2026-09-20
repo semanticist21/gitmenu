@@ -8,15 +8,15 @@ import { repoFrom } from '../scm/state'
 const graphIcon: CommandIcon = LogoMarkIcon
 
 export const graphContribution: Contribution = {
-  commands: [{ command: 'gitlens.showGraph', title: { gl: 'Show Commit Graph' }, category: { text: 'GitLens' }, icon: graphIcon }],
+  commands: [{ command: 'gitmenu.showGraph', title: { gl: 'Show Commit Graph' }, category: { text: 'Git' }, icon: graphIcon }],
   menus: {
-    'scm/title': [{ command: 'gitlens.showGraph', group: 'navigation@-1', when: 'scmProvider == git' }],
-    'view/title': [{ command: 'gitlens.showGraph', group: 'navigation@8', when: 'view == gitmenu.views.commits || view == gitmenu.views.branches' }],
+    'scm/title': [{ command: 'gitmenu.showGraph', group: 'navigation@-1', when: 'scmProvider == git' }],
+    'view/title': [{ command: 'gitmenu.showGraph', group: 'navigation@8', when: 'view == gitmenu.views.commits || view == gitmenu.views.branches' }],
   },
 }
 
 export function registerGraphHandlers() {
-  registerHandler('gitlens.showGraph', (arg?: unknown) => {
+  registerHandler('gitmenu.showGraph', (arg?: unknown) => {
     const root = repoFrom(arg)
     if (root) void ipc.detailOpen(`/detail/graph?${new URLSearchParams({ repo: root })}`)
   })
