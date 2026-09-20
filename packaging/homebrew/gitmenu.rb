@@ -7,11 +7,11 @@ cask "gitmenu" do
   url "https://github.com/semanticist21/gitmenu/releases/download/v#{version}/gitmenu_#{version}_universal.dmg"
   name "gitmenu"
   desc "Menu bar git panel inspired by VS Code Source Control and GitLens"
-  homepage "https://kkom.net/gitmenu"
+  homepage "https://kkom.net/products/gitmenu"
 
   # The app updates itself; brew only installs it
   auto_updates true
-  depends_on macos: ">= :ventura"
+  depends_on macos: :ventura
 
   app "gitmenu.app"
 
