@@ -15,7 +15,7 @@ const PATTERNS = [
   new RegExp(String.raw`\bgl\(\s*${LIT}`, 'g'), // gl('…')
   new RegExp(String.raw`\bgl:\s*${LIT}`, 'g'), // { gl: '…' }
   new RegExp(String.raw`\bcommand\('[^']*', ${LIT}`, 'g'), // command('id', '…') in contribution files
-  new RegExp(String.raw`\['gitlens\.[^']*', ${LIT}`, 'g'), // ['gitlens.id', '…', …] title tuples
+  new RegExp(String.raw`\['(?:gitmenu|gitlens)\.[^']*', ${LIT}`, 'g'), // ['gitmenu.id', '…', …] title tuples
 ]
 // gl({ key: '…', … }[value]) lookups
 const OBJECT_LOOKUP = /\bgl\(\{([^}]*)\}\[/g
