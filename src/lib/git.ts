@@ -46,6 +46,10 @@ export interface RepoStatus {
   untracked: FileChange[]
   remotes: string[]
   fetchedAt: number | null
+  /** Changes in the four groups together */
+  total: number
+  /** The read stopped at `git.statusLimit`; the groups hold only the first `total` */
+  hitLimit: boolean
 }
 
 export interface RefInfo {

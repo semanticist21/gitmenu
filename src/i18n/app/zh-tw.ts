@@ -20,6 +20,7 @@ const zhTw: Partial<Record<AppKey, string>> = {
   'repos.title': '存放庫',
   'repos.submodule': '子模組',
   'repos.nested': '巢狀存放庫',
+  'repos.truncated': '此資料夾太大，未能全部搜尋。請開啟較小的資料夾，或用 git.repositoryScanIgnoredFolders 略過部分內容。',
   'panel.pin': '保持面板開啟',
   'panel.unpin': '允許面板關閉',
   'panel.more': '更多動作...',

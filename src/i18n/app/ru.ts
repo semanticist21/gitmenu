@@ -20,6 +20,7 @@ const ru: Partial<Record<AppKey, string>> = {
   'repos.title': 'Репозитории',
   'repos.submodule': 'Подмодуль',
   'repos.nested': 'Вложенный репозиторий',
+  'repos.truncated': 'Эта папка слишком большая, чтобы просмотреть её полностью. Откройте папку поменьше или исключите часть через git.repositoryScanIgnoredFolders.',
   'panel.pin': 'Не закрывать панель',
   'panel.unpin': 'Разрешить закрытие панели',
   'panel.more': 'Дополнительные действия...',

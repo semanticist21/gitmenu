@@ -20,6 +20,7 @@ const ko: Partial<Record<AppKey, string>> = {
   'repos.title': '리포지토리',
   'repos.submodule': '하위 모듈',
   'repos.nested': '중첩된 리포지토리',
+  'repos.truncated': '이 폴더는 너무 커서 전부 찾지 못했습니다. 더 작은 폴더를 열거나 git.repositoryScanIgnoredFolders로 일부를 건너뛰세요.',
   'panel.pin': '패널 열어 두기',
   'panel.unpin': '패널 닫기 허용',
   'panel.more': '기타 작업...',

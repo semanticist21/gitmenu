@@ -20,6 +20,7 @@ const en = {
   'repos.title': 'Repositories',
   'repos.submodule': 'Submodule',
   'repos.nested': 'Nested repository',
+  'repos.truncated': 'This folder is too big to search completely. Open a smaller one, or skip parts of it with git.repositoryScanIgnoredFolders.',
   'panel.pin': 'Keep Panel Open',
   'panel.unpin': 'Let Panel Close',
   'panel.more': 'More Actions...',

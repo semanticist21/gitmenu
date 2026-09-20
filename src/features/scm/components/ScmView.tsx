@@ -11,6 +11,7 @@ import { Icon } from '@/components/Icon'
 import { Button } from '@/components/ui/button'
 import { Group as ButtonGroup, GroupSeparator } from '@/components/ui/group'
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from '@/components/ui/menu'
+import { toastManager } from '@/components/ui/toast'
 import { ProgressBar } from '@/components/ui/progress'
 import { Tooltip, TooltipPopup, TooltipTrigger } from '@/components/ui/tooltip'
 import { type RunningOp, useRunningOps } from '@/features/ops/operations'
@@ -20,7 +21,7 @@ import { viewMessageClass } from '@/features/views/ViewTree'
 import { t, useLocale, vs, vsb } from '@/i18n'
 import { git, type RepoStatus } from '@/lib/git'
 import { cn } from '@/lib/utils'
-import { useSetting } from '@/settings/settings'
+import { setSetting, useSetting } from '@/settings/settings'
 import { SCM_INPUT_LINE_HEIGHT } from '@/theme/metrics'
 import { useRepoStatus } from '../api'
 import { loadCommitInput, setCommitInput, useCommitInput } from '../state'
@@ -75,7 +76,28 @@ function repoOps(running: RunningOp[], root: string): RepoOps {
   return { commit: kinds.has('commit'), sync: kinds.has('sync') || kinds.has('push') || kinds.has('pull'), checkout: kinds.has('checkout') }
 }
 
-function CommitInput({ root, branch }: { root: string; branch: string | null }) {
+/** VS Code warns once per repository when `git.statusLimit` is hit, with Don't Show Again
+ * writing `git.ignoreLimitWarning` (repository.ts `getStatus`). */
+const warnedAboutLimit = new Set<string>()
+
+function useHugeRepoWarning(root: string, hitLimit: boolean) {
+  const ignore = useSetting<boolean>('git.ignoreLimitWarning')
+  useEffect(() => {
+    if (!hitLimit || ignore || warnedAboutLimit.has(root)) return
+    warnedAboutLimit.add(root)
+    toastManager.add({
+      type: 'warning',
+      timeout: 0,
+      title: vsb('The git repository at "{0}" has too many active changes, only a subset of Git features will be enabled.', root),
+      // VS Code offers OK first, so acknowledging is the easy answer and suppressing the
+      // warning forever is the deliberate one (repository.ts `getStatus`)
+      actionProps: { children: vsb('OK') },
+      actions: [{ children: vsb("Don't Show Again"), onClick: () => void setSetting('git.ignoreLimitWarning', true) }],
+    })
+  }, [root, hitLimit, ignore])
+}
+
+function CommitInput({ root, branch, huge }: { root: string; branch: string | null; huge: boolean }) {
   useLocale()
   const value = useCommitInput(root)
   const ref = useRef<HTMLTextAreaElement>(null)
@@ -86,8 +108,12 @@ function CommitInput({ root, branch }: { root: string; branch: string | null }) 
   const validate = useSetting<boolean>('git.inputValidation')
   const subjectMax = useSetting<number | null>('git.inputValidationSubjectLength')
   const lineMax = useSetting<number>('git.inputValidationLength')
-  let warning: string | null = null
-  if (validate) {
+  const statusLimit = useSetting<number>('git.statusLimit') ?? 10000
+  // VS Code puts the huge-repository warning first in `validateInput`
+  let warning: string | null = huge
+    ? vsb('Too many changes were detected. Only the first {0} changes will be shown below.', statusLimit)
+    : null
+  if (!warning && validate) {
     const lines = value.split('\n')
     const limit = (i: number) => (i === 0 && subjectMax ? subjectMax : lineMax)
     const over = lines.findIndex((line, i) => line.length > limit(i))
@@ -404,6 +430,7 @@ export function ScmView({ repo }: ViewProps) {
   // VS Code sets `scmProviderContext` to `worktree` inside a linked worktree
   const worktrees = useQuery({ queryKey: ['repo', repo.root, 'worktrees'], queryFn: () => git.worktrees(repo.root), staleTime: Infinity })
   const inWorktree = worktrees.data?.some((w) => w.current && !w.main) ?? false
+  useHugeRepoWarning(repo.root, status?.hitLimit ?? false)
 
   useEffect(() => {
     setContext('gitRebaseInProgress', status?.operation === 'rebase')
@@ -439,7 +466,7 @@ export function ScmView({ repo }: ViewProps) {
   const header = (
     <>
       {status.operation && <OperationBanner root={repo.root} operation={status.operation} />}
-      {showInput && <CommitInput root={repo.root} branch={status.head.branch} />}
+      {showInput && <CommitInput root={repo.root} branch={status.head.branch} huge={status.hitLimit} />}
       {/* The action button row: 28px + 8, the button centered and indented like the input */}
       {button && <div className={cn('flex h-9 items-center', headerInset)}>{button}</div>}
     </>

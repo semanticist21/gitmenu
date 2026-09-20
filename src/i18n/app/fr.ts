@@ -20,6 +20,7 @@ const fr: Partial<Record<AppKey, string>> = {
   'repos.title': 'Dépôts',
   'repos.submodule': 'Sous-module',
   'repos.nested': 'Dépôt imbriqué',
+  'repos.truncated': "Ce dossier est trop volumineux pour être parcouru entièrement. Ouvrez un dossier plus petit ou ignorez-en une partie avec git.repositoryScanIgnoredFolders.",
   'panel.pin': 'Garder le panneau ouvert',
   'panel.unpin': 'Laisser le panneau se fermer',
   'panel.more': "Plus d'actions...",

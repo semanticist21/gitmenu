@@ -20,6 +20,7 @@ const zhCn: Partial<Record<AppKey, string>> = {
   'repos.title': '仓库',
   'repos.submodule': '子模块',
   'repos.nested': '嵌套仓库',
+  'repos.truncated': '此文件夹太大，未能全部搜索。请打开较小的文件夹，或用 git.repositoryScanIgnoredFolders 跳过部分内容。',
   'panel.pin': '保持面板打开',
   'panel.unpin': '允许面板关闭',
   'panel.more': '更多操作...',

@@ -20,6 +20,7 @@ const de: Partial<Record<AppKey, string>> = {
   'repos.title': 'Repositorys',
   'repos.submodule': 'Submodul',
   'repos.nested': 'Geschachteltes Repository',
+  'repos.truncated': 'Dieser Ordner ist zu groß, um ihn vollständig zu durchsuchen. Öffnen Sie einen kleineren Ordner oder überspringen Sie Teile mit git.repositoryScanIgnoredFolders.',
   'panel.pin': 'Bereich geöffnet lassen',
   'panel.unpin': 'Bereich schließen lassen',
   'panel.more': 'Weitere Aktionen...',

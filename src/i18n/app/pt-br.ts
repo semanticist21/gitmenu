@@ -20,6 +20,7 @@ const ptBr: Partial<Record<AppKey, string>> = {
   'repos.title': 'Repositórios',
   'repos.submodule': 'Submódulo',
   'repos.nested': 'Repositório aninhado',
+  'repos.truncated': 'Esta pasta é grande demais para ser pesquisada por completo. Abra uma pasta menor ou ignore partes dela com git.repositoryScanIgnoredFolders.',
   'panel.pin': 'Manter Painel Aberto',
   'panel.unpin': 'Permitir Fechar Painel',
   'panel.more': 'Mais Ações...',

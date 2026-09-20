@@ -772,7 +772,9 @@ async function init() {
   const folder = await ipc.pickFolder(vsb('Pick workspace folder to initialize git repo in'))
   if (!folder) return
   const project = await ipc.projectOpen(folder)
-  if (project.repos.length === 0) await ipc.projectInitRepo(project.id, vs('command.init'), setting<string>('git.defaultBranchName') || null)
+  // The tab comes back before its scan has found anything, so `project.repos` says nothing
+  // yet: `project_init_repo` is the one that skips folders a repository already covers
+  await ipc.projectInitRepo(project.id, vs('command.init'), setting<string>('git.defaultBranchName') || null)
 }
 
 async function continueOperation(root: string) {

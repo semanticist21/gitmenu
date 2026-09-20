@@ -13,10 +13,12 @@ const projects = [
     name: 'demo',
     missing: false,
     dirty: false,
+    scanning: false,
+    scanTruncated: false,
     parentCandidate: null,
     repos: [{ root, gitDir: `${root}/.git`, commonDir: `${root}/.git`, kind: 'root', name: 'demo' }],
   },
-  { id: '/Users/me/code/other', name: 'other', missing: false, dirty: true, parentCandidate: null, repos: [] },
+  { id: '/Users/me/code/other', name: 'other', missing: false, dirty: true, scanning: false, scanTruncated: false, parentCandidate: null, repos: [] },
 ]
 
 const status = {
@@ -36,6 +38,8 @@ const status = {
   untracked: [{ path: 'notes/todo.txt', originalPath: null, status: 'untracked', submodule: false }],
   remotes: ['origin'],
   fetchedAt: Math.floor(Date.now() / 1000) - 120,
+  total: 6,
+  hitLimit: false,
 }
 
 const authors = [
@@ -63,6 +67,62 @@ function commits(count: number) {
 }
 
 const scenario = new URLSearchParams(window.location.search)
+
+// `?repos=N` opens one project holding N repositories, as opening a folder of checkouts does
+const repoCount = Math.max(0, Number(scenario.get('repos')) || 0)
+const codeRoot = '/Users/me/code'
+const repoNames = ['api-server', 'web-dashboard', 'mobile-app', 'infra', 'docs-site', 'design-tokens', 'cli', 'sdk-js', 'sdk-rs', 'playground']
+const manyRepos = Array.from({ length: repoCount }, (_, i) => {
+  const round = Math.floor(i / repoNames.length)
+  const name = round ? `${repoNames[i % repoNames.length]}-${round}` : repoNames[i % repoNames.length]
+  const repoRoot = `${codeRoot}/${name}`
+  return { root: repoRoot, gitDir: `${repoRoot}/.git`, commonDir: `${repoRoot}/.git`, kind: 'nested', name }
+})
+const codeProject = { id: codeRoot, name: 'code', missing: false, dirty: true, scanning: false, scanTruncated: Boolean(scenario.get('truncated')), parentCandidate: null, repos: manyRepos }
+
+// `?scanning=1` opens a folder that is still being scanned: the tab is there with no
+// repositories, then they stream in over `projects://changed`, as project.rs does.
+// `?repos=0&scanning=1` is the part of a scan that has not found anything yet.
+const scanning = scenario.get('scanning') !== null
+const scanFindsNothing = scanning && repoCount === 0
+let scannedRepos = scanning ? [] : manyRepos
+function streamScan() {
+  const steps = [manyRepos.slice(0, Math.ceil(manyRepos.length / 2)), manyRepos]
+  steps.forEach((repos, i) => {
+    setTimeout(
+      () => {
+        scannedRepos = repos
+        void emit('projects://changed', [[{ ...codeProject, scanning: i < steps.length - 1, repos }], codeRoot])
+      },
+      200 * (i + 1),
+    )
+  })
+}
+
+const statusFiles = ['src/index.ts', 'src/app.tsx', 'README.md', 'package.json', 'src/lib/util.ts', 'test/e2e.spec.ts', 'docs/api.md']
+
+/** Every repository of a `?repos=N` project reports its own branch, sync counts and changes. */
+function repoStatus(root: string) {
+  const i = manyRepos.findIndex((r) => r.root === root)
+  if (i < 0) return status
+  const group = (from: number, count: number, code: string) =>
+    Array.from({ length: count }, (_, k) => ({ path: statusFiles[(from + k) % statusFiles.length], originalPath: null, status: code, submodule: false }))
+  const branch = i % 7 === 0 ? 'main' : `feature/${manyRepos[i].name}`
+  return {
+    head: { branch, commit: (i + 1).toString(16).padStart(8, '0').repeat(5), detached: false },
+    upstream: i % 5 === 4 ? null : { name: `origin/${branch}`, remote: 'origin', ahead: i % 4, behind: i % 3, gone: false },
+    operation: null,
+    merge: [],
+    index: group(i, i % 3, 'indexModified'),
+    workingTree: group(i + 1, i % 5, 'modified'),
+    untracked: group(i + 2, i % 2, 'untracked'),
+    remotes: ['origin'],
+    fetchedAt: Math.floor(Date.now() / 1000) - 60 * (i + 1),
+    total: (i % 3) + (i % 5) + (i % 2),
+    hitLimit: false,
+  }
+}
+
 const ui: Record<string, unknown> = { loginItemAsked: !scenario.get('login'), 'views.layout': new URLSearchParams(window.location.search).get('views') ? { visible: new URLSearchParams(window.location.search).get('views')!.split(','), collapsed: [], weights: {} } : { visible: ['scm', 'commits', 'fileHistory', 'searchCompare'], collapsed: [], weights: { scm: 2, commits: 3, fileHistory: 1, searchCompare: 1 } }, 'fileHistory.target': { root, path: 'src/main.tsx' }, [`searchCompare.${root}`]: [{ id: 'compare:main..feature/login', kind: 'compare', base: 'main', head: 'feature/login' }] }
 if (scenario.get('many')) {
   const file = (path: string) => `/detail/diff?repo=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}&group=workingTree`
@@ -141,9 +201,16 @@ export function installMocks() {
         case 'projects_list': {
           const kind = scenario.get('project')
           if (kind === 'none') return [[], null]
-          if (kind === 'missing') return [[{ ...projects[0], missing: true, repos: [] }], root]
+          if (kind === 'missing') return [[{ ...projects[0], missing: true, scanning: false, repos: [] }], root]
           if (kind === 'parent') return [[{ ...projects[0], repos: [], parentCandidate: '/Users/me/code' }], root]
           if (kind === 'norepo') return [[{ ...projects[0], repos: [] }], root]
+          if (repoCount || scanning) {
+            if (scanning) {
+              if (!scanFindsNothing && scannedRepos.length === 0) streamScan()
+              return [[{ ...codeProject, scanning: scanFindsNothing || scannedRepos.length !== manyRepos.length, repos: scannedRepos }], codeRoot]
+            }
+            return [[codeProject], codeRoot]
+          }
           if (scenario.get('many')) {
             const names = ['api-server', 'web-dashboard', 'mobile-app', 'infra', 'docs-site', 'design-tokens']
             return [[...projects, ...names.map((name) => ({ ...projects[1], id: `/Users/me/code/${name}`, name, dirty: false }))], root]
@@ -177,12 +244,13 @@ export function installMocks() {
           )
         }
         case 'repo_status': {
+          const base = repoCount ? repoStatus(a.root as string) : status
           const next =
             scenario.get('status') === 'merge'
-              ? { ...status, operation: 'merge', merge: [{ path: 'src/app.ts', originalPath: null, status: 'bothModified', submodule: false }] }
+              ? { ...base, operation: 'merge', merge: [{ path: 'src/app.ts', originalPath: null, status: 'bothModified', submodule: false }] }
               : scenario.get('status') === 'clean'
-                ? { ...status, index: [], workingTree: [], untracked: [] }
-                : status
+                ? { ...base, index: [], workingTree: [], untracked: [] }
+                : base
           // Real status reads take a moment; a refresh landing meanwhile must not abort a command
           return scenario.get('slow') ? new Promise((resolve) => setTimeout(() => resolve(next), 150)) : next
         }

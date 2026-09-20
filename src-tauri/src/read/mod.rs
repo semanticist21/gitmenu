@@ -12,7 +12,7 @@ pub mod status;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{Arc, Mutex},
     time::SystemTime,
 };
 
@@ -22,9 +22,12 @@ use crate::error::{Error, Result};
 /// the app's memory is dominated by what the windows hold, not by gix.
 const OBJECT_CACHE_BYTES: usize = 8 * 1024 * 1024;
 
+/// An open repository and the `mtime` of the config file it was opened with.
+type Cached = (Arc<gix::ThreadSafeRepository>, Option<SystemTime>);
+
 #[derive(Default)]
 pub struct Repos {
-    open: Mutex<HashMap<PathBuf, (gix::ThreadSafeRepository, Option<SystemTime>)>>,
+    open: Mutex<HashMap<PathBuf, Cached>>,
 }
 
 fn config_mtime(repo: &gix::ThreadSafeRepository) -> Option<SystemTime> {
@@ -34,13 +37,16 @@ fn config_mtime(repo: &gix::ThreadSafeRepository) -> Option<SystemTime> {
 
 impl Repos {
     pub fn get(&self, root: &Path) -> Result<gix::Repository> {
-        if let Some((repo, mtime)) = self.open.lock().unwrap().get(root)
-            && config_mtime(repo) == *mtime
+        // The `stat` runs outside the lock: holding it would serialise every repository read
+        let cached = self.open.lock().unwrap().get(root).cloned();
+        if let Some((repo, mtime)) = cached
+            && config_mtime(&repo) == mtime
         {
-            return Ok(Self::local(repo));
+            return Ok(Self::local(&repo));
         }
-        let repo =
-            gix::ThreadSafeRepository::open(root).map_err(|e| Error::Repo(format!("{}: {e}", root.display())))?;
+        let repo = Arc::new(
+            gix::ThreadSafeRepository::open(root).map_err(|e| Error::Repo(format!("{}: {e}", root.display())))?,
+        );
         let local = Self::local(&repo);
         let mtime = config_mtime(&repo);
         self.open.lock().unwrap().insert(root.to_path_buf(), (repo, mtime));

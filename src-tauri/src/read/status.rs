@@ -79,18 +79,25 @@ pub struct RepoStatus {
     pub remotes: Vec<String>,
     /// Seconds since epoch of the last fetch (FETCH_HEAD), if any
     pub fetched_at: Option<i64>,
+    /// Changes in the four groups together
+    pub total: usize,
+    /// The read stopped at `git.statusLimit`; the groups hold only the first `total`
+    pub hit_limit: bool,
 }
 
 fn path(bytes: &gix::bstr::BStr) -> String {
     bytes.to_str_lossy().into_owned()
 }
 
-pub fn status(repo: &gix::Repository) -> Result<RepoStatus> {
+/// `limit` is VS Code's `git.statusLimit`: stop after that many changes and say so (`0` is
+/// unlimited). VS Code kills `git status` at the limit for the same reason (git.ts).
+pub fn status(repo: &gix::Repository, limit: usize) -> Result<RepoStatus> {
     let err = |e: &dyn std::fmt::Display| Error::Repo(e.to_string());
     let mut merge = Vec::new();
     let mut index = Vec::new();
     let mut working_tree = Vec::new();
     let mut untracked = Vec::new();
+    let mut hit_limit = false;
 
     let iter = repo
         .status(gix::progress::Discard)
@@ -142,6 +149,10 @@ pub fn status(repo: &gix::Repository) -> Result<RepoStatus> {
                 index.push(entry);
             }
         }
+        if limit != 0 && merge.len() + index.len() + working_tree.len() + untracked.len() > limit {
+            hit_limit = true;
+            break;
+        }
     }
 
     // Conflicted paths only belong to the merge group
@@ -152,6 +163,15 @@ pub fn status(repo: &gix::Repository) -> Result<RepoStatus> {
         group.sort_by(|a, b| a.path.cmp(&b.path));
         group.dedup_by(|a, b| a.path == b.path);
     }
+
+    if hit_limit {
+        let mut left = limit;
+        for group in [&mut merge, &mut index, &mut working_tree, &mut untracked] {
+            group.truncate(left);
+            left -= group.len();
+        }
+    }
+    let total = merge.len() + index.len() + working_tree.len() + untracked.len();
 
     let head = head(repo);
     let upstream = upstream(repo, &head);
@@ -179,6 +199,8 @@ pub fn status(repo: &gix::Repository) -> Result<RepoStatus> {
         index,
         working_tree,
         untracked,
+        total,
+        hit_limit,
     })
 }
 
@@ -349,7 +371,7 @@ mod tests {
         git(&dir, &["add", "added.txt"]); // added
 
         let repo = gix::open(&dir).unwrap();
-        let s = status(&repo).unwrap();
+        let s = status(&repo, 0).unwrap();
         let find = |g: &[FileChange], p: &str| g.iter().find(|c| c.path == p).map(|c| c.status);
         assert_eq!(find(&s.working_tree, "a.txt"), Some(StatusCode::Modified));
         assert_eq!(find(&s.index, "b.txt"), Some(StatusCode::IndexModified));
@@ -376,11 +398,30 @@ mod tests {
         let _ = Command::new("git").current_dir(&dir).args(["merge", "other"]).output();
 
         let repo = gix::open(&dir).unwrap();
-        let s = status(&repo).unwrap();
+        let s = status(&repo, 0).unwrap();
         assert_eq!(s.operation, Some("merge"));
         assert_eq!(s.merge.len(), 1);
         assert_eq!(s.merge[0].status, StatusCode::BothModified);
         assert!(s.index.is_empty() && s.working_tree.is_empty());
+    }
+
+    /// VS Code's `git.statusLimit`: stop reading and say the repository is huge.
+    #[test]
+    fn status_hits_limit() {
+        let dir = fixture("limit");
+        for i in 0..12 {
+            std::fs::write(dir.join(format!("f{i}.txt")), "x\n").unwrap();
+        }
+        let repo = gix::open(&dir).unwrap();
+        let all = status(&repo, 0).unwrap();
+        assert_eq!(all.untracked.len(), 12);
+        assert_eq!(all.total, 12);
+        assert!(!all.hit_limit);
+
+        let capped = status(&repo, 5).unwrap();
+        assert!(capped.hit_limit);
+        assert_eq!(capped.total, 5);
+        assert_eq!(capped.untracked.len(), 5);
     }
 
     #[test]
@@ -400,7 +441,7 @@ mod tests {
         git(&clone, &["commit", "-qm", "local"]);
 
         let repo = gix::open(&clone).unwrap();
-        let s = status(&repo).unwrap();
+        let s = status(&repo, 0).unwrap();
         let up = s.upstream.expect("upstream");
         assert_eq!(up.name, "origin/main");
         assert_eq!((up.ahead, up.behind), (1, 1));

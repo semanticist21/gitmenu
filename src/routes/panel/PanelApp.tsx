@@ -2,7 +2,7 @@
 // status bar with the repository's branch and sync items (where VS Code shows them).
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { setContext } from '@/commands/context'
 import { registerHandler } from '@/commands/registry'
 import { NotificationCard, toastManager } from '@/components/ui/toast'
@@ -148,13 +148,9 @@ export function PanelApp() {
   useTauriEvent<boolean>('panel://detached', setDetached)
   const toggleDetach = () => void ipc.panelSetDetached(!detached)
 
-  usePanelCommands(
-    projects.map((p) => p.id),
-    active?.id ?? null,
-    repo?.root ?? null,
-    togglePin,
-    toggleDetach,
-  )
+  // A new array every render would dispose and re-register every handler on every event
+  const projectIds = useMemo(() => projects.map((p) => p.id), [projects])
+  usePanelCommands(projectIds, active?.id ?? null, repo?.root ?? null, togglePin, toggleDetach)
   useFolderDrop()
 
   const updateMode = useSetting<string>('update.mode')
@@ -182,8 +178,10 @@ export function PanelApp() {
     setContext('scmProvider', repo ? 'git' : undefined)
   }, [projects.length, active, repo])
 
-  // VS Code's `ProgressLocation.SourceControl`: a bar on the Source Control view
+  // VS Code's `ProgressLocation.SourceControl`: a bar on the Source Control view, also while
+  // the folder is still being scanned (`Model.doInitialScan`), when `git.showProgress` is on
   const busy = useOpsBusy()
+  const showProgress = useSetting<boolean>('git.showProgress') ?? true
 
   let body
   if (!loaded) body = null
@@ -193,18 +191,21 @@ export function PanelApp() {
     body = (
       <div className="flex h-full min-h-0 flex-col">
         {active.parentCandidate && <ParentRepoQuestion project={active} />}
-        {active.repos.length === 0 && !active.parentCandidate && <NoRepository project={active} />}
-        {active.repos.length > 1 && (
-          <div className="max-h-32 shrink-0 overflow-auto border-section-header-border border-b">
-            <RepoList repos={active.repos} selected={repo} onSelect={selectRepo} />
+        {active.repos.length === 0 && !active.parentCandidate && !active.scanning && <NoRepository project={active} />}
+        {(active.repos.length > 1 || active.scanTruncated) && (
+          <div className="shrink-0 border-section-header-border border-b">
+            <RepoList repos={active.repos} selected={repo} onSelect={selectRepo} truncated={active.scanTruncated} />
           </div>
         )}
-        {repo && (
+        {/* The view container stays in place while a scan has not found its first repository,
+            so the progress bar has somewhere to draw (VS Code wraps `Model.doInitialScan` in
+            `ProgressLocation.SourceControl`) instead of leaving the panel blank */}
+        {(repo || (active.scanning && !active.parentCandidate)) && (
           <div className="min-h-0 flex-1">
             <ViewContainer
-              render={(id) => renderView(id, repo)}
-              actions={(id) => <ViewActions view={id} repo={repo} />}
-              progress={(id) => id === 'scm' && busy}
+              render={(id) => (repo ? renderView(id, repo) : null)}
+              actions={repo ? (id) => <ViewActions view={id} repo={repo} /> : undefined}
+              progress={(id) => id === 'scm' && (busy || (active.scanning && showProgress))}
             />
           </div>
         )}

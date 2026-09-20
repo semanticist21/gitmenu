@@ -20,6 +20,7 @@ const ja: Partial<Record<AppKey, string>> = {
   'repos.title': 'リポジトリ',
   'repos.submodule': 'サブモジュール',
   'repos.nested': '入れ子のリポジトリ',
+  'repos.truncated': 'このフォルダーは大きすぎてすべては検索できませんでした。小さいフォルダーを開くか、git.repositoryScanIgnoredFolders で一部を除外してください。',
   'panel.pin': 'パネルを開いたままにする',
   'panel.unpin': 'パネルを閉じられるようにする',
   'panel.more': 'その他の操作...',

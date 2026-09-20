@@ -2,6 +2,8 @@
 // question and "no repository" as VS Code welcome views (views.css `.welcome-view-content`:
 // plain paragraphs and full-width buttons at most 300px wide, 1em apart, from the top), or
 // the Repositories list above the repository views.
+import { useVirtualizer } from '@tanstack/react-virtual'
+import { memo, useRef } from 'react'
 import { executeCommand } from '@/commands/registry'
 import { Icon } from '@/components/Icon'
 import { Button } from '@/components/ui/button'
@@ -117,62 +119,89 @@ interface RepoListProps {
   repos: RepoInfo[]
   selected: RepoInfo | null
   onSelect: (root: string) => void
+  /** The scan stopped at its budget, so the list may be short */
+  truncated?: boolean
 }
+
+/** VS Code's `scm.repositories.visible`: how many rows the list is tall before it scrolls. */
+const VISIBLE_REPOS = 10
 
 /** VS Code's Repositories view, shown when a project holds more than one repository: a pane
  * header, then 22px rows with the `repo` icon (`repo-selected` for the chosen one), the name
- * and a dimmed description. */
-export function RepoList({ repos, selected, onSelect }: RepoListProps) {
+ * and a dimmed description. Memoized and virtualized: a folder of checkouts can hold hundreds,
+ * and the panel re-renders on every watcher event. */
+export const RepoList = memo(function RepoList({ repos, selected, onSelect, truncated }: RepoListProps) {
   useLocale()
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const virtualizer = useVirtualizer({
+    count: repos.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 6,
+  })
+  const focusRow = (index: number) => {
+    if (index < 0 || index >= repos.length) return
+    onSelect(repos[index].root)
+    virtualizer.scrollToIndex(index)
+    requestAnimationFrame(() => scrollRef.current?.querySelector<HTMLElement>(`[data-index="${index}"]`)?.focus())
+  }
   return (
     <section aria-label={t('repos.title')}>
       <h3 className="flex h-pane-header items-center truncate ps-5 font-bold text-section-header-foreground text-caption uppercase leading-pane-header [&:lang(ja)]:font-normal [&:lang(ko)]:font-normal [&:lang(zh)]:font-normal">
         {t('repos.title')}
       </h3>
       <div
+        ref={scrollRef}
         role="listbox"
         aria-label={t('repos.title')}
-        className="group/list relative"
-        style={{ height: repos.length * ROW_HEIGHT }}
+        className="group/list overflow-auto"
+        style={{ height: Math.min(Math.max(repos.length, 1), VISIBLE_REPOS) * ROW_HEIGHT }}
         data-context={JSON.stringify({ focusedView: 'gitmenu.views.repositories', listFocus: true })}
       >
-        {repos.map((repo, index) => {
-          const isSelected = repo.root === selected?.root
-          const kind = repo.kind === 'submodule' ? t('repos.submodule') : repo.kind === 'nested' ? t('repos.nested') : undefined
-          return (
-            <div
-              key={repo.root}
-              role="option"
-              tabIndex={isSelected ? 0 : -1}
-              aria-selected={isSelected}
-              title={tildify(repo.root)}
-              className={treeRowClass}
-              style={{ transform: `translateY(${index * ROW_HEIGHT}px)` }}
-              onClick={() => onSelect(repo.root)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  onSelect(repo.root)
-                } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                  e.preventDefault()
-                  const step = e.key === 'ArrowDown' ? 1 : -1
-                  const next = repos[index + step]
-                  if (!next) return
-                  onSelect(next.root)
-                  ;(e.currentTarget.parentElement?.children[index + step] as HTMLElement | undefined)?.focus()
-                }
-              }}
-            >
-              <Twistie indent={INDENT} state="leaf" />
-              <Icon name={isSelected ? 'repo-selected' : 'repo'} className="me-0.5" />
-              <span className="min-w-0 flex-1 truncate ps-1">
-                <span className="whitespace-pre">{repo.name}</span>
-                {kind && <span className="ms-[.5em] text-label-description opacity-95 dark:opacity-70">{kind}</span>}
-              </span>
-            </div>
-          )
-        })}
+        <div role="presentation" className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+          {virtualizer.getVirtualItems().map((item) => {
+            const repo = repos[item.index]
+            const isSelected = repo.root === selected?.root
+            const kind = repo.kind === 'submodule' ? t('repos.submodule') : repo.kind === 'nested' ? t('repos.nested') : undefined
+            return (
+              <div
+                key={repo.root}
+                role="option"
+                data-index={item.index}
+                tabIndex={isSelected ? 0 : -1}
+                aria-selected={isSelected}
+                title={tildify(repo.root)}
+                className={treeRowClass}
+                style={{ transform: `translateY(${item.start}px)` }}
+                onClick={() => onSelect(repo.root)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onSelect(repo.root)
+                  } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    e.preventDefault()
+                    focusRow(item.index + (e.key === 'ArrowDown' ? 1 : -1))
+                  }
+                }}
+              >
+                <Twistie indent={INDENT} state="leaf" />
+                <Icon name={isSelected ? 'repo-selected' : 'repo'} className="me-0.5" />
+                <span className="min-w-0 flex-1 truncate ps-1">
+                  <span className="whitespace-pre">{repo.name}</span>
+                  {kind && <span className="ms-[.5em] text-label-description opacity-95 dark:opacity-70">{kind}</span>}
+                </span>
+              </div>
+            )
+          })}
+        </div>
       </div>
+      {/* The only explanation for a short list, so it wraps: truncating it at the panel's
+          width hid the half that says what to do */}
+      {truncated && (
+        <p role="status" className="px-5 py-px text-label-description [overflow-wrap:anywhere]">
+          {t('repos.truncated')}
+        </p>
+      )}
     </section>
   )
-}
+})

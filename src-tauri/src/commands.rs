@@ -65,49 +65,78 @@ pub fn ui_state_get(ui: State<Arc<UiState>>, key: String) -> Option<Value> {
     ui.get(&key)
 }
 
-#[tauri::command]
-pub fn ui_state_set(ui: State<Arc<UiState>>, key: String, value: Value) {
-    ui.set(&key, value);
+/// The `project_*` commands are `async` on purpose: a non-async `#[tauri::command]` runs inside
+/// wry's URL-scheme handler, on the macOS main thread, where a folder like `~/code` froze every
+/// window. Anything that touches the filesystem goes through `spawn_blocking` from there, since
+/// an `async fn` that blocks only moves the stall onto a tokio worker.
+async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T> + Send + 'static) -> Result<T> {
+    tauri::async_runtime::spawn_blocking(f).await.map_err(|e| Error::Other(e.to_string()))?
 }
 
 #[tauri::command]
-pub fn projects_list(projects: State<Arc<Projects>>) -> (Vec<ProjectInfo>, Option<PathBuf>) {
-    (projects.list(), projects.active())
+pub async fn ui_state_set(ui: State<'_, Arc<UiState>>, key: String, value: Value) -> Result<()> {
+    ui.inner().set(&key, value);
+    Ok(())
 }
 
 #[tauri::command]
-pub fn projects_recent(projects: State<Arc<Projects>>) -> Vec<PathBuf> {
-    projects.recent()
+pub async fn projects_list(projects: State<'_, Arc<Projects>>) -> Result<(Vec<ProjectInfo>, Option<PathBuf>)> {
+    Ok((projects.list(), projects.active()))
 }
 
 #[tauri::command]
-pub fn project_open(projects: State<Arc<Projects>>, path: PathBuf) -> Result<ProjectInfo> {
-    projects.inner().open(path)
+pub async fn projects_recent(projects: State<'_, Arc<Projects>>) -> Result<Vec<PathBuf>> {
+    Ok(projects.recent())
 }
 
 #[tauri::command]
-pub fn project_close(projects: State<Arc<Projects>>, id: PathBuf) {
-    projects.close(&id);
+pub async fn project_open(projects: State<'_, Arc<Projects>>, path: PathBuf) -> Result<ProjectInfo> {
+    let projects = Arc::clone(projects.inner());
+    let _lane = projects.lane().await;
+    blocking(move || projects.open(path)).await
 }
 
 #[tauri::command]
-pub fn project_activate(projects: State<Arc<Projects>>, id: PathBuf) -> Result<()> {
+pub async fn project_close(projects: State<'_, Arc<Projects>>, id: PathBuf) -> Result<()> {
+    let projects = Arc::clone(projects.inner());
+    let _lane = projects.lane().await;
+    // Dropping the folder's watcher joins its thread, so it does not belong on this thread
+    blocking(move || {
+        projects.close(&id);
+        Ok(())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn project_activate(projects: State<'_, Arc<Projects>>, id: PathBuf) -> Result<()> {
+    let _lane = projects.lane().await;
     projects.activate(&id)
 }
 
 #[tauri::command]
-pub fn project_reorder(projects: State<Arc<Projects>>, order: Vec<PathBuf>) {
+pub async fn project_reorder(projects: State<'_, Arc<Projects>>, order: Vec<PathBuf>) -> Result<()> {
+    let _lane = projects.lane().await;
     projects.reorder(order);
+    Ok(())
 }
 
 #[tauri::command]
-pub fn project_relocate(projects: State<Arc<Projects>>, id: PathBuf, path: PathBuf) -> Result<ProjectInfo> {
-    projects.inner().relocate(&id, path)
+pub async fn project_relocate(projects: State<'_, Arc<Projects>>, id: PathBuf, path: PathBuf) -> Result<ProjectInfo> {
+    let projects = Arc::clone(projects.inner());
+    let _lane = projects.lane().await;
+    blocking(move || projects.relocate(&id, path)).await
 }
 
 #[tauri::command]
-pub fn project_answer_parent(projects: State<Arc<Projects>>, id: PathBuf, accept: bool) -> Result<ProjectInfo> {
-    projects.inner().answer_parent(&id, accept)
+pub async fn project_answer_parent(
+    projects: State<'_, Arc<Projects>>,
+    id: PathBuf,
+    accept: bool,
+) -> Result<ProjectInfo> {
+    let projects = Arc::clone(projects.inner());
+    let _lane = projects.lane().await;
+    blocking(move || projects.answer_parent(&id, accept)).await
 }
 
 #[tauri::command]
@@ -118,12 +147,23 @@ pub async fn project_init_repo(
     label: String,
     branch: Option<String>,
 ) -> Result<ProjectInfo> {
+    // The tab is published before its scan finds anything, so the caller's repository list is
+    // no answer: a folder that already is (or sits in) a repository must not be initialized.
+    let covered = {
+        let projects = Arc::clone(projects.inner());
+        let id = id.clone();
+        blocking(move || Ok(projects.has_repo(&id))).await?
+    };
+    if covered {
+        return projects.info(&id);
+    }
     let mut args = vec!["init"];
     if let Some(branch) = branch.as_deref().filter(|b| !b.is_empty()) {
         args.extend(["-b", branch]);
     }
     queue.run(Target { worktree: &id, common_dir: &id.join(".git") }, OpKind::Other, &label, &args).await?;
-    projects.inner().rescan(&id)
+    let projects = Arc::clone(projects.inner());
+    blocking(move || projects.rescan(&id)).await
 }
 
 /// Shows a file or folder picker in front of other apps. The app is a non-activating accessory,

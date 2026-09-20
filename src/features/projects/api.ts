@@ -1,13 +1,14 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ipc, type ProjectInfo, useTauriEvent } from '@/lib/ipc'
+import { ipc, type ProjectInfo, type ProjectsPayload, useTauriEvent } from '@/lib/ipc'
 
 export const projectsQuery = { queryKey: ['projects'], queryFn: ipc.projectsList, staleTime: Infinity }
 
 export function useProjects() {
   const client = useQueryClient()
   const { data } = useQuery(projectsQuery)
-  useTauriEvent<ProjectInfo[]>('projects://changed', () => {
-    void client.invalidateQueries({ queryKey: projectsQuery.queryKey })
+  // The event carries the whole list, so a scan streaming repositories in costs no IPC
+  useTauriEvent<ProjectsPayload>('projects://changed', (payload) => {
+    client.setQueryData(projectsQuery.queryKey, payload)
   })
   const [projects, activeId] = data ?? [[], null]
   const active = projects.find((p) => p.id === activeId) ?? null

@@ -10,7 +10,7 @@ use tauri::State;
 
 use crate::{
     error::{Error, Result},
-    project::Projects,
+    project::{HugeRepos, Projects},
     queue::{OpKind, Output, Queue},
     read::{
         Repos,
@@ -20,6 +20,7 @@ use crate::{
         refs::{self, RefInfo, RemoteInfo, StashInfo},
         status::{self, RepoStatus},
     },
+    settings::Settings,
     write::{self, CommitOptions, DiscardResult, Repo},
 };
 
@@ -45,8 +46,17 @@ fn common_dir(projects: &Projects, repos: &Repos, root: &Path) -> Result<PathBuf
 }
 
 #[tauri::command]
-pub async fn repo_status(app: tauri::AppHandle, repos: State<'_, Arc<Repos>>, root: PathBuf) -> Result<RepoStatus> {
-    let status = read(&repos, root.clone(), status::status).await?;
+pub async fn repo_status(
+    app: tauri::AppHandle,
+    repos: State<'_, Arc<Repos>>,
+    settings: State<'_, Arc<Settings>>,
+    huge: State<'_, Arc<HugeRepos>>,
+    root: PathBuf,
+) -> Result<RepoStatus> {
+    let limit = settings.get("git.statusLimit").as_u64().unwrap_or(10_000) as usize;
+    let status = read(&repos, root.clone(), move |repo| status::status(repo, limit)).await?;
+    // A repository this big stops being refreshed from the watcher, as in VS Code
+    huge.set(&root, status.hit_limit);
     crate::tray::set_repo_conflict(&app, &root, !status.merge.is_empty());
     Ok(status)
 }

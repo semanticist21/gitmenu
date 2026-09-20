@@ -20,6 +20,7 @@ const es: Partial<Record<AppKey, string>> = {
   'repos.title': 'Repositorios',
   'repos.submodule': 'Submódulo',
   'repos.nested': 'Repositorio anidado',
+  'repos.truncated': 'Esta carpeta es demasiado grande para buscar en ella por completo. Abra una carpeta más pequeña u omita partes con git.repositoryScanIgnoredFolders.',
   'panel.pin': 'Mantener el panel abierto',
   'panel.unpin': 'Permitir que el panel se cierre',
   'panel.more': 'Más acciones...',

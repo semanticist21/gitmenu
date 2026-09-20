@@ -7,7 +7,7 @@ mod env;
 mod error;
 mod git;
 mod output;
-mod project;
+pub mod project;
 mod queue;
 mod read;
 mod settings;
@@ -23,7 +23,13 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 pub use env::run_helper;
 
-use crate::{env::GitEnv, project::Projects, queue::Queue, settings::Settings, terminal::Terminals};
+use crate::{
+    env::GitEnv,
+    project::{AppEvents, HugeRepos, Projects, UiState},
+    queue::Queue,
+    settings::Settings,
+    terminal::Terminals,
+};
 
 pub fn run() {
     tauri::Builder::default()
@@ -86,7 +92,12 @@ pub fn run() {
             }));
             let queue = Queue::new(Arc::clone(&env), handle.clone());
             app.manage(Arc::clone(&queue));
-            let projects = Projects::new(handle.clone(), Arc::clone(&settings), Arc::clone(&ui), queue);
+            let huge = Arc::new(HugeRepos::default());
+            app.manage(Arc::clone(&huge));
+            let projects =
+                Projects::new(Arc::new(AppEvents(handle.clone())), Arc::clone(&settings), Arc::clone(&ui), queue, huge);
+            // The tabs come back in memory; their folders are scanned in the background, so a
+            // saved folder as big as a home directory never delays the tray
             projects.restore();
             app.manage(Arc::clone(&projects));
 
@@ -99,16 +110,26 @@ pub fn run() {
                 let seen = std::sync::Mutex::new((
                     settings.get_str("git.path"),
                     settings.get_str("gitmenu.panel.globalShortcut"),
+                    scan_settings(&settings),
                 ));
                 move |_| {
                     let settings = handle.state::<Arc<Settings>>();
-                    let now = (settings.get_str("git.path"), settings.get_str("gitmenu.panel.globalShortcut"));
+                    let now = (
+                        settings.get_str("git.path"),
+                        settings.get_str("gitmenu.panel.globalShortcut"),
+                        scan_settings(&settings),
+                    );
                     let mut seen = seen.lock().unwrap();
                     if now.1 != seen.1 {
                         register_global_shortcut(&handle, &settings);
                     }
                     if now.0 != seen.0 {
                         handle.state::<Arc<GitEnv>>().refresh_git(&handle, &settings);
+                    }
+                    // A detection setting changed: re-detect every open tab, in the background
+                    if now.2 != seen.2 {
+                        let projects = Arc::clone(&handle.state::<Arc<Projects>>());
+                        tauri::async_runtime::spawn_blocking(move || projects.rescan_all());
                     }
                     *seen = now;
                 }
@@ -210,6 +231,8 @@ pub fn run() {
         .run(|app, event| match event {
             tauri::RunEvent::Exit => {
                 tray::save_detached_frame(app);
+                // UI state writes are coalesced onto a trailing worker; this is the last one
+                app.state::<Arc<UiState>>().flush();
                 app.state::<Arc<GitEnv>>().cleanup();
                 app.state::<Arc<Terminals>>().kill_all();
             }
@@ -235,6 +258,21 @@ pub fn run() {
 
 fn tauri_plugin_nspanel_init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri_nspanel::init()
+}
+
+/// The `git.*` keys that change what detection finds (VS Code's `Model.onDidChangeConfiguration`).
+fn scan_settings(settings: &Settings) -> Vec<serde_json::Value> {
+    [
+        "git.autoRepositoryDetection",
+        "git.repositoryScanMaxDepth",
+        "git.repositoryScanIgnoredFolders",
+        "git.detectSubmodules",
+        "git.detectSubmodulesLimit",
+        "git.openRepositoryInParentFolders",
+    ]
+    .iter()
+    .map(|key| settings.get(key))
+    .collect()
 }
 
 /// Binds the one global shortcut (panel open/close) from `gitmenu.panel.globalShortcut`.

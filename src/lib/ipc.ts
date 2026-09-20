@@ -35,9 +35,16 @@ export interface ProjectInfo {
   name: string
   missing: boolean
   dirty: boolean
+  /** A background scan is still looking for repositories in the folder */
+  scanning: boolean
+  /** The scan stopped at its budget, so the list may be short */
+  scanTruncated: boolean
   repos: RepoInfo[]
   parentCandidate: string | null
 }
+
+/** The `projects://changed` payload, the same tuple `projects_list` returns. */
+export type ProjectsPayload = [ProjectInfo[], string | null]
 
 export interface EnvStatus {
   shellFailed: boolean
