@@ -168,6 +168,7 @@ const fr: Partial<Record<AppKey, string>> = {
   'detail.keybindings': 'Raccourcis clavier',
   'detail.output': 'Sortie',
   'output.clear': 'Effacer la sortie',
+  'output.copy': 'Copier la sortie',
   'output.gone': "La sortie de cette commande n'est plus disponible.",
   'panel.about': 'À propos de gitmenu',
   'about.version': 'Version {0}',

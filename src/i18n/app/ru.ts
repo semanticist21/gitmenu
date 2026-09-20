@@ -168,6 +168,7 @@ const ru: Partial<Record<AppKey, string>> = {
   'detail.keybindings': 'Сочетания клавиш',
   'detail.output': 'Выходные данные',
   'output.clear': 'Очистить выходные данные',
+  'output.copy': 'Копировать выходные данные',
   'output.gone': 'Вывод этой команды больше недоступен.',
   'panel.about': 'О программе gitmenu',
   'about.version': 'Версия {0}',

@@ -5,6 +5,7 @@
 // keybindings.json the way VS Code writes them: a new entry for the new key, and a `-command`
 // entry that removes the default it replaces.
 import { useQuery } from '@tanstack/react-query'
+import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual'
 import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { formatKey, keybindingsQuery, type EffectiveBinding, normalizeKey, type UserKeybinding, useEffectiveBindings } from '@/commands/keybindings'
 import { allCommands, paletteLabel } from '@/commands/registry'
@@ -49,6 +50,12 @@ const CODE_NAMES: Record<string, string> = {
   Backquote: '`',
 }
 const MODIFIER_KEYS = new Set(['Meta', 'Control', 'Alt', 'Shift'])
+
+// keybindingsEditor.ts `Delegate`: a 30px header row, 24px rows, 40px when the search matched
+// the command id and the row shows it on a second line
+const HEADER_HEIGHT = 30
+const ROW = 24
+const ID_ROW = 40
 
 /** One chord from a keydown (`cmd+shift+k`); a lone modifier gives an incomplete chord (`cmd+`). */
 function chordOf(event: globalThis.KeyboardEvent): { chord: string; complete: boolean } {
@@ -190,15 +197,35 @@ export function KeybindingsTab() {
   const raw = query.trim()
   const quoted = /^".*"$/.test(raw) ? normalizeKey(raw.slice(1, -1)) : null
   const q = raw.toLowerCase()
-  const visible = rows.filter((r) => {
-    if (quoted !== null) return r.binding?.key === quoted
-    return (
-      !q ||
-      r.label.toLowerCase().includes(q) ||
-      r.command.toLowerCase().includes(q) ||
-      (r.binding && (r.binding.key.includes(q) || formatKey(r.binding.key).toLowerCase().includes(q) || r.binding.when?.toLowerCase().includes(q)))
-    )
+  const visible = useMemo(
+    () =>
+      rows.filter((r) => {
+        if (quoted !== null) return r.binding?.key === quoted
+        return (
+          !q ||
+          r.label.toLowerCase().includes(q) ||
+          r.command.toLowerCase().includes(q) ||
+          (r.binding && (r.binding.key.includes(q) || formatKey(r.binding.key).toLowerCase().includes(q) || r.binding.when?.toLowerCase().includes(q)))
+        )
+      }),
+    [rows, q, quoted],
+  )
+  /** The search matched the command id, so the row shows it under the label and is taller. */
+  const showsId = (row: Row) => Boolean(q) && quoted === null && row.command.toLowerCase().includes(q)
+
+  // The table is virtualized like VS Code's (a WorkbenchTable), so the command list can grow
+  // without every row — and every row's context menu — being mounted at once
+  const virtualizer = useVirtualizer({
+    count: visible.length,
+    getScrollElement: () => tableRef.current,
+    estimateSize: (index) => (showsId(visible[index]) ? ID_ROW : ROW),
+    overscan: 12,
+    scrollMargin: HEADER_HEIGHT,
   })
+  // Row heights depend on the search, which `count` alone does not tell the virtualizer
+  useEffect(() => {
+    virtualizer.measure()
+  }, [q, quoted, virtualizer])
 
   const setKey = async (row: Row, key: string) => {
     const binding = row.binding
@@ -228,10 +255,11 @@ export function KeybindingsTab() {
     const index = visible.findIndex((r) => r.id === selected)
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault()
-      const next = visible[Math.min(visible.length - 1, Math.max(0, index + (event.key === 'ArrowDown' ? 1 : -1)))]
+      const at = Math.min(visible.length - 1, Math.max(0, index + (event.key === 'ArrowDown' ? 1 : -1)))
+      const next = visible[at]
       if (!next) return
       setSelected(next.id)
-      tableRef.current?.querySelector(`[data-row="${CSS.escape(next.id)}"]`)?.scrollIntoView({ block: 'nearest' })
+      virtualizer.scrollToIndex(at, { align: 'auto' })
     } else if (event.key === 'Enter' && index >= 0) {
       event.preventDefault()
       setEditing(visible[index])
@@ -264,10 +292,10 @@ export function KeybindingsTab() {
     </div>
   )
 
-  const renderRow = (row: Row, index: number): ReactNode => {
+  const renderRow = (row: Row, item: VirtualItem): ReactNode => {
     const isSelected = row.id === selected
     const customized = user.some((u) => u.command === row.command || u.command === `-${row.command}`)
-    const idMatched = q && quoted === null && row.command.toLowerCase().includes(q)
+    const idMatched = showsId(row)
     const binding = row.binding
     return (
       <ContextMenu key={row.id}>
@@ -277,14 +305,15 @@ export function KeybindingsTab() {
               role="row"
               data-row={row.id}
               data-selected={isSelected || undefined}
+              aria-rowindex={item.index + 1}
               aria-selected={isSelected}
               className={cn(
-                'group/row flex cursor-default',
-                idMatched ? 'h-10' : 'h-6',
+                'group/row absolute inset-x-0 top-0 flex cursor-default',
                 isSelected
                   ? 'bg-list-inactive group-focus/table:bg-list-active group-focus/table:text-list-active-foreground group-focus/table:outline-solid group-focus/table:outline-1 group-focus/table:-outline-offset-1 group-focus/table:outline-list-selection-outline'
-                  : cn('hover:bg-list-hover', index % 2 === 1 && 'bg-table-odd-row'),
+                  : cn('hover:bg-list-hover', item.index % 2 === 1 && 'bg-table-odd-row'),
               )}
+              style={{ height: idMatched ? ID_ROW : ROW, transform: `translateY(${item.start - HEADER_HEIGHT}px)` }}
               onClick={() => setSelected(row.id)}
               onDoubleClick={() => setEditing(row)}
             />
@@ -394,11 +423,16 @@ export function KeybindingsTab() {
         role="grid"
         tabIndex={0}
         aria-label={t('detail.keybindings')}
+        // Only the rows on screen are in the grid, so the real count is an attribute, the way
+        // the Commit Graph's virtualized grid states it
+        aria-rowcount={visible.length}
         className="group/table min-h-0 flex-1 overflow-y-auto overflow-x-hidden whitespace-nowrap outline-none"
         onKeyDown={onTableKeyDown}
       >
         {header}
-        {visible.map(renderRow)}
+        <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+          {virtualizer.getVirtualItems().map((item) => renderRow(visible[item.index], item))}
+        </div>
       </div>
       {editing && (
         <DefineKeybindingWidget

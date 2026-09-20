@@ -168,6 +168,7 @@ const ptBr: Partial<Record<AppKey, string>> = {
   'detail.keybindings': 'Atalhos de Teclado',
   'detail.output': 'Saída',
   'output.clear': 'Limpar Saída',
+  'output.copy': 'Copiar Saída',
   'output.gone': 'A saída deste comando não está mais disponível.',
   'panel.about': 'Sobre o gitmenu',
   'about.version': 'Versão {0}',

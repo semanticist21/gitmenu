@@ -168,6 +168,7 @@ const zhCn: Partial<Record<AppKey, string>> = {
   'detail.keybindings': '键盘快捷方式',
   'detail.output': '输出',
   'output.clear': '清除输出',
+  'output.copy': '复制输出',
   'output.gone': '此命令的输出已不可用。',
   'panel.about': '关于 gitmenu',
   'about.version': '版本 {0}',

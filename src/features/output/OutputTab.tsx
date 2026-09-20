@@ -85,25 +85,35 @@ export function OutputTab({ params }: DetailTabProps) {
   // Only the block of lines on screen is tokenized: the whole log went through the same Shiki
   // worker the diff tabs use, once per command
   const [start, end] = highlightRange(virtualizer.range, lines.length)
-  const shown = useMemo(() => lines.slice(start, end).join('\n'), [lines, start, end])
-  const tokens = useHighlight(shown, 'git.log', dark)
-  // The tokens of the block stay on screen while the next ones are made, so appending a line
-  // does not blink the log plain
-  const last = useRef<{ key: string; tokens: TokenLine[] } | null>(null)
-  const key = `${start}\0${dark}`
+  const block = useMemo(() => lines.slice(start, end).join('\n'), [lines, start, end])
+  const tokens = useHighlight(block, 'git.log', dark)
+  // The last block's tokens stay on screen while the next ones are made, by line rather than by
+  // block: scrolling past a block edge overlaps the one before it, so the log neither blinks
+  // plain on a new command nor loses its colors mid-scroll
+  const kept = useRef<{ start: number; end: number; dark: boolean; tokens: TokenLine[] } | null>(null)
   useEffect(() => {
-    if (tokens) last.current = { key, tokens }
-  }, [key, tokens])
-  const colored = tokens ?? (last.current?.key === key ? last.current.tokens : null)
+    if (tokens) kept.current = { start, end, dark, tokens }
+  }, [start, end, dark, tokens])
+  const previous = kept.current
+  const colored = (index: number): TokenLine | undefined => {
+    const line = tokens?.[index - start]
+    if (line) return line
+    if (!previous || previous.dark !== dark || index < previous.start || index >= previous.end) return undefined
+    return previous.tokens[index - previous.start]
+  }
 
   // Long lines scroll sideways rather than wrap, like the Output view with word wrap off; the
   // widest line sets the width, in characters of the editor's monospace font
   const width = useMemo(() => lines.reduce((max, line) => Math.max(max, line.length), 0), [lines])
 
+  const drawn = virtualizer.getVirtualItems()
   return (
     <>
-      {!single && (
-        <EditorActions>
+      <EditorActions>
+        {/* Only the lines on screen are in the document, so the whole log needs an action of
+            its own; VS Code's Output view leans on the editor's own Select All instead */}
+        <ActionButton icon="copy" label={t('output.copy')} onClick={() => void ipc.clipboardWrite(lines.join('\n'))} />
+        {!single && (
           <ActionButton
             icon="clear-all"
             label={t('output.clear')}
@@ -112,8 +122,8 @@ export function OutputTab({ params }: DetailTabProps) {
               client.setQueryData<GitLogEntry[]>(LOG_KEY, [])
             }}
           />
-        </EditorActions>
-      )}
+        )}
+      </EditorActions>
       <div
         ref={scrollRef}
         role="log"
@@ -124,22 +134,35 @@ export function OutputTab({ params }: DetailTabProps) {
           const el = e.currentTarget
           atEnd.current = !single && el.scrollTop + el.clientHeight >= el.scrollHeight - PADDING
         }}
+        onCopy={(e) => {
+          // Select All reaches only the lines on screen. Taking all of them means the whole
+          // log, the way copying VS Code's Output channel copies its whole model; any smaller
+          // selection is copied as it is
+          const first = drawn[0]?.index ?? 0
+          const last = drawn[drawn.length - 1]?.index ?? -1
+          if (drawn.length >= lines.length) return
+          if (getSelection()?.toString() !== lines.slice(first, last + 1).join('\n')) return
+          e.preventDefault()
+          e.clipboardData.setData('text/plain', lines.join('\n'))
+        }}
       >
         <div className="relative min-w-full" style={{ height: total, width: `${width}ch` }}>
-          {virtualizer.getVirtualItems().map((item) => (
-            <div key={item.key} className="absolute inset-x-0 whitespace-pre" style={{ top: item.start, height: item.size }}>
-              {colored?.[item.index - start]
-                ? colored[item.index - start].map(([content, color, style], j) => (
-                    <span
-                      key={j}
-                      style={{ color: color || undefined, fontStyle: style & 1 ? 'italic' : undefined, fontWeight: style & 2 ? 600 : undefined }}
-                    >
-                      {content}
-                    </span>
-                  ))
-                : lines[item.index]}
-            </div>
-          ))}
+          {/* One positioned box holding the drawn lines in normal flow: block boxes in flow are
+              what puts a line break between them when the selection is copied */}
+          <div className="absolute inset-x-0 top-0" style={{ transform: `translateY(${drawn[0]?.start ?? 0}px)` }}>
+            {drawn.map((item) => (
+              <div key={item.key} className="whitespace-pre" style={{ height: item.size }}>
+                {colored(item.index)?.map(([content, color, style], j) => (
+                  <span
+                    key={j}
+                    style={{ color: color || undefined, fontStyle: style & 1 ? 'italic' : undefined, fontWeight: style & 2 ? 600 : undefined }}
+                  >
+                    {content}
+                  </span>
+                )) ?? lines[item.index]}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </>

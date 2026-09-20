@@ -168,6 +168,7 @@ const ko: Partial<Record<AppKey, string>> = {
   'detail.keybindings': '바로 가기 키',
   'detail.output': '출력',
   'output.clear': '출력 지우기',
+  'output.copy': '출력 복사',
   'output.gone': '이 명령의 출력은 더 이상 볼 수 없습니다.',
   'panel.about': 'gitmenu 정보',
   'about.version': '버전 {0}',

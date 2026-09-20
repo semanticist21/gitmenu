@@ -155,51 +155,63 @@ type QuickPickVirtualizer = Virtualizer<HTMLDivElement, Element>
 
 /** The filtered rows, virtualized: a repository with thousands of refs feeds the same widget. */
 function QuickPickRows<T>({
-  listRef,
+  list,
   virtualizerRef,
   query,
+  highlighted,
   onPick,
 }: {
-  listRef: RefObject<HTMLDivElement | null>
+  /** The scrolling `CommandList`; null until it mounts */
+  list: HTMLDivElement | null
   virtualizerRef: RefObject<QuickPickVirtualizer | null>
   query: string
+  /** The row the keyboard is on, or -1; it stays mounted however far the list is scrolled */
+  highlighted: number
   onPick: (value: T) => void
 }) {
   const items = useCommandItems<QuickPickItem<T>>()
   const virtualizer = useVirtualizer({
     count: items.length,
-    getScrollElement: () => listRef.current,
+    getScrollElement: () => list,
     // A detail line makes the row two 22px lines instead of one
     estimateSize: (index) => (items[index]?.detail ? ROW_HEIGHT * 2 : ROW_HEIGHT),
     overscan: 12,
   })
   useImperativeHandle(virtualizerRef, () => virtualizer)
   if (items.length === 0) return null
+  const row = ({ index, start, size }: { index: number; start: number; size: number }) => {
+    const item = items[index]
+    return (
+      <CommandItem
+        key={index}
+        index={index}
+        value={item}
+        aria-posinset={index + 1}
+        aria-setsize={items.length}
+        className={cn('absolute inset-x-0 top-0', item.detail && 'flex-col items-stretch')}
+        style={{ height: size, transform: `translateY(${start}px)` }}
+        onClick={() => onPick(item.value)}
+      >
+        <span className="flex h-row min-w-0 items-center">
+          {item.icon && <Icon name={item.icon} className="me-1 shrink-0" />}
+          <QuickInputLabel label={item.label} description={item.description} query={query} />
+        </span>
+        {item.detail && <span className="h-row truncate opacity-70 group-data-highlighted/quick-row:opacity-100">{item.detail}</span>}
+      </CommandItem>
+    )
+  }
+  const drawn = virtualizer.getVirtualItems()
+  // Enter accepts the highlighted row by clicking its element, and `aria-activedescendant`
+  // names it; scrolling the list with the wheel leaves the highlight behind, so its row is
+  // drawn at its own offset as well — off screen, but there to be clicked and announced
+  const away =
+    highlighted >= 0 && highlighted < items.length && !drawn.some((item) => item.index === highlighted)
+      ? virtualizer.measurementsCache[highlighted]
+      : undefined
   return (
     <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-      {virtualizer.getVirtualItems().map((row) => {
-        const item = items[row.index]
-        return (
-          <CommandItem
-            key={row.key}
-            index={row.index}
-            value={item}
-            aria-posinset={row.index + 1}
-            aria-setsize={items.length}
-            className={cn('absolute inset-x-0 top-0', item.detail && 'flex-col items-stretch')}
-            style={{ height: row.size, transform: `translateY(${row.start}px)` }}
-            onClick={() => onPick(item.value)}
-          >
-            <span className="flex h-row min-w-0 items-center">
-              {item.icon && <Icon name={item.icon} className="me-1 shrink-0" />}
-              <QuickInputLabel label={item.label} description={item.description} query={query} />
-            </span>
-            {item.detail && (
-              <span className="h-row truncate opacity-70 group-data-highlighted/quick-row:opacity-100">{item.detail}</span>
-            )}
-          </CommandItem>
-        )
-      })}
+      {drawn.map(row)}
+      {away && row(away)}
     </div>
   )
 }
@@ -223,7 +235,9 @@ export function QuickPickWidget<T>({
 }) {
   useLocale()
   const [query, setQuery] = useState('')
-  const listRef = useRef<HTMLDivElement>(null)
+  // State, not a ref: the rows are inside the list, so they need a render once it is mounted
+  const [list, setList] = useState<HTMLDivElement | null>(null)
+  const [highlighted, setHighlighted] = useState(-1)
   const virtualizerRef = useRef<QuickPickVirtualizer | null>(null)
   return (
     <CommandDialog open onOpenChange={(open) => !open && onDone(undefined)} disablePointerDismissal={ignoreFocusOut}>
@@ -239,6 +253,7 @@ export function QuickPickWidget<T>({
           }}
           virtualized
           onItemHighlighted={(item: unknown, details: { reason: string; index: number }) => {
+            setHighlighted(item ? details.index : -1)
             const virtualizer = virtualizerRef.current
             if (!item || !virtualizer) return
             // The widget scrolls the highlighted row into view itself, which only reaches rows
@@ -257,8 +272,8 @@ export function QuickPickWidget<T>({
             </div>
           )}
           <CommandEmpty>{t('palette.empty')}</CommandEmpty>
-          <CommandList ref={listRef}>
-            <QuickPickRows listRef={listRef} virtualizerRef={virtualizerRef} query={query} onPick={onDone} />
+          <CommandList ref={setList}>
+            <QuickPickRows list={list} virtualizerRef={virtualizerRef} query={query} highlighted={highlighted} onPick={onDone} />
           </CommandList>
         </Command>
       </CommandDialogPopup>

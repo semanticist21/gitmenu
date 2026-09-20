@@ -168,6 +168,7 @@ const de: Partial<Record<AppKey, string>> = {
   'detail.keybindings': 'Tastenkombinationen',
   'detail.output': 'Ausgabe',
   'output.clear': 'Ausgabe löschen',
+  'output.copy': 'Ausgabe kopieren',
   'output.gone': 'Die Ausgabe dieses Befehls ist nicht mehr verfügbar.',
   'panel.about': 'Info zu gitmenu',
   'about.version': 'Version {0}',

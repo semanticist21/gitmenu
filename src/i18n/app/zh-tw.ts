@@ -168,6 +168,7 @@ const zhTw: Partial<Record<AppKey, string>> = {
   'detail.keybindings': '鍵盤快速鍵',
   'detail.output': '輸出',
   'output.clear': '清除輸出',
+  'output.copy': '複製輸出',
   'output.gone': '此命令的輸出已無法使用。',
   'panel.about': '關於 gitmenu',
   'about.version': '版本 {0}',

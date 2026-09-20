@@ -168,6 +168,7 @@ const en = {
   'detail.keybindings': 'Keyboard Shortcuts',
   'detail.output': 'Output',
   'output.clear': 'Clear Output',
+  'output.copy': 'Copy Output',
   'output.gone': 'The output of this command is no longer available.',
   'panel.about': 'About gitmenu',
   'about.version': 'Version {0}',

@@ -1,3 +1,6 @@
+// The `GitLogEntry` type reaches modules that use `import.meta.glob`; tsconfig.test.json gives
+// the test project Bun's types only, so Vite's come from here
+/// <reference types="vite/client" />
 import { expect, test } from 'bun:test'
 import type { GitLogEntry } from '@/lib/ipc'
 import { appendEntry, BLOCK, commandLines, highlightRange, KEEP, logLines } from './log'

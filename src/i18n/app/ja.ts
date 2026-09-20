@@ -168,6 +168,7 @@ const ja: Partial<Record<AppKey, string>> = {
   'detail.keybindings': 'キーボード ショートカット',
   'detail.output': '出力',
   'output.clear': '出力のクリア',
+  'output.copy': '出力のコピー',
   'output.gone': 'このコマンドの出力はもう利用できません。',
   'panel.about': 'gitmenu について',
   'about.version': 'バージョン {0}',

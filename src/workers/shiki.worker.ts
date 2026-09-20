@@ -1,25 +1,13 @@
 // Syntax highlighting off the UI thread: Shiki with the Oniguruma (WASM) engine, VS Code's
 // own regex engine for TextMate grammars. Grammars load the first time a language is seen.
-// Lines longer than `editor.maxTokenizationLineLength` stay plain, as in VS Code.
+// Lines longer than `editor.maxTokenizationLineLength` stay plain, as in VS Code. Results go
+// back a block at a time (src/workers/tokens.ts), so no single message blocks the UI thread.
 import { createHighlighterCore, type HighlighterCore } from 'shiki/core'
 import { createOnigurumaEngine } from 'shiki/engine/oniguruma'
 import { bundledLanguages } from 'shiki/langs'
+import { blocks, CHUNK, type CancelRequest, type HighlightRequest, type HighlightResponse, type TokenLine } from './tokens'
 
-export interface HighlightRequest {
-  id: number
-  text: string
-  lang: string
-  theme: 'light-plus' | 'dark-plus'
-  maxLineLength: number
-}
-
-/** [content, color, fontStyle] per token, per line */
-export type TokenLine = [string, string, number][]
-
-export interface HighlightResponse {
-  id: number
-  lines: TokenLine[] | null
-}
+export type { CancelRequest, HighlightRequest, HighlightResponse, TokenLine } from './tokens'
 
 let highlighter: Promise<HighlighterCore> | null = null
 const loading = new Map<string, Promise<void>>()
@@ -50,18 +38,42 @@ async function ensureLanguage(hl: HighlighterCore, lang: string): Promise<boolea
   return true
 }
 
-self.onmessage = async (event: MessageEvent<HighlightRequest>) => {
+const running = new Set<number>()
+const cancelled = new Set<number>()
+const yieldToMessages = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+self.onmessage = async (event: MessageEvent<HighlightRequest | CancelRequest>) => {
+  if ('cancel' in event.data) {
+    // A request that already finished needs no flag, and keeping one would never be cleared
+    if (running.has(event.data.cancel)) cancelled.add(event.data.cancel)
+    return
+  }
   const { id, text, lang, theme, maxLineLength } = event.data
+  running.add(id)
+  const post = (offset: number, lines: TokenLine[] | null, done: boolean) => self.postMessage({ id, offset, lines, done } satisfies HighlightResponse)
   try {
     const hl = await get()
     if (!(await ensureLanguage(hl, lang))) {
-      self.postMessage({ id, lines: null } satisfies HighlightResponse)
-      return
+      // A language Shiki does not bundle — a plain .txt diff, say — answers plain
+      post(0, null, true)
+    } else {
+      const tokens = hl.codeToTokensBase(text, { lang, theme, tokenizeMaxLineLength: maxLineLength })
+      for (const { offset, done } of blocks(tokens.length)) {
+        if (cancelled.has(id)) break
+        post(
+          offset,
+          tokens.slice(offset, offset + CHUNK).map<TokenLine>((line) => line.map((t) => [t.content, t.color ?? '', t.fontStyle ?? 0])),
+          done,
+        )
+        if (!done) await yieldToMessages()
+      }
     }
-    const tokens = hl.codeToTokensBase(text, { lang, theme, tokenizeMaxLineLength: maxLineLength })
-    const lines: TokenLine[] = tokens.map((line) => line.map((t) => [t.content, t.color ?? '', t.fontStyle ?? 0]))
-    self.postMessage({ id, lines } satisfies HighlightResponse)
   } catch {
-    self.postMessage({ id, lines: null } satisfies HighlightResponse)
+    post(0, null, true)
+  } finally {
+    // Every way out clears both flags, or a request that took one would keep its id for the
+    // life of the worker and the comment above would stop holding
+    running.delete(id)
+    cancelled.delete(id)
   }
 }

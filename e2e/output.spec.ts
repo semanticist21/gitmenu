@@ -57,13 +57,40 @@ test('a full Git output renders only the lines on screen', async ({ page }) => {
   await expect(log).toContainText('> git pull --tags origin main')
   const shape = await page.evaluate(() => {
     const el = document.querySelector('[role=log]') as HTMLElement
-    return { rows: el.querySelectorAll(':scope > div > div').length, height: el.scrollHeight, elements: document.querySelectorAll('*').length }
+    return { rows: el.querySelectorAll(':scope > div > div > div').length, height: el.scrollHeight, elements: document.querySelectorAll('*').length }
   })
   // 500 fetches of six stderr lines are 3,500 lines, and every one can be scrolled to...
   expect(shape.height).toBeGreaterThan(3500 * 18)
   // ...but only the ones on screen are rendered, so the window stays a small document
   expect(shape.rows).toBeLessThanOrEqual(80)
   expect(shape.elements).toBeLessThan(2000)
+})
+
+test('copying the Git output keeps its line breaks, and Copy Output takes the whole log', async ({ page }) => {
+  await page.goto('/?log=500#/detail/output')
+  const log = page.getByRole('log')
+  await expect(log).toContainText('> git pull --tags origin main')
+  // A selection of the drawn lines comes out as lines, not one run-on line
+  const drawn = await page.evaluate(() => {
+    const el = document.querySelector('[role=log]') as HTMLElement
+    const range = document.createRange()
+    range.selectNodeContents(el.querySelector(':scope > div > div') as HTMLElement)
+    const selection = getSelection() as Selection
+    selection.removeAllRanges()
+    selection.addRange(range)
+    const text = selection.toString()
+    return { lines: text.split('\n').length, rows: el.querySelectorAll(':scope > div > div > div').length }
+  })
+  expect(drawn.lines).toBe(drawn.rows)
+
+  // ...and the lines that were never drawn are still reachable, through the action
+  await page.getByRole('button', { name: 'Copy Output' }).click()
+  const copied = await page.evaluate(() => {
+    const w = window as unknown as { __ipcCalls: string[]; __ipcArgs: { text?: string }[] }
+    return w.__ipcArgs[w.__ipcCalls.lastIndexOf('clipboard_write')].text ?? ''
+  })
+  expect(copied.split('\n').length).toBeGreaterThan(3500)
+  expect(copied).toContain('> git pull --tags origin main')
 })
 
 test('Show Command Output opens the failed command and its stderr', async ({ page }) => {

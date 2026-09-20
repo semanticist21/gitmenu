@@ -49,10 +49,13 @@ const authors = [
 ]
 const subjects = ['feat: add queue', 'fix: retry index.lock', 'refactor: split read module', 'docs: explain askpass', 'chore: bump gix', 'feat(ui): commits view']
 
+// Fixed once per page load, so a re-read of the same commits is byte-for-byte the same read
+const loadedAt = Math.floor(Date.now() / 1000)
+
 function commits(count: number) {
   return Array.from({ length: count }, (_, i) => {
     const [name, email] = authors[i % authors.length]
-    const time = Math.floor(Date.now() / 1000) - i * 5400 - 300
+    const time = loadedAt - i * 5400 - 300
     return {
       id: (i + 1).toString(16).padStart(8, '0').repeat(5),
       parents: [(i + 2).toString(16).padStart(8, '0').repeat(5)],
@@ -228,6 +231,8 @@ export function installMocks() {
     __emit: emit,
     __logEntry: (entry: (typeof gitLog)[number]) => {
       gitLog.push(entry)
+      // `KEEP` in src-tauri/src/output.rs
+      if (gitLog.length > 500) gitLog.shift()
       void emit('git-log://entry', entry)
     },
   })

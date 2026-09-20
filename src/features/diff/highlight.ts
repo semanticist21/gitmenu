@@ -2,29 +2,42 @@
 // a tab shows them (no global cache, per the memory rules in SPEC.md).
 import { useEffect, useState } from 'react'
 import { useSetting } from '@/settings/settings'
-import type { HighlightRequest, HighlightResponse, TokenLine } from '@/workers/shiki.worker'
+import { type CancelRequest, type HighlightRequest, type HighlightResponse, merge, type TokenLine } from '@/workers/tokens'
 
 let worker: Worker | null = null
 let nextId = 1
-const pending = new Map<number, (lines: TokenLine[] | null) => void>()
+const pending = new Map<number, (chunk: HighlightResponse) => void>()
 
 function getWorker() {
   if (!worker) {
     worker = new Worker(new URL('../../workers/shiki.worker.ts', import.meta.url), { type: 'module' })
     worker.onmessage = (event: MessageEvent<HighlightResponse>) => {
-      pending.get(event.data.id)?.(event.data.lines)
-      pending.delete(event.data.id)
+      const take = pending.get(event.data.id)
+      if (!take) return
+      if (event.data.done) pending.delete(event.data.id)
+      take(event.data)
     }
   }
   return worker
 }
 
-function highlight(request: Omit<HighlightRequest, 'id'>): Promise<TokenLine[] | null> {
+/**
+ * Tokens for one request, delivered a block at a time: `onLines` sees the whole result so far
+ * after every block, so the first screen paints without waiting for the rest of the file.
+ * Returns a cancel function that drops the blocks still to come.
+ */
+function highlight(request: Omit<HighlightRequest, 'id'>, onLines: (lines: TokenLine[] | null, done: boolean) => void): () => void {
   const id = nextId++
-  return new Promise((resolve) => {
-    pending.set(id, resolve)
-    getWorker().postMessage({ ...request, id })
+  const lines: TokenLine[] = []
+  pending.set(id, (chunk) => {
+    if (chunk.lines === null) onLines(null, true)
+    else onLines(merge(lines, chunk.offset, chunk.lines), chunk.done)
   })
+  getWorker().postMessage({ ...request, id })
+  return () => {
+    if (!pending.delete(id)) return
+    getWorker().postMessage({ cancel: id } satisfies CancelRequest)
+  }
 }
 
 // File name / extension → Shiki language id (Shiki's own aliases cover most extensions)
@@ -80,7 +93,11 @@ export function languageFor(path: string): string {
   return BY_EXTENSION[ext] ?? ext
 }
 
-/** Tokens for `text` in the current theme; `null` while loading or for unknown languages. */
+/**
+ * Tokens for `text` in the current theme; `null` while loading or for unknown languages. A long
+ * file fills in a block at a time, and only this request's blocks are ever shown: a result from
+ * a superseded one carries the old key and is dropped.
+ */
 export function useHighlight(text: string | null | undefined, path: string, dark: boolean): TokenLine[] | null {
   const maxLineLength = useSetting<number>('editor.maxTokenizationLineLength')
   const [result, setResult] = useState<{ key: string; lines: TokenLine[] | null } | null>(null)
@@ -88,13 +105,12 @@ export function useHighlight(text: string | null | undefined, path: string, dark
   useEffect(() => {
     if (text == null) return
     let alive = true
-    void highlight({ text, lang: languageFor(path), theme: dark ? 'dark-plus' : 'light-plus', maxLineLength }).then(
-      (lines) => {
-        if (alive) setResult({ key, lines })
-      },
-    )
+    const cancel = highlight({ text, lang: languageFor(path), theme: dark ? 'dark-plus' : 'light-plus', maxLineLength }, (lines) => {
+      if (alive) setResult({ key, lines })
+    })
     return () => {
       alive = false
+      cancel()
     }
   }, [text, path, dark, maxLineLength, key])
   return result?.key === key ? result.lines : null

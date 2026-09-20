@@ -194,6 +194,8 @@ function Details({ root, row }: { root: string; row: GraphRow }) {
                   key={file.path}
                   role="treeitem"
                   tabIndex={-1}
+                  aria-posinset={item.index + 1}
+                  aria-setsize={files.length}
                   className="absolute inset-x-0 top-0 flex h-row cursor-default items-center ps-2 pe-3 leading-row outline-none hover:bg-list-hover focus:bg-list-active focus:text-list-active-foreground focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-list-focus-outline"
                   style={{ transform: `translateY(${item.start - headerHeight}px)` }}
                   title={node.tooltip}
