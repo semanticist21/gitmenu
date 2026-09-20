@@ -233,7 +233,7 @@ export function CommandInput({
 export function CommandList({
   className,
   ...props
-}: AutocompletePrimitive.List.Props): React.ReactElement {
+}: React.ComponentProps<typeof AutocompletePrimitive.List>): React.ReactElement {
   return (
     <AutocompletePrimitive.List
       className={cn(
@@ -306,6 +306,10 @@ export function CommandGroupLabel({
 
 export const CommandCollection: typeof AutocompletePrimitive.Collection =
   AutocompletePrimitive.Collection;
+
+/** The items left after the filter, for a list that renders its own rows (`virtualized`). */
+export const useCommandItems: typeof AutocompletePrimitive.useFilteredItems =
+  AutocompletePrimitive.useFilteredItems;
 
 export function CommandItem({
   className,

@@ -68,6 +68,25 @@ function commits(count: number) {
 
 const scenario = new URLSearchParams(window.location.search)
 
+// Sizes the lists that have to stay virtualized: `?refs=N` a release-heavy ref list (the
+// checkout quick pick), `?incoming=N` an unread upstream (the Commits view's Incoming node),
+// `?changes=N` a monorepo-sized working tree spread over folders (the SCM tree view).
+const refCount = Math.max(0, Number(scenario.get('refs')) || 0)
+const incomingCount = Math.max(0, Number(scenario.get('incoming')) || 0)
+const changeCount = Math.max(0, Number(scenario.get('changes')) || 0)
+const manyRefs = Array.from({ length: refCount }, (_, i) => {
+  const kind = i % 3 === 0 ? 'branch' : i % 3 === 1 ? 'remote' : 'tag'
+  const short = kind === 'branch' ? `feature/issue-${i}` : kind === 'remote' ? `origin/feature/issue-${i}` : `v1.${i}.0`
+  const prefix = kind === 'branch' ? 'refs/heads' : kind === 'remote' ? 'refs/remotes' : 'refs/tags'
+  return { name: `${prefix}/${short}`, short, kind, commit: (i + 1).toString(16).padStart(8, '0').repeat(5), time: 1_700_000_000 - i * 3600, subject: subjects[i % subjects.length] }
+})
+const manyChanges = Array.from({ length: changeCount }, (_, i) => ({
+  path: `packages/pkg-${i % 50}/src/module-${Math.floor(i / 50) % 50}/file-${i}.ts`,
+  originalPath: null,
+  status: 'modified',
+  submodule: false,
+}))
+
 // `?repos=N` opens one project holding N repositories, as opening a folder of checkouts does
 const repoCount = Math.max(0, Number(scenario.get('repos')) || 0)
 const codeRoot = '/Users/me/code'
@@ -100,6 +119,41 @@ function streamScan() {
 }
 
 const statusFiles = ['src/index.ts', 'src/app.tsx', 'README.md', 'package.json', 'src/lib/util.ts', 'test/e2e.spec.ts', 'docs/api.md']
+
+// Oversized repositories, for the tests that check long lists stay virtualized:
+// `?files=N` makes every commit touch N files, `?lines=N&hunks=M` makes every diff N lines per
+// side with M single-line changes (`?lines=N` alone is one big file with one change).
+const bigFiles = Math.max(0, Number(scenario.get('files')) || 0)
+const bigLines = Math.max(0, Number(scenario.get('lines')) || 0)
+const bigHunks = Math.min(bigLines, Math.max(1, Number(scenario.get('hunks')) || 1))
+// `?log=N` starts the Git output with N earlier commands, as a long session leaves it (Rust
+// keeps the last 500), each with the stderr a fetch prints
+const logCount = Math.max(0, Number(scenario.get('log')) || 0)
+
+function commitFiles(count: number) {
+  const kinds = ['modified', 'added', 'deleted', 'renamed']
+  return Array.from({ length: count }, (_, i) => ({
+    path: `src/generated/module-${String(i).padStart(5, '0')}/index.ts`,
+    originalPath: null,
+    status: kinds[i % kinds.length],
+  }))
+}
+
+/** Two texts of `bigLines` lines that differ on `bigHunks` evenly spread single lines. */
+function bigDiff() {
+  const step = Math.floor(bigLines / bigHunks)
+  const left: string[] = []
+  const right: string[] = []
+  const hunks: { leftStart: number; leftCount: number; rightStart: number; rightCount: number }[] = []
+  for (let i = 0; i < bigLines; i++) {
+    const changed = i % step === 0 && hunks.length < bigHunks
+    left.push(`export const value${i} = { id: ${i}, name: 'row ${i}' }`)
+    right.push(changed ? `export const value${i} = { id: ${i + 1}, name: 'row ${i}' }` : left[i])
+    if (changed) hunks.push({ leftStart: i, leftCount: 1, rightStart: i, rightCount: 1 })
+  }
+  const text = (lines: string[]) => `${lines.join('\n')}\n`
+  return { left: text(left), right: text(right), hunks }
+}
 
 /** Every repository of a `?repos=N` project reports its own branch, sync counts and changes. */
 function repoStatus(root: string) {
@@ -145,6 +199,17 @@ export function installMocks() {
   const now = Date.now()
   const logRepo = '/Users/me/code/gitmenu'
   const gitLog = [
+    ...Array.from({ length: logCount }, (_, i) => ({
+      // Past the operation ids the entries below use, so Show Command Output still finds op 9
+      op: 1000 + i,
+      time: now - 120_000 - (logCount - i) * 1_000,
+      repo: logRepo,
+      args: ['fetch', '--prune', 'origin'],
+      durationMs: 300 + (i % 700),
+      code: 0,
+      cancelled: false,
+      stderr: `remote: Enumerating objects: ${i + 12}, done.\nremote: Counting objects: 100% (${i + 12}/${i + 12}), done.\nremote: Compressing objects: 100% (7/7), done.\nremote: Total 12 (delta 6), reused 9 (delta 4), pack-reused 0\nFrom github.com:me/gitmenu\n   ${i.toString(16).padStart(7, '0')}..${(i + 1).toString(16).padStart(7, '0')}  main       -> origin/main`,
+    })),
     { op: 7, time: now - 60_000, repo: logRepo, args: ['fetch', '--all'], durationMs: 812, code: 0, cancelled: false, stderr: 'From github.com:me/gitmenu\n   3f2a1c9..8b7d6e5  main       -> origin/main' },
     { op: 8, time: now - 30_000, repo: logRepo, args: ['add', '-A', '--', 'src/main.tsx'], durationMs: 41, code: 0, cancelled: false, stderr: '' },
     {
@@ -244,7 +309,15 @@ export function installMocks() {
           )
         }
         case 'repo_status': {
-          const base = repoCount ? repoStatus(a.root as string) : status
+          const plain = repoCount ? repoStatus(a.root as string) : status
+          const base =
+            incomingCount || changeCount
+              ? {
+                  ...plain,
+                  ...(incomingCount && plain.upstream ? { upstream: { ...plain.upstream, behind: incomingCount } } : {}),
+                  ...(changeCount ? { index: [], workingTree: manyChanges, untracked: [], total: changeCount } : {}),
+                }
+              : plain
           const next =
             scenario.get('status') === 'merge'
               ? { ...base, operation: 'merge', merge: [{ path: 'src/app.ts', originalPath: null, status: 'bothModified', submodule: false }] }
@@ -255,6 +328,7 @@ export function installMocks() {
           return scenario.get('slow') ? new Promise((resolve) => setTimeout(() => resolve(next), 150)) : next
         }
         case 'repo_refs':
+          if (refCount) return manyRefs
           return [
             { name: 'refs/heads/main', short: 'main', kind: 'branch', commit: status.head.commit, time: 1_700_000_000, subject: 'feat: add queue' },
             { name: 'refs/heads/feature/login', short: 'feature/login', kind: 'branch', commit: 'a1b2c3d4', time: 1_690_000_000, subject: 'wip' },
@@ -265,6 +339,12 @@ export function installMocks() {
           return [{ index: 0, commit: 'd4e5f6a7', message: 'On main: experiment', time: 1_700_000_000 }]
         case 'repo_diff':
         case 'repo_file': {
+          if (bigLines) {
+            const big = bigDiff()
+            const side = (text: string, exists: boolean) => ({ exists, size: text.length, text: exists ? text : null, dataUrl: null })
+            if (cmd === 'repo_file') return { kind: 'text', left: side('', false), right: side(big.right, true), hunks: [] }
+            return { kind: 'text', left: side(big.left, true), right: side(big.right, true), hunks: big.hunks }
+          }
           const left = 'import { createRoot } from \'react-dom/client\'\nimport App from \'./App\'\n\nconst root = document.getElementById(\'root\')\ncreateRoot(root!).render(<App />)\n\nexport function helper(a: number) {\n  return a * 2\n}\n'
           const right = 'import { StrictMode } from \'react\'\nimport { createRoot } from \'react-dom/client\'\nimport App from \'./App\'\n\nconst root = document.getElementById(\'root\')\ncreateRoot(root!).render(\n  <StrictMode>\n    <App />\n  </StrictMode>,\n)\n\nexport function helper(a: number) {\n  return a * 3\n}\n'
           if (cmd === 'repo_file') return { kind: 'text', left: { exists: false, size: 0, text: null, dataUrl: null }, right: { exists: true, size: right.length, text: right, dataUrl: null }, hunks: [] }
@@ -295,7 +375,7 @@ export function installMocks() {
         case 'repo_log':
         case 'repo_line_history': {
           const q = (a.query ?? a) as { skip?: number; limit: number; revs?: string[]; path?: string }
-          const all = commits(q.revs?.[0] === 'origin/main' ? 1 : q.revs?.[0] === 'HEAD' && (a.query as { hide?: string[] })?.hide?.length ? 2 : 45)
+          const all = commits(q.revs?.[0] === 'origin/main' ? incomingCount || 1 : q.revs?.[0] === 'HEAD' && (a.query as { hide?: string[] })?.hide?.length ? 2 : 45)
           const page = all.slice(q.skip ?? 0, (q.skip ?? 0) + q.limit)
           return { commits: q.path ? page.map((c) => ({ ...c, path: q.path, status: 'modified' })) : page, more: (q.skip ?? 0) + q.limit < all.length }
         }
@@ -304,12 +384,14 @@ export function installMocks() {
             ...commits(1)[0],
             id: a.rev,
             message: 'feat: add queue\n\nRuns writes one at a time per worktree.',
-            files: [
-              { path: 'src-tauri/src/queue.rs', originalPath: null, status: 'modified' },
-              { path: 'src/lib/ops.ts', originalPath: null, status: 'added' },
-              { path: 'src/lib/old-ops.ts', originalPath: null, status: 'deleted' },
-              { path: 'docs/queue.md', originalPath: 'docs/ops.md', status: 'renamed' },
-            ],
+            files: bigFiles
+              ? commitFiles(bigFiles)
+              : [
+                  { path: 'src-tauri/src/queue.rs', originalPath: null, status: 'modified' },
+                  { path: 'src/lib/ops.ts', originalPath: null, status: 'added' },
+                  { path: 'src/lib/old-ops.ts', originalPath: null, status: 'deleted' },
+                  { path: 'docs/queue.md', originalPath: 'docs/ops.md', status: 'renamed' },
+                ],
           }
         case 'repo_compare':
           return { base: 'aaa', head: 'bbb', mergeBase: 'ccc', ahead: 3, behind: 1, files: [{ path: 'src/main.tsx', originalPath: null, status: 'modified' }] }
@@ -328,7 +410,7 @@ export function installMocks() {
           return authors.map(([name, email], i) => ({ name, email, commits: 40 - i * 13, latest: 'abc', latestTime: Math.floor(Date.now() / 1000) - i * 90000 }))
         case 'repo_graph': {
           const q = a.query as { skip: number; limit: number }
-          const base = commits(60)
+          const base = commits(Math.max(60, Number(scenario.get('rows')) || 0))
           const shape: [number, number[], number[], number[], boolean, { name: string; kind: string }[]][] = [
             [0, [], [0, 1], [], false, [{ name: 'main', kind: 'head' }, { name: 'origin/main', kind: 'remote' }]],
             [0, [], [0], [1], true, []],

@@ -215,22 +215,30 @@ function HScrollbar({ left, width, content, value, onChange }: { left: number; w
   )
 }
 
-/** The diff overview ruler: removed ranges on the left half, inserted on the right, the viewport on top. */
+/**
+ * The diff overview ruler: removed ranges on the left half, inserted on the right, the viewport
+ * on top. The marks are drawn into a canvas, as VS Code's OverviewRuler draws its zones, so a
+ * file with thousands of hunks costs one fill per pixel run instead of one element per hunk —
+ * and scrolling, which only moves the viewport slider, never touches them.
+ */
 function OverviewRuler({
   marks,
   total,
   scrollTop,
   viewport,
+  dark,
   onScroll,
 }: {
   marks: { side: Side; top: number; height: number }[]
   total: number
   scrollTop: number
   viewport: number
+  dark: boolean
   onScroll: (top: number) => void
 }) {
   const [height, setHeight] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
@@ -239,6 +247,37 @@ function OverviewRuler({
     return () => observer.disconnect()
   }, [])
   const scale = total > 0 ? height / total : 0
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || height === 0) return
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = Math.round(OVERVIEW * dpr)
+    canvas.height = Math.round(height * dpr)
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.clearRect(0, 0, OVERVIEW, height)
+    // Marks that land on the same pixels merge into one run, which also keeps the translucent
+    // colors from stacking where a hunk is smaller than a device pixel
+    const style = getComputedStyle(canvas)
+    for (const side of ['left', 'right'] as const) {
+      const runs: [number, number][] = []
+      for (const mark of marks) {
+        if (mark.side !== side) continue
+        const from = Math.round(mark.top * scale)
+        const to = Math.max(from + 2, Math.round((mark.top + mark.height) * scale))
+        const last = runs[runs.length - 1]
+        if (last && from <= last[1]) {
+          last[0] = Math.min(last[0], from)
+          last[1] = Math.max(last[1], to)
+        } else runs.push([from, to])
+      }
+      ctx.fillStyle = style.getPropertyValue(side === 'left' ? '--diff-overview-removed' : '--diff-overview-added').trim()
+      const x = side === 'left' ? 0 : OVERVIEW / 2
+      for (const [from, to] of runs) ctx.fillRect(x, from, OVERVIEW / 2, to - from)
+    }
+  }, [marks, scale, height, dark])
   const slider = Math.max(20, viewport * scale)
   const scrollTo = (e: ReactPointerEvent<HTMLDivElement>) => {
     const y = e.clientY - e.currentTarget.getBoundingClientRect().top
@@ -258,13 +297,7 @@ function OverviewRuler({
         if (e.currentTarget.hasPointerCapture(e.pointerId)) scrollTo(e)
       }}
     >
-      {marks.map((mark, i) => (
-        <div
-          key={i}
-          className={cn('absolute', mark.side === 'left' ? 'left-0 bg-diff-overview-removed' : 'right-0 bg-diff-overview-added')}
-          style={{ top: mark.top * scale, height: Math.max(2, mark.height * scale), width: OVERVIEW / 2 }}
-        />
-      ))}
+      <canvas ref={canvasRef} className="absolute inset-0 size-full" />
       {total > viewport && (
         <div
           className="absolute inset-x-0 z-10 bg-scrollbar-slider hover:bg-scrollbar-slider-hover active:bg-scrollbar-slider-active"
@@ -849,6 +882,7 @@ export function DiffView({
           total={totalHeight}
           scrollTop={scrollTop}
           viewport={size.height}
+          dark={dark}
           onScroll={(top) => scrollRef.current?.scrollTo({ top })}
         />
       )}

@@ -153,17 +153,34 @@ export function ResourceList({ root, groups, header }: { root: string; groups: G
     return () => observer.disconnect()
   }, [])
 
-  const rows = useMemo<Row[]>(() => {
+  const { rows, folderFiles } = useMemo(() => {
     const list: Row[] = []
+    // Every folder path to the changes under it, built once with the rows: a folder row needs
+    // them for its menu and inline actions, and scanning the group per rendered row would be
+    // O(visible folders x changes) on every scroll frame
+    const under = new Map<string, FileChange[]>()
     for (const group of groups) {
       if (group.changes.length === 0 && group.id !== 'workingTree') continue
       list.push({ kind: 'group', group, depth: 1, ancestors: [] })
       if (collapsed.includes(group.id)) continue
       const changes = sortChanges(group.changes, sortKey)
-      if (viewMode === 'tree') list.push(...treeRows(group, changes, collapsedFolders))
-      else for (const change of changes) list.push({ kind: 'file', group, change, depth: 2, ancestors: [groupKey(group)] })
+      if (viewMode !== 'tree') {
+        for (const change of changes) list.push({ kind: 'file', group, change, depth: 2, ancestors: [groupKey(group)] })
+        continue
+      }
+      list.push(...treeRows(group, changes, collapsedFolders))
+      for (const change of group.changes) {
+        const parts = change.path.split('/')
+        let path = ''
+        for (let i = 0; i < parts.length - 1; i += 1) {
+          path = path ? `${path}/${parts[i]}` : parts[i]
+          const files = under.get(`${group.id}:${path}`)
+          if (files) files.push(change)
+          else under.set(`${group.id}:${path}`, [change])
+        }
+      }
     }
-    return list
+    return { rows: list, folderFiles: under }
   }, [groups, collapsed, collapsedFolders, viewMode, sortKey])
 
   const virtualizer = useVirtualizer({
@@ -181,8 +198,8 @@ export function ResourceList({ root, groups, header }: { root: string; groups: G
     const k = folderKey(row)
     setCollapsedFolders(collapsedFolders.includes(k) ? collapsedFolders.filter((f) => f !== k) : [...collapsedFolders, k])
   }
-  /** Files under a folder row (for its context menu and inline actions). */
-  const folderChanges = (row: Extract<Row, { kind: 'folder' }>) => row.group.changes.filter((c) => c.path.startsWith(`${row.path}/`))
+  /** Files under a folder row (for its context menu and inline actions), in the group's order. */
+  const folderChanges = (row: Extract<Row, { kind: 'folder' }>) => folderFiles.get(folderKey(row)) ?? []
 
   /** The clicked file plus every other selected file of its group, like VS Code. */
   const selectionFor = (group: Group, change: FileChange): ScmSelection => {

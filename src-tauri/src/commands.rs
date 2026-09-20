@@ -238,17 +238,34 @@ pub fn panel_set_detached(app: AppHandle, detached: bool) {
 }
 
 /// Opens (or focuses) the single detail window; `route` picks the tab to show.
+///
+/// `async`, and the window is built from a task on the main thread rather than inside the
+/// command: a non-async `#[tauri::command]` runs in wry's IPC handler, so building the window
+/// there (NSWindow + WKWebView, ~35 ms warm and ~145 ms cold) held the main thread *and* the
+/// panel's IPC channel, and the panel froze on the click that opened it. The tasks run in order
+/// on the main thread, so two clicks in a row still build one window.
 #[tauri::command]
-pub fn detail_open(app: AppHandle, route: String) -> Result<()> {
+pub async fn detail_open(app: AppHandle, route: String) -> Result<()> {
     tray::keep_open_briefly(&app);
+    let handle = app.clone();
+    app.run_on_main_thread(move || {
+        if let Err(e) = show_detail(&handle, &route) {
+            log::error!("detail window: {e}");
+        }
+    })?;
+    Ok(())
+}
+
+/// Shows the detail window at `route`, building it the first time. Main thread only.
+fn show_detail(app: &AppHandle, route: &str) -> Result<()> {
     if let Some(window) = app.get_webview_window(DETAIL) {
-        let _ = tauri::Emitter::emit_to(&app, DETAIL, "detail://navigate", &route);
+        let _ = tauri::Emitter::emit_to(app, DETAIL, "detail://navigate", route);
         window.show()?;
         window.set_focus()?;
         return Ok(());
     }
     let url = format!("index.html#{route}");
-    WebviewWindowBuilder::new(&app, DETAIL, WebviewUrl::App(url.into()))
+    WebviewWindowBuilder::new(app, DETAIL, WebviewUrl::App(url.into()))
         .title("gitmenu")
         .inner_size(1100.0, 760.0)
         .min_inner_size(640.0, 400.0)
@@ -298,10 +315,12 @@ pub fn prompt_write_file(env: Env, id: u64, path: PathBuf, content: Option<Strin
     Ok(())
 }
 
-/// The Git output log, oldest first
+/// The Git output log, oldest first. `async` so the copy and its JSON (up to 500 entries of
+/// 32 KiB of stderr) leave the main thread; the tab reads it once per mount and follows the
+/// `git-log://entry` events from there.
 #[tauri::command]
-pub fn git_log_entries(queue: State<Arc<Queue>>) -> Vec<crate::output::LogEntry> {
-    queue.log().entries()
+pub async fn git_log_entries(queue: State<'_, Arc<Queue>>) -> Result<Vec<crate::output::LogEntry>> {
+    Ok(queue.log().entries())
 }
 
 #[tauri::command]

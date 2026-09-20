@@ -4,7 +4,7 @@
 // lane color, VS Code list selection, and a Commit Details side pane.
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { MenuItems } from '@/commands/MenuItems'
 import { Icon } from '@/components/Icon'
 import { Button } from '@/components/ui/button'
@@ -124,6 +124,32 @@ function Details({ root, row }: { root: string; row: GraphRow }) {
   const locale = useLocale()
   const { data, error } = useQuery({ queryKey: ['repo', root, 'commit', row.id], queryFn: () => git.commitDetails(root, row.id), staleTime: Infinity })
   const parent = row.parents[0] ?? null
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
+  const [headerHeight, setHeaderHeight] = useState(0)
+  const files = data?.files
+
+  // The file rows start below the commit's author, SHA and message, which scroll with them
+  useLayoutEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    const measure = () => setHeaderHeight(el.offsetHeight)
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    measure()
+    return () => observer.disconnect()
+  }, [])
+
+  // A commit can touch tens of thousands of files (an import, a vendor drop, a format sweep),
+  // so the list is virtualized like every other list in the app
+  const virtualizer = useVirtualizer({
+    count: files?.length ?? 0,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 12,
+    scrollMargin: headerHeight,
+  })
+
   return (
     <aside
       className="flex w-80 shrink-0 flex-col overflow-hidden border-sidebar-border border-l bg-sidebar text-sidebar-foreground"
@@ -132,56 +158,60 @@ function Details({ root, row }: { root: string; row: GraphRow }) {
       <div className="flex h-pane-header shrink-0 items-center truncate ps-5 pe-2 font-bold text-caption text-section-header-foreground uppercase">
         {gl('Commit Details')}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="flex items-center gap-2 px-3 pt-2">
-          <Avatar root={root} name={row.author.name} email={row.author.email} sha={row.id} className="size-8 text-caption" />
-          <div className="min-w-0 flex-1 leading-[18px]">
-            <div className="truncate font-semibold">{row.author.name}</div>
-            <div className="truncate text-small opacity-95 dark:opacity-70" title={fullDate(row.author.time, locale)}>
-              {relativeTime(row.author.time, locale)} ({fullDate(row.author.time, locale)})
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+        <div ref={headerRef}>
+          <div className="flex items-center gap-2 px-3 pt-2">
+            <Avatar root={root} name={row.author.name} email={row.author.email} sha={row.id} className="size-8 text-caption" />
+            <div className="min-w-0 flex-1 leading-[18px]">
+              <div className="truncate font-semibold">{row.author.name}</div>
+              <div className="truncate text-small opacity-95 dark:opacity-70" title={fullDate(row.author.time, locale)}>
+                {relativeTime(row.author.time, locale)} ({fullDate(row.author.time, locale)})
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-1 px-3 pt-2">
-          <Button size="small" variant="secondary" className="font-mono" onClick={() => void ipc.clipboardWrite(row.id)}>
-            <Icon name="git-commit" />
-            {shortSha(row.id)}
-          </Button>
-          <ActionButton icon="copy" label={gl('Copy SHA')} small onClick={() => void ipc.clipboardWrite(row.id)} />
-        </div>
-        <p className="select-text whitespace-pre-wrap break-words px-3 py-2">{data?.message ?? row.subject}</p>
-        {error && <p className="select-text px-3 text-error">{errorMessage(error)}</p>}
-        {data && (
-          <>
+          <div className="flex items-center gap-1 px-3 pt-2">
+            <Button size="small" variant="secondary" className="font-mono" onClick={() => void ipc.clipboardWrite(row.id)}>
+              <Icon name="git-commit" />
+              {shortSha(row.id)}
+            </Button>
+            <ActionButton icon="copy" label={gl('Copy SHA')} small onClick={() => void ipc.clipboardWrite(row.id)} />
+          </div>
+          <p className="select-text whitespace-pre-wrap break-words px-3 py-2">{data?.message ?? row.subject}</p>
+          {error && <p className="select-text px-3 text-error">{errorMessage(error)}</p>}
+          {files && (
             <div className="flex h-pane-header items-center border-section-header-border border-t ps-5 font-bold text-caption uppercase">
-              {data.files.length === 1 ? gl('1 file changed') : gl('{0} files changed', data.files.length)}
+              {files.length === 1 ? gl('1 file changed') : gl('{0} files changed', files.length)}
             </div>
-            <div role="tree" aria-label={gl('{0} files changed', data.files.length)}>
-              {data.files.map((file) => {
-                const node = fileNode(root, row.id, parent, file, row.id)
-                return (
-                  <div
-                    key={file.path}
-                    role="treeitem"
-                    tabIndex={-1}
-                    className="flex h-row cursor-default items-center ps-2 pe-3 leading-row outline-none hover:bg-list-hover focus:bg-list-active focus:text-list-active-foreground focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-list-focus-outline"
-                    title={node.tooltip}
-                    onClick={() => openFileChange({ root, sha: row.id, parent, file })}
-                    onKeyDown={(e) => e.key === 'Enter' && openFileChange({ root, sha: row.id, parent, file })}
-                  >
-                    <Icon name="file" className="me-1.5" />
-                    <span className="min-w-0 flex-1 truncate">
-                      <span className="whitespace-pre">{node.label}</span>
-                      {node.description && <span className="ms-[.5em] whitespace-pre text-label-description opacity-95 dark:opacity-70">{node.description}</span>}
-                    </span>
-                    <span className="ms-[5px] me-[3px] inline-flex">
-                      <StatusLetter status={file.status} />
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          </>
+          )}
+        </div>
+        {files && (
+          <div role="tree" aria-label={gl('{0} files changed', files.length)} className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+            {virtualizer.getVirtualItems().map((item) => {
+              const file = files[item.index]
+              const node = fileNode(root, row.id, parent, file, row.id)
+              return (
+                <div
+                  key={file.path}
+                  role="treeitem"
+                  tabIndex={-1}
+                  className="absolute inset-x-0 top-0 flex h-row cursor-default items-center ps-2 pe-3 leading-row outline-none hover:bg-list-hover focus:bg-list-active focus:text-list-active-foreground focus:outline-solid focus:outline-1 focus:-outline-offset-1 focus:outline-list-focus-outline"
+                  style={{ transform: `translateY(${item.start - headerHeight}px)` }}
+                  title={node.tooltip}
+                  onClick={() => openFileChange({ root, sha: row.id, parent, file })}
+                  onKeyDown={(e) => e.key === 'Enter' && openFileChange({ root, sha: row.id, parent, file })}
+                >
+                  <Icon name="file" className="me-1.5" />
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="whitespace-pre">{node.label}</span>
+                    {node.description && <span className="ms-[.5em] whitespace-pre text-label-description opacity-95 dark:opacity-70">{node.description}</span>}
+                  </span>
+                  <span className="ms-[5px] me-[3px] inline-flex">
+                    <StatusLetter status={file.status} />
+                  </span>
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
     </aside>

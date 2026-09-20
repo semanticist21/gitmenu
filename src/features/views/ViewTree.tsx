@@ -151,14 +151,29 @@ export function IndentGuides({ ancestors, active }: { ancestors: string[]; activ
 /** VS Code shows a loading twistie only once children take this long */
 const SLOW_LOADING_MS = 800
 
+/** One expanded node's built children, kept until its data or the locale changes. */
+interface Built {
+  data: unknown
+  locale: string
+  nodes: TreeNode[]
+}
+
+/** `VITE_MOCK` only: how often `build` ran, so the e2e can tell per-expansion from per-render. */
+function countBuild() {
+  if (import.meta.env.VITE_MOCK !== '1') return
+  const w = window as unknown as { __viewTreeBuilds?: number }
+  w.__viewTreeBuilds = (w.__viewTreeBuilds ?? 0) + 1
+}
+
 export function ViewTree({ viewId, nodes, label }: { viewId: string; nodes: TreeNode[]; label: string }) {
-  useLocale()
+  const locale = useLocale()
   const client = useQueryClient()
   const [toggled, setToggled] = useState<Map<string, boolean>>(new Map())
   const [focusIndex, setFocusIndex] = useState(0)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [limits, setLimits] = useState<Map<string, number>>(new Map())
   const shown = useRef(new Map<string, unknown>())
+  const built = useRef(new Map<string, Built>())
   const pageSize = useSetting<number>('gitmenu.views.pageItemLimit')
   const scrollRef = useRef<HTMLDivElement>(null)
   // Nodes whose children have been loading for 800ms: only these spin (asyncDataTree.ts)
@@ -169,6 +184,8 @@ export function ViewTree({ viewId, nodes, label }: { viewId: string; nodes: Tree
   // Flatten with whatever children are cached; the queries below fill in the rest
   const rows: Row[] = []
   const pending: { queryKey: unknown[]; queryFn: () => Promise<unknown> }[] = []
+  // Children built this render; replaces `built` afterwards, so collapsed nodes drop out
+  const keep = new Map<string, Built>()
   const walk = (list: TreeNode[], depth: number, ancestors: string[]) => {
     for (const node of list) {
       const expandable = Boolean(node.children || node.loadChildren)
@@ -191,7 +208,17 @@ export function ViewTree({ viewId, nodes, label }: { viewId: string; nodes: Tree
           continue
         }
         if (source.more) shown.current.set(node.id, data)
-        walk(source.build(data), depth + 1, inner)
+        // `build` allocates a node and React elements for the whole page, so its result is kept
+        // until the data or the locale changes: the virtualizer re-renders the tree on every
+        // scroll frame, and react-query hands back the same `data` across refetches that
+        // brought nothing new (a file save invalidates `['repo', root]` on every keystroke).
+        let entry = built.current.get(node.id)
+        if (!entry || entry.data !== data || entry.locale !== locale) {
+          countBuild()
+          entry = { data, locale, nodes: source.build(data) }
+        }
+        keep.set(node.id, entry)
+        walk(entry.nodes, depth + 1, inner)
         if (source.more?.(data)) {
           const loading = client.getQueryData(queryKey) === undefined
           walk([loadMore(`${node.id}/more`, loading, () => setLimits(new Map(limits).set(node.id, limit + pageSize)))], depth + 1, inner)
@@ -200,6 +227,7 @@ export function ViewTree({ viewId, nodes, label }: { viewId: string; nodes: Tree
     }
   }
   walk(nodes, 0, [])
+  built.current = keep
   useQueries({ queries: pending.map((p) => ({ ...p, staleTime: Infinity })) })
 
   const loadingIds = rows.filter((r) => r.loading).map((r) => r.node.id).join('\n')

@@ -1,6 +1,7 @@
 // VS Code's quick pick, input box (quick input widget at the top) and modal message box, with
 // a promise API. One <DialogHost/> per window renders whatever is being asked.
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual'
+import { type ReactNode, type RefObject, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from 'react'
 import { openOverlay } from '@/commands/context'
 import { Icon } from '@/components/Icon'
 import { Button } from '@/components/ui/button'
@@ -18,10 +19,12 @@ import {
   QuickInputMessage,
   QuickInputTitle,
   quickInputBoxClassName,
+  useCommandItems,
 } from '@/components/ui/command'
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogPopup, DialogTitle } from '@/components/ui/dialog'
 import { t, useLocale } from '@/i18n'
 import { cn } from '@/lib/utils'
+import { ROW_HEIGHT } from '@/theme/metrics'
 
 export interface QuickPickItem<T> {
   label: string
@@ -148,6 +151,59 @@ export function DialogHost() {
   return <MessageDialog key={queue.length} request={current} />
 }
 
+type QuickPickVirtualizer = Virtualizer<HTMLDivElement, Element>
+
+/** The filtered rows, virtualized: a repository with thousands of refs feeds the same widget. */
+function QuickPickRows<T>({
+  listRef,
+  virtualizerRef,
+  query,
+  onPick,
+}: {
+  listRef: RefObject<HTMLDivElement | null>
+  virtualizerRef: RefObject<QuickPickVirtualizer | null>
+  query: string
+  onPick: (value: T) => void
+}) {
+  const items = useCommandItems<QuickPickItem<T>>()
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => listRef.current,
+    // A detail line makes the row two 22px lines instead of one
+    estimateSize: (index) => (items[index]?.detail ? ROW_HEIGHT * 2 : ROW_HEIGHT),
+    overscan: 12,
+  })
+  useImperativeHandle(virtualizerRef, () => virtualizer)
+  if (items.length === 0) return null
+  return (
+    <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+      {virtualizer.getVirtualItems().map((row) => {
+        const item = items[row.index]
+        return (
+          <CommandItem
+            key={row.key}
+            index={row.index}
+            value={item}
+            aria-posinset={row.index + 1}
+            aria-setsize={items.length}
+            className={cn('absolute inset-x-0 top-0', item.detail && 'flex-col items-stretch')}
+            style={{ height: row.size, transform: `translateY(${row.start}px)` }}
+            onClick={() => onPick(item.value)}
+          >
+            <span className="flex h-row min-w-0 items-center">
+              {item.icon && <Icon name={item.icon} className="me-1 shrink-0" />}
+              <QuickInputLabel label={item.label} description={item.description} query={query} />
+            </span>
+            {item.detail && (
+              <span className="h-row truncate opacity-70 group-data-highlighted/quick-row:opacity-100">{item.detail}</span>
+            )}
+          </CommandItem>
+        )
+      })}
+    </div>
+  )
+}
+
 /** VS Code's quick pick: filter input, 22px rows (44px with a detail line), bold matches. */
 export function QuickPickWidget<T>({
   items,
@@ -167,6 +223,8 @@ export function QuickPickWidget<T>({
 }) {
   useLocale()
   const [query, setQuery] = useState('')
+  const listRef = useRef<HTMLDivElement>(null)
+  const virtualizerRef = useRef<QuickPickVirtualizer | null>(null)
   return (
     <CommandDialog open onOpenChange={(open) => !open && onDone(undefined)} disablePointerDismissal={ignoreFocusOut}>
       <CommandDialogPopup aria-label={title ?? placeholder}>
@@ -179,6 +237,18 @@ export function QuickPickWidget<T>({
             const i = item as QuickPickItem<T>
             return `${i.label} ${i.description ?? ''}`
           }}
+          virtualized
+          onItemHighlighted={(item: unknown, details: { reason: string; index: number }) => {
+            const virtualizer = virtualizerRef.current
+            if (!item || !virtualizer) return
+            // The widget scrolls the highlighted row into view itself, which only reaches rows
+            // that are drawn; the virtualizer takes over when the highlight lands outside them
+            const drawn = virtualizer.getVirtualItems()
+            const first = drawn[0]
+            const last = drawn.at(-1)
+            if (details.reason !== 'none' && first && last && details.index > first.index && details.index < last.index) return
+            queueMicrotask(() => virtualizer.scrollToIndex(details.index, { align: 'auto' }))
+          }}
         >
           <CommandInput placeholder={placeholder} aria-label={placeholder ?? title} />
           {message && (
@@ -187,25 +257,8 @@ export function QuickPickWidget<T>({
             </div>
           )}
           <CommandEmpty>{t('palette.empty')}</CommandEmpty>
-          <CommandList>
-            {(item: QuickPickItem<T>) => (
-              <CommandItem
-                key={`${item.label}|${item.description ?? ''}|${item.detail ?? ''}`}
-                value={item}
-                className={cn(item.detail && 'flex-col items-stretch')}
-                onClick={() => onDone(item.value)}
-              >
-                <span className="flex h-row min-w-0 items-center">
-                  {item.icon && <Icon name={item.icon} className="me-1 shrink-0" />}
-                  <QuickInputLabel label={item.label} description={item.description} query={query} />
-                </span>
-                {item.detail && (
-                  <span className="h-row truncate opacity-70 group-data-highlighted/quick-row:opacity-100">
-                    {item.detail}
-                  </span>
-                )}
-              </CommandItem>
-            )}
+          <CommandList ref={listRef}>
+            <QuickPickRows listRef={listRef} virtualizerRef={virtualizerRef} query={query} onPick={onDone} />
           </CommandList>
         </Command>
       </CommandDialogPopup>
