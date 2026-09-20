@@ -10,7 +10,22 @@ permissions:
   contents: write
 
 jobs:
+  # A signed, notarized release needs the secrets below; until they are configured, releases
+  # are built locally and this workflow does nothing.
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        env:
+          CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
+        run: echo "run=$([ -n "$CERT" ] && [ -n "$PUBKEY" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
   release:
+    needs: guard
+    if: needs.guard.outputs.run == 'true'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
