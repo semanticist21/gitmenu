@@ -57,9 +57,9 @@ function ProjectTab({ project, active, windowFocused }: { project: ProjectInfo; 
             aria-selected={active}
             title={tildify(project.id)}
             className={cn(
-              // sizing "fit": at least 120px, as wide as the label; 10px before the label, the
-              // 28px close area after it
-              'group/tab relative flex h-tab-compact min-w-tab-min max-w-[240px] shrink-0 cursor-pointer items-center whitespace-nowrap border-tab-border border-e ps-2.5 text-ui leading-tab-compact outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-focus',
+              // As wide as its label (10px before it, the 28px close area after), up to 240px in
+              // the narrow panel; VS Code's "fit" tabs would also keep a 120px minimum
+              'group/tab relative flex h-tab-compact w-fit max-w-[240px] shrink-0 cursor-pointer items-center whitespace-nowrap border-tab-border border-e ps-2.5 text-ui leading-tab-compact outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-focus',
               active
                 ? 'bg-tab-active text-tab-active-foreground'
                 : 'bg-tab-inactive text-tab-inactive-foreground hover:bg-tab-hover',

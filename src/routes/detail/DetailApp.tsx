@@ -281,7 +281,7 @@ export function DetailApp() {
                         aria-selected={isActive}
                         tabIndex={isActive ? 0 : -1}
                         className={cn(
-                          'group/tab relative flex h-tab w-tab-min min-w-fit shrink-0 cursor-pointer items-center whitespace-nowrap border-tab-border border-r ps-2.5 text-ui outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-focus',
+                          'group/tab relative flex h-tab w-fit shrink-0 cursor-pointer items-center whitespace-nowrap border-tab-border border-r ps-2.5 text-ui outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-focus',
                           isActive
                             ? 'bg-tab-active text-tab-active-foreground'
                             : 'bg-tab-inactive text-tab-inactive-foreground hover:bg-tab-hover',
@@ -302,7 +302,6 @@ export function DetailApp() {
                     )}
                     {isActive && <span className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-px bg-tab-active-border" />}
                     <TabIcon kind={kind} />
-                    {/* The label fills the tab's 120px, so the close button sits at its right edge */}
                     <span className="flex-1 leading-tab">{label}</span>
                     <span className="flex w-7 shrink-0 items-center justify-center">
                       <button
