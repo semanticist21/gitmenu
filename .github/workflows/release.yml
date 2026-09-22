@@ -1,4 +1,4 @@
-# Builds a signed, notarized universal app for a `v*` tag and publishes it as a draft GitHub
+# Builds a signed, notarized Apple silicon app for a `v*` tag and publishes it as a draft GitHub
 # release. Setting the TAURI_UPDATER_PUBKEY variable adds the updater feed (latest.json);
 # without it the release ships without updates, like the app does. Secrets and that variable
 # are set in the repository settings, never committed.
@@ -32,7 +32,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin, x86_64-apple-darwin
+          targets: aarch64-apple-darwin
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
@@ -81,4 +81,4 @@ jobs:
           releaseName: gitmenu ${{ github.ref_name }}
           releaseDraft: true
           includeUpdaterJson: ${{ vars.TAURI_UPDATER_PUBKEY != '' }}
-          args: --target universal-apple-darwin --config ${{ runner.temp }}/release.conf.json
+          args: --target aarch64-apple-darwin --config ${{ runner.temp }}/release.conf.json

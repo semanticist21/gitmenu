@@ -22,14 +22,14 @@ Fast by design: reads go through [gix](https://github.com/GitoxideLabs/gitoxide)
 
 ## Install
 
-Grab the universal DMG from [Releases](https://github.com/semanticist21/gitmenu/releases/latest), or:
+Grab the DMG from [Releases](https://github.com/semanticist21/gitmenu/releases/latest), or:
 
 ```sh
 brew tap kobbokkom/tap
 brew install --cask kobbokkom/tap/gitmenu
 ```
 
-Requires macOS 13+. Releases are signed with a Developer ID certificate and notarized by Apple, so the DMG opens without a Gatekeeper prompt and `brew install` needs no extra step. The app checks for updates itself and asks before installing one; **About gitmenu → Check for Updates…** does it on demand.
+Requires macOS 13+ on Apple silicon. Releases are signed with a Developer ID certificate and notarized by Apple, so the DMG opens without a Gatekeeper prompt and `brew install` needs no extra step. The app checks for updates itself and asks before installing one; **About gitmenu → Check for Updates…** does it on demand.
 
 ## Build from source
 
