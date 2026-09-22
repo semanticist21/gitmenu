@@ -11,13 +11,10 @@ import { ContextMenu, ContextMenuPopup, ContextMenuTrigger } from '@/components/
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from '@/components/ui/menu'
 import { ActionButton } from '@/features/views/ActionButton'
 import { t, useLocale } from '@/i18n'
+import { tildify } from '@/lib/paths'
 import { ipc, type ProjectInfo } from '@/lib/ipc'
 import { ScrollableTabs } from '@/components/ScrollableTabs'
 import { cn } from '@/lib/utils'
-
-function tildify(path: string) {
-  return path.replace(/^\/Users\/[^/]+/, '~')
-}
 
 /** Whether the window has focus: an unfocused window's active tab has a grey top border. */
 function useWindowFocused() {

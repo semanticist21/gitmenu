@@ -8,6 +8,7 @@ import { registerHandler } from '@/commands/registry'
 import { NotificationCard, toastManager } from '@/components/ui/toast'
 import { Operations, useOpsBusy } from '@/features/ops/operations'
 import { openProjectPicker, useProjects, useSelectedRepo } from '@/features/projects/api'
+import { quickOpenProject } from '@/features/projects/quickOpen'
 import { PanelHeader } from '@/features/projects/components/PanelHeader'
 import {
   MissingProject,
@@ -38,6 +39,7 @@ function usePanelCommands(projectIds: string[], activeId: string | null, activeR
     }
     const disposers = [
       registerHandler('gitmenu.openProject', () => openProjectPicker(t('project.pickTitle'))),
+      registerHandler('workbench.action.quickOpen', quickOpenProject),
       registerHandler('gitmenu.closeProject', (id?: unknown) => {
         const target = typeof id === 'string' ? id : activeId
         if (target) void ipc.projectClose(target)

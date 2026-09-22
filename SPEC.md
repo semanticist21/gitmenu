@@ -37,7 +37,7 @@ VS Code와 GitLens가 이미 정해 둔 동작과 기본값은 그대로 따른�
 - **라이선스**: MIT. 복사한 VS Code 언어팩 번역은 THIRD_PARTY_NOTICES에 고지한다. GitLens 소스의 `plus` 디렉터리(GitLens Pro 라이선스) 코드와 구현은 가져오지 않는다.
 - **배포**: 직접 배포(Developer ID 서명 + notarize), 샌드박스 없음. Mac App Store는 보류(샌드박스가 git CLI 실행, ~/.gitconfig·~/.ssh·ssh-agent, hook, 서명을 막음).
   - 소스와 릴리스 모두 Kobbokkom 조직의 공개 GitHub 저장소 하나(MIT). 태그 푸시 → CI 빌드·서명·notarize → GitHub Releases.
-  - 업데이트: Tauri updater(서명 검증). 백그라운드로 받아 두고 패널에 알림과 "재시작해서 업데이트" 버튼. 자동 재시작 없음.
+  - 업데이트: Tauri updater(서명 검증). 업데이트를 찾으면 모달로 확인을 받고 "재시작해서 업데이트"를 누를 때만 설치한다. 토스트는 패널이 닫히면 놓치므로 쓰지 않는다. 자동 재시작 없음.
   - 설치 경로: DMG 다운로드 + 자체 brew tap(`kobbokkom/tap`). 공식 homebrew/cask는 나중에.
   - 소개/다운로드 페이지: `~/code/kobbokkom-forum`(kkom.net, Cloudflare Pages)에 단일 페이지. 스크린샷, 기능 요약, DMG 버튼, brew 명령, 릴리스 노트 링크를 넣고 사이트의 inlang 10개 언어 구조를 따른다.
   - `tauri-nspanel`은 crates.io에 없으므로 git 태그가 아니라 커밋 해시로 고정한다. M1에서 실제 사용 범위를 보고 저장소에 복사(vendoring)하거나 `objc2`로 직접 구현할지 정한다.
@@ -95,7 +95,7 @@ VS Code와 GitLens가 이미 정해 둔 동작과 기본값은 그대로 따른�
   - 최소 macOS 버전은 올리지 않고 실행 시점에 확인한다. 사용할 수 없으면 버튼을 비활성화하고 이유(기기 미지원, Apple Intelligence 꺼짐, 모델 준비 중)를 툴팁으로 보여준다. 컨텍스트 초과는 실행 후 에러로 알린다.
   - 큰 diff는 파일별로 요약한 뒤 합친다.
   - 설정: 커밋 메시지 언어(기본 English, 전역), GitLens와 같은 custom instructions, 제외 glob(기본: lock 파일, 빌드 결과물).
-- **단축키**: VS Code/GitLens 기본 단축키와 when 조건(포커스 위치)을 따르고 `keybindings.json`으로 재지정. 명령 팔레트(⌘⇧P).
+- **단축키**: VS Code/GitLens 기본 단축키와 when 조건(포커스 위치)을 따르고 `keybindings.json`으로 재지정. 명령 팔레트(⌘⇧P). ⌘P는 VS Code의 Quick Open 자리이며, 파일 대신 열린 프로젝트와 최근 항목을 같은 quick input 위젯으로 고른다.
 
 ## 성능 규칙
 합격선 수치는 두지 않는다. 아래 규칙을 지키고, 느리거나 무겁다고 느껴질 때 원인을 찾아 고친다.

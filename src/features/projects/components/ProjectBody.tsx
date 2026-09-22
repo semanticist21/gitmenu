@@ -12,12 +12,9 @@ import { toastManager } from '@/components/ui/toast'
 import { treeRowClass, Twistie } from '@/features/views/ViewTree'
 import { plainVs, t, useLocale, vs, vsb } from '@/i18n'
 import { errorMessage, ipc, type ProjectInfo, type RepoInfo } from '@/lib/ipc'
+import { tildify } from '@/lib/paths'
 import { setSetting, settingDefault } from '@/settings/settings'
 import { INDENT, ROW_HEIGHT } from '@/theme/metrics'
-
-function tildify(path: string) {
-  return path.replace(/^\/Users\/[^/]+/, '~')
-}
 
 async function run(action: () => Promise<unknown>) {
   try {

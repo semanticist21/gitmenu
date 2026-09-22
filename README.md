@@ -15,7 +15,7 @@ VS Code's Source Control and GitLens-style views, in a lightweight macOS menu ba
 - **Views** — Branches, Remotes, Tags, Stashes, Worktrees, Contributors, like GitLens
 - **Remotes** — GitHub, GitLab, Gitea, Bitbucket, Azure DevOps, and self-hosted domains via a `remotes` setting; avatars for your contributors
 - **Menu bar tray** — activity badge while git runs, project tabs, Open in Terminal, detachable panel, global shortcut
-- **Keyboard-first** — command palette (⌘⇧P), VS Code-style keybindings and `keybindings.json`, VoiceOver-friendly trees
+- **Keyboard-first** — command palette (⌘⇧P), Quick Open for projects and recents (⌘P), VS Code-style keybindings and `keybindings.json`, VoiceOver-friendly trees
 - **10 languages**, light/dark/system themes, on-device AI commit messages via Apple Foundation Models (optional)
 
 Fast by design: reads go through [gix](https://github.com/GitoxideLabs/gitoxide), writes and network go through your system `git` — no bundled git, no libgit2. 0% CPU when idle, one WebView per window.
@@ -29,7 +29,7 @@ brew tap kobbokkom/tap
 brew install --cask kobbokkom/tap/gitmenu
 ```
 
-Requires macOS 13+. The current release is unsigned — Gatekeeper may ask to confirm a downloaded DMG on first launch (right-click → Open); Homebrew installs are unaffected. Signed and notarized builds are planned.
+Requires macOS 13+. Releases are signed with a Developer ID certificate and notarized by Apple, so the DMG opens without a Gatekeeper prompt and `brew install` needs no extra step. The app checks for updates itself and asks before installing one; **About gitmenu → Check for Updates…** does it on demand.
 
 ## Build from source
 

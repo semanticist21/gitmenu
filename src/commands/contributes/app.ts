@@ -8,6 +8,7 @@ export const appContribution: Contribution = {
   commands: [
     { command: 'workbench.action.showAboutDialog', title: { app: 'panel.about' } },
     { command: 'workbench.action.showCommands', title: { app: 'panel.commandPalette' } },
+    { command: 'workbench.action.quickOpen', title: { app: 'project.quickOpen' }, category },
     { command: 'workbench.action.openSettings', title: { app: 'panel.settings' }, category, icon: 'settings-gear' },
     { command: 'workbench.action.openGlobalKeybindings', title: { app: 'panel.keyboardShortcuts' }, category },
     { command: 'workbench.action.closeActiveEditor', title: { vsb: 'Close Editor' } },
@@ -51,6 +52,7 @@ export const appContribution: Contribution = {
   },
   keybindings: [
     { command: 'workbench.action.showCommands', key: 'ctrl+shift+p', mac: 'cmd+shift+p' },
+    { command: 'workbench.action.quickOpen', key: 'ctrl+p', mac: 'cmd+p' },
     { command: 'workbench.action.openSettings', key: 'ctrl+,', mac: 'cmd+,' },
     { command: 'workbench.action.openGlobalKeybindings', key: 'ctrl+k ctrl+s', mac: 'cmd+k cmd+s' },
     { command: 'gitmenu.openProject', key: 'ctrl+o', mac: 'cmd+o' },
