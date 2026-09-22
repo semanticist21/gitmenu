@@ -12,6 +12,32 @@ macOS menu bar git panel (Tauri 2). `SPEC.md` owns every product and architectur
 - GitLens strings: `bun scripts/i18n/extract-gitlens.ts` checks `src/i18n/gitlens/*.json` against the source (`--list` prints them)
 - Mocked UI preview: `bun run dev:mock`, then `?window=panel` or `#/detail/<tab>`
 
+## Release
+
+`.github/workflows/release.yml` builds, signs and notarizes on a `v*` tag; everything below is
+what the workflow does not do for you.
+
+1. Bump the version in `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`
+   (then `cargo update -p gitmenu --offline`) and `packaging/homebrew/gitmenu.rb`.
+2. Commit, push, then push the `vX.Y.Z` tag. The workflow runs only when `APPLE_CERTIFICATE`
+   is set; without it, it does nothing.
+3. It leaves a **draft** release. Before publishing, mount the DMG and check the app:
+   `spctl -a -t exec -vv` must say `source=Notarized Developer ID`, and
+   `xcrun stapler validate` must pass. Then `gh release edit vX.Y.Z --draft=false --latest`.
+4. Copy `packaging/homebrew/gitmenu.rb` into `kobbokkom/homebrew-tap`'s `Casks/`, with the
+   published DMG's `shasum -a 256`. Until that lands, `brew` still installs the old version.
+
+Notes that cost time when forgotten:
+
+- Releases are Apple silicon only, and the DMG is named `gitmenu_<version>_aarch64.dmg`.
+- The signing identity, notarization password and updater key live in the private archive
+  collection `projects/gitmenu`; restore them with `$environment-sync`, never from Downloads.
+- **Never rotate the updater key.** A shipped app verifies updates against the public key built
+  into it, so a new key ends automatic updates for every version already installed.
+- The updater feed is `releases/latest/download/latest.json`. It only appears when the
+  `TAURI_UPDATER_PUBKEY` repository variable is set; without it the release ships without
+  updates, matching `src-tauri/src/update.rs`.
+
 ## Rules
 - Follow VS Code Source Control and GitLens behavior and defaults; decide separately only where they are silent, disagree, or cannot apply to a menu bar app.
 - Never read VS Code or GitLens installs at build or run time.
