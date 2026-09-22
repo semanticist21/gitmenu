@@ -95,6 +95,7 @@ VS Code와 GitLens가 이미 정해 둔 동작과 기본값은 그대로 따른�
   - 최소 macOS 버전은 올리지 않고 실행 시점에 확인한다. 사용할 수 없으면 버튼을 비활성화하고 이유(기기 미지원, Apple Intelligence 꺼짐, 모델 준비 중)를 툴팁으로 보여준다. 컨텍스트 초과는 실행 후 에러로 알린다.
   - 큰 diff는 파일별로 요약한 뒤 합친다.
   - 설정: 커밋 메시지 언어(기본 English, 전역), GitLens와 같은 custom instructions, 제외 glob(기본: lock 파일, 빌드 결과물).
+- **파일 아이콘**: 경로 옆 아이콘은 Catppuccin Icons(MIT)를 벤더링해서 쓴다. 색은 `--ctp-*` 변수로 빠져 있어 라이트는 Latte, 다크는 Mocha를 쓰고, 매칭되는 아이콘이 없으면 기존 코디콘 `file`로 떨어진다.
 - **단축키**: VS Code/GitLens 기본 단축키와 when 조건(포커스 위치)을 따르고 `keybindings.json`으로 재지정. 명령 팔레트(⌘⇧P). ⌘P는 VS Code의 Quick Open 자리이며, 파일 대신 열린 프로젝트와 최근 항목을 같은 quick input 위젯으로 고른다.
 
 ## 성능 규칙

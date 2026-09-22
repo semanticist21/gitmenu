@@ -3,7 +3,7 @@
 // The list is a VS Code list: 22px rows, file name and folder on one line, the status letter
 // in its git decoration color on the right.
 import { type KeyboardEvent, useMemo, useState } from 'react'
-import { Icon } from '@/components/Icon'
+import { FileIcon } from '@/features/fileIcons/FileIcon'
 import { useRepoStatus } from '@/features/scm/api'
 import { LETTER, statusColor, statusText } from '@/features/scm/status'
 import { t, useLocale, vsb } from '@/i18n'
@@ -78,7 +78,7 @@ export function ChangesTab({ params, route }: DetailTabProps) {
               )}
               onClick={() => setSelected(file.path)}
             >
-              <Icon name="file" className="me-1.5" />
+              <FileIcon path={file.path} className="me-1.5" />
               <span className="min-w-0 flex-1 truncate">
                 <span className={cn('whitespace-pre', LETTER[file.status] === 'D' && 'line-through')}>{name}</span>
                 {folder && <span className="ms-[.5em] whitespace-pre text-label-description opacity-95 dark:opacity-70">{folder}</span>}

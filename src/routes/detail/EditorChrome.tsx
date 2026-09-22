@@ -5,6 +5,7 @@ import { createContext, type ReactNode, useContext } from 'react'
 import { createPortal } from 'react-dom'
 import { useShortcutFor } from '@/commands/keybindings'
 import { Icon } from '@/components/Icon'
+import { FileIcon } from '@/features/fileIcons/FileIcon'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipPopup, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -87,7 +88,7 @@ export function Breadcrumbs({ path, className }: { path: string; className?: str
         const last = i === parts.length - 1
         return (
           <span key={i} className={cn('flex h-full min-w-0 items-center', last ? 'max-w-[80%] shrink pe-2' : 'shrink-[2]')}>
-            {last && <Icon name="file" className="me-1.5" />}
+            {last && <FileIcon path={path} className="me-1.5" />}
             <span className="truncate leading-breadcrumbs">{part}</span>
             {!last && <Icon name="chevron-right" />}
           </span>

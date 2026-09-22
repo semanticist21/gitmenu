@@ -314,6 +314,24 @@
 /* Light Modern (extensions/theme-defaults/themes/light_modern.json, resolved). The kit's
    semantic names map onto VS Code colors; everything else is `--vsc-<color id>`. */
 :root {
+
+  /* Catppuccin Latte, the file icon palette (scripts/icons/files.ts) */
+  --ctp-rosewater: #dc8a78;
+  --ctp-flamingo: #dd7878;
+  --ctp-pink: #ea76cb;
+  --ctp-mauve: #8839ef;
+  --ctp-red: #d20f39;
+  --ctp-maroon: #e64553;
+  --ctp-peach: #fe640b;
+  --ctp-yellow: #df8e1d;
+  --ctp-green: #40a02b;
+  --ctp-teal: #179299;
+  --ctp-sky: #04a5e5;
+  --ctp-sapphire: #209fb5;
+  --ctp-blue: #1e66f5;
+  --ctp-lavender: #7287fd;
+  --ctp-text: #4c4f69;
+  --ctp-overlay1: #8c8fa1;
   --radius: 4px;
   /* elevation (style.css): zero-offset glows */
   --vsc-shadow-sm: 0 0 4px rgba(0, 0, 0, 0.08);
@@ -575,6 +593,24 @@
 
 /* Dark Modern (dark_modern.json, resolved) */
 .dark {
+
+  /* Catppuccin Mocha, the file icon palette */
+  --ctp-rosewater: #f5e0dc;
+  --ctp-flamingo: #f2cdcd;
+  --ctp-pink: #f5c2e7;
+  --ctp-mauve: #cba6f7;
+  --ctp-red: #f38ba8;
+  --ctp-maroon: #eba0ac;
+  --ctp-peach: #fab387;
+  --ctp-yellow: #f9e2af;
+  --ctp-green: #a6e3a1;
+  --ctp-teal: #94e2d5;
+  --ctp-sky: #89dceb;
+  --ctp-sapphire: #74c7ec;
+  --ctp-blue: #89b4fa;
+  --ctp-lavender: #b4befe;
+  --ctp-text: #cdd6f4;
+  --ctp-overlay1: #7f849c;
   --vsc-foreground: #cccccc;
   --vsc-descriptionForeground: #9d9d9d;
   --vsc-disabledForeground: #cccccc80;

@@ -29,6 +29,17 @@ GitLens' `plus` directory, which is under the GitLens Pro license, is used.
 - Used in: every UI icon, through `src/components/Icon.tsx`
 - License: the icon font and images are CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); the code is MIT. Copyright (c) Microsoft Corporation
 
+## Catppuccin Icons
+
+- Source: https://github.com/catppuccin/vscode-icons (v1.26.0), the `css-variables` icons and
+  their file associations, vendored by `scripts/icons/files.ts` into
+  `src/features/fileIcons/icons.gen.ts`
+- Used in: the file icon next to every path, through `src/features/fileIcons/FileIcon.tsx`
+- License: MIT. Copyright (c) Catppuccin
+
+The `--ctp-*` colors in `src/index.css` are the Catppuccin Latte and Mocha palettes
+(https://github.com/catppuccin/palette, MIT, Copyright (c) Catppuccin).
+
 ## Visual Studio Code look
 
 Colors (Light Modern and Dark Modern), metrics and component styles in `src/index.css`

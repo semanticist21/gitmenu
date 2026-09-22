@@ -8,6 +8,7 @@ macOS menu bar git panel (Tauri 2). `SPEC.md` owns every product and architectur
 - App: `bun run tauri dev`, `bun run tauri build`
 - Menu bar icons: `bun scripts/tray/build.ts` (needs `rsvg-convert`) regenerates `src-tauri/icons/tray/`
 - App icon: render `scripts/icon/app.svg` to 1024px with `rsvg-convert`, then `bunx tauri icon <png>`; keep only the macOS outputs listed in `tauri.conf.json`
+- File icons: `bun scripts/icons/files.ts` regenerates `src/features/fileIcons/icons.gen.ts` from the pinned Catppuccin Icons release
 - GitLens strings: `bun scripts/i18n/extract-gitlens.ts` checks `src/i18n/gitlens/*.json` against the source (`--list` prints them)
 - Mocked UI preview: `bun run dev:mock`, then `?window=panel` or `#/detail/<tab>`
 

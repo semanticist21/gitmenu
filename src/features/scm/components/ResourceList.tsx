@@ -10,7 +10,7 @@ import { type CSSProperties, type KeyboardEvent, type ReactNode, useLayoutEffect
 import { InlineActions } from '@/commands/InlineActions'
 import { MenuItems } from '@/commands/MenuItems'
 import { executeCommand } from '@/commands/registry'
-import { Icon } from '@/components/Icon'
+import { FileIcon } from '@/features/fileIcons/FileIcon'
 import { Badge } from '@/components/ui/badge'
 import { ContextMenu, ContextMenuPopup, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { IndentGuides, RowLabel, treeRowClass, Twistie } from '@/features/views/ViewTree'
@@ -413,7 +413,7 @@ export function ResourceList({ root, groups, header }: { root: string; groups: G
                 <IndentGuides ancestors={row.ancestors} active={activeGuide} />
                 {/* File icons align with the twisties, so a file has no twistie of its own */}
                 <Twistie indent={indent} state="hidden" />
-                <Icon name="file" className="me-1.5 opacity-70 group-aria-selected/row:opacity-100" />
+                <FileIcon path={change.path} className="me-1.5 opacity-70 group-aria-selected/row:opacity-100" />
                 {/* The name is not tinted (`fileDecorations.colors: false`); only the letter is */}
                 <RowLabel label={name} description={tree ? undefined : dir} className={cn(deleted && 'line-through')} />
                 <InlineActions menu="scm/resourceState/context" context={context} args={[selectionFor(group, change)]} />

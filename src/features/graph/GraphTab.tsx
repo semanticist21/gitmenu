@@ -7,6 +7,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { type KeyboardEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { MenuItems } from '@/commands/MenuItems'
 import { Icon } from '@/components/Icon'
+import { FileIcon } from '@/features/fileIcons/FileIcon'
 import { Button } from '@/components/ui/button'
 import { ContextMenu, ContextMenuPopup, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
@@ -203,7 +204,7 @@ function Details({ root, row }: { root: string; row: GraphRow }) {
                   onClick={() => openFileChange({ root, sha: row.id, parent, file })}
                   onKeyDown={(e) => e.key === 'Enter' && openFileChange({ root, sha: row.id, parent, file })}
                 >
-                  <Icon name="file" className="me-1.5" />
+                  <FileIcon path={file.path} className="me-1.5" />
                   <span className="min-w-0 flex-1 truncate">
                     <span className="whitespace-pre">{node.label}</span>
                     {node.description && <span className="ms-[.5em] whitespace-pre text-label-description opacity-95 dark:opacity-70">{node.description}</span>}
