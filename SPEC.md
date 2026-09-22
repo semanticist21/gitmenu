@@ -96,6 +96,7 @@ VS Code와 GitLens가 이미 정해 둔 동작과 기본값은 그대로 따른�
   - 큰 diff는 파일별로 요약한 뒤 합친다.
   - 설정: 커밋 메시지 언어(기본 English, 전역), GitLens와 같은 custom instructions, 제외 glob(기본: lock 파일, 빌드 결과물).
 - **파일 아이콘**: 경로 옆 아이콘은 Catppuccin Icons(MIT)를 벤더링해서 쓴다. 색은 `--ctp-*` 변수로 빠져 있어 라이트는 Latte, 다크는 Mocha를 쓰고, 매칭되는 아이콘이 없으면 기존 코디콘 `file`로 떨어진다.
+- **탭 단축키**: detail 창 탭은 ⌘W 닫기, ⌘K ⌘W 모두 닫기, ⌘⌥←/→와 ⌃Tab/⌃⇧Tab 이동, ⌘⇧T 복원, ⌘1~8 n번째, ⌘9 마지막. VS Code에는 편집기 그룹이 있어 숫자 키가 그룹용이지만 여기엔 그룹이 없으므로 Chrome처럼 탭에 배정한다.
 - **단축키**: VS Code/GitLens 기본 단축키와 when 조건(포커스 위치)을 따르고 `keybindings.json`으로 재지정. 명령 팔레트(⌘⇧P). ⌘P는 VS Code의 Quick Open 자리이며, 파일 대신 열린 프로젝트와 최근 항목을 같은 quick input 위젯으로 고른다.
 
 ## 성능 규칙

@@ -152,6 +152,7 @@ export function DetailApp() {
   const [slot, setSlot] = useState<HTMLElement | null>(null)
   const focused = useWindowFocused()
   const stripRef = useRef<HTMLDivElement>(null)
+  const reopenable = useRef<string[]>([])
   useSyncExternalStore(subscribeLabels, labelsSnapshot)
 
   const open = (route: string) => {
@@ -175,6 +176,8 @@ export function DetailApp() {
       const { kind, params } = parse(route)
       kinds.get(kind)?.onClose?.(params)
     }
+    // VS Code's reopen history, newest last and bounded
+    reopenable.current = [...reopenable.current.filter((r) => !routes.includes(r)), ...routes].slice(-20)
     const next = tabs.filter((r) => !routes.includes(r))
     setTabs(next)
     if (active && routes.includes(active)) setActive(next[next.length - 1] ?? null)
@@ -205,12 +208,35 @@ export function DetailApp() {
     return () => void unlisten.then((fn) => fn())
   }, [])
 
+  /** Activates the tab at `index`; out of range does nothing, the way an absent tab should. */
+  const at = (index: number) => {
+    const route = tabs[index]
+    if (route) setActive(route)
+  }
+
+  /** Next/previous tab, wrapping at the ends like Chrome and VS Code. */
+  const step = (delta: number) => {
+    if (tabs.length < 2) return
+    const i = active ? tabs.indexOf(active) : -1
+    at((i + delta + tabs.length) % tabs.length)
+  }
+
   useEffect(() => {
     setContext('gitmenu.window', 'detail')
     const disposers = [
       registerHandler('workbench.action.openSettings', () => open('/detail/settings')),
       registerHandler('workbench.action.openGlobalKeybindings', () => open('/detail/keyboard-shortcuts')),
       registerHandler('workbench.action.closeActiveEditor', () => active && requestClose([active])),
+      registerHandler('workbench.action.closeAllEditors', () => tabs.length > 0 && requestClose([...tabs])),
+      registerHandler('workbench.action.nextEditor', () => step(1)),
+      registerHandler('workbench.action.previousEditor', () => step(-1)),
+      registerHandler('workbench.action.lastEditorInGroup', () => at(tabs.length - 1)),
+      registerHandler('workbench.action.reopenClosedEditor', () => {
+        const route = reopenable.current.pop()
+        if (route) open(route)
+      }),
+      // Chrome and VS Code both put the first editors on the number keys
+      ...Array.from({ length: 8 }, (_, i) => registerHandler(`workbench.action.openEditorAtIndex${i + 1}`, () => at(i))),
       // New Terminal starts in the active tab's repository (the panel's handler lets Rust pick)
       registerHandler('workbench.action.terminal.new', () => open(newTerminalRoute(active ? parse(active).params.get('repo') : null))),
     ]
