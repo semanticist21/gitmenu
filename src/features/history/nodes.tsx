@@ -74,6 +74,17 @@ export function openFileChange({ root, sha, parent, file }: FileArg) {
   void ipc.detailOpen(`/detail/diff?${params}`)
 }
 
+/** Opens the working tree file in the detail window, the way VS Code's Open File stays inside. */
+export function openFile(root: string, path: string) {
+  const params = new URLSearchParams({ repo: root, path, ref: 'worktree' })
+  void ipc.detailOpen(`/detail/file?${params}`)
+}
+
+/** Hands the file to whatever the system opens it with; only ever on an explicit request. */
+export function openFileWithDefaultApp(root: string, path: string) {
+  void ipc.openPath(`${root}/${path}`)
+}
+
 export function fileNode(root: string, sha: string, parent: string | null, file: CommitFile, idPrefix: string): TreeNode {
   const i = file.path.lastIndexOf('/')
   const name = i === -1 ? file.path : file.path.slice(i + 1)

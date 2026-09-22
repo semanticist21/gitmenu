@@ -15,6 +15,7 @@ const ko: Partial<Record<AppKey, string>> = {
   'project.missing.remove': '탭 제거',
   'project.pickTitle': 'git 리포지토리가 있는 폴더 열기',
   'project.tabs': "프로젝트",
+  'file.openWithDefaultApp': '기본 앱으로 열기',
   'project.quickOpen': '프로젝트로 이동…',
   'project.quickOpen.placeholder': '열 프로젝트 이름을 입력하십시오',
   'project.next': '다음 프로젝트',

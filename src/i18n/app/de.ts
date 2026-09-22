@@ -15,6 +15,7 @@ const de: Partial<Record<AppKey, string>> = {
   'project.missing.remove': 'Tab entfernen',
   'project.pickTitle': 'Ordner mit einem git-Repository öffnen',
   'project.tabs': "Projekte",
+  'file.openWithDefaultApp': 'Mit Standardprogramm öffnen',
   'project.quickOpen': 'Gehe zu Projekt…',
   'project.quickOpen.placeholder': 'Namen eines zu öffnenden Projekts eingeben',
   'project.next': 'Nächstes Projekt',

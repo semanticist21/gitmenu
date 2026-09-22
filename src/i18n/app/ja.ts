@@ -15,6 +15,7 @@ const ja: Partial<Record<AppKey, string>> = {
   'project.missing.remove': 'タブを削除',
   'project.pickTitle': 'git リポジトリを含むフォルダーを開く',
   'project.tabs': "プロジェクト",
+  'file.openWithDefaultApp': 'デフォルトのアプリで開く',
   'project.quickOpen': 'プロジェクトへ移動…',
   'project.quickOpen.placeholder': '開くプロジェクト名を入力',
   'project.next': '次のプロジェクト',

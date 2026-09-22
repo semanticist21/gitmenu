@@ -15,6 +15,7 @@ const zhCn: Partial<Record<AppKey, string>> = {
   'project.missing.remove': '移除标签页',
   'project.pickTitle': '打开包含 git 仓库的文件夹',
   'project.tabs': "项目",
+  'file.openWithDefaultApp': '用默认应用打开',
   'project.quickOpen': '转到项目…',
   'project.quickOpen.placeholder': '键入要打开的项目名称',
   'project.next': '下一个项目',

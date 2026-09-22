@@ -15,6 +15,7 @@ const ptBr: Partial<Record<AppKey, string>> = {
   'project.missing.remove': 'Remover Aba',
   'project.pickTitle': 'Abra uma pasta com um repositório git',
   'project.tabs': "Projetos",
+  'file.openWithDefaultApp': 'Abrir com o aplicativo padrão',
   'project.quickOpen': 'Ir para o projeto…',
   'project.quickOpen.placeholder': 'Digite o nome de um projeto para abrir',
   'project.next': 'Próximo Projeto',

@@ -15,6 +15,7 @@ const es: Partial<Record<AppKey, string>> = {
   'project.missing.remove': 'Quitar pestaña',
   'project.pickTitle': 'Abrir una carpeta con un repositorio git',
   'project.tabs': "Proyectos",
+  'file.openWithDefaultApp': 'Abrir con la aplicación predeterminada',
   'project.quickOpen': 'Ir al proyecto…',
   'project.quickOpen.placeholder': 'Escriba el nombre de un proyecto para abrir',
   'project.next': 'Proyecto siguiente',

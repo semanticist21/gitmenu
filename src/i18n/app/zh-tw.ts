@@ -15,6 +15,7 @@ const zhTw: Partial<Record<AppKey, string>> = {
   'project.missing.remove': '移除索引標籤',
   'project.pickTitle': '開啟包含 git 存放庫的資料夾',
   'project.tabs': "專案",
+  'file.openWithDefaultApp': '以預設應用程式開啟',
   'project.quickOpen': '前往專案…',
   'project.quickOpen.placeholder': '輸入要開啟的專案名稱',
   'project.next': '下一個專案',

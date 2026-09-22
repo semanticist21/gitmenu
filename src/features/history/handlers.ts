@@ -14,7 +14,7 @@ import { confirm, exec, guard, offerUndo, refresh, setting } from '../scm/handle
 import { isSelection, repoFrom, scmQueryClient } from '../scm/state'
 import { toggleView } from '../views/ViewContainer'
 import { DEFAULT_LAYOUT, type ViewLayout } from '../views/views'
-import { type CommitArg, type FileArg, openFileChange, shortSha } from './nodes'
+import { type CommitArg, type FileArg, openFile, openFileChange, openFileWithDefaultApp, shortSha } from './nodes'
 import { pickReference, type ResultArg, type SearchCompareItem } from './SearchCompareView'
 import { type FileTarget, SHOW_FILE_EVENT } from './state'
 
@@ -311,7 +311,10 @@ export function registerHistoryHandlers() {
     'gitmenu.views.openChanges': (arg) => (isFileArg(arg) ? openFileChange(arg) : openAllChanges(arg, false)),
     'gitmenu.views.openChangesWithWorking': (arg) => (isFileArg(arg) ? openWithWorking(arg) : openAllChanges(arg, true)),
     'gitmenu.views.openFile': (arg) => {
-      if (isFileArg(arg)) void ipc.openPath(`${arg.root}/${arg.file.path}`)
+      if (isFileArg(arg)) openFile(arg.root, arg.file.path)
+    },
+    'gitmenu.views.openFileWithDefaultApp': (arg) => {
+      if (isFileArg(arg)) openFileWithDefaultApp(arg.root, arg.file.path)
     },
     'gitmenu.views.openFileRevision': (arg) => {
       if (isFileArg(arg)) openRevision(arg)

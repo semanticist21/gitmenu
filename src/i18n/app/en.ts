@@ -15,6 +15,7 @@ const en = {
   'project.missing.remove': 'Remove Tab',
   'project.pickTitle': 'Open a folder with a git repository',
   'project.tabs': 'Projects',
+  'file.openWithDefaultApp': 'Open with Default Application',
   'project.quickOpen': 'Go to Project…',
   'project.quickOpen.placeholder': 'Type the name of a project to open',
   'project.next': 'Next Project',

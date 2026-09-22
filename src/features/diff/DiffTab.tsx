@@ -16,8 +16,9 @@ import { toastManager } from '@/components/ui/toast'
 import { Tooltip, TooltipPopup, TooltipTrigger } from '@/components/ui/tooltip'
 import { LogoBadgeFilledIcon, LogoBadgeIcon } from '@/components/LogoIcons'
 import { gl, t, useLocale, vs, vsb } from '@/i18n'
+import { openFile, openFileWithDefaultApp } from '@/features/history/nodes'
 import { type DiffResult, git, type Side } from '@/lib/git'
-import { errorMessage, ipc } from '@/lib/ipc'
+import { errorMessage } from '@/lib/ipc'
 import { useUiState } from '@/lib/uiState'
 import { cn } from '@/lib/utils'
 import type { DetailTabProps } from '@/routes/detail/DetailApp'
@@ -157,7 +158,7 @@ export function NonTextDiff({ result, path, root }: { result: DiffResult; path: 
       message={result.kind === 'tooLarge' ? t('diff.tooLarge') : t('diff.binary')}
       detail={`${formatSize(result.left.size)} → ${formatSize(result.right.size)}`}
     >
-      <Button onClick={() => void ipc.openPath(`${root}/${path}`)}>{vs('command.openFile')}</Button>
+      <Button onClick={() => openFileWithDefaultApp(root, path)}>{t('file.openWithDefaultApp')}</Button>
     </EditorPlaceholder>
   )
 }
@@ -327,7 +328,10 @@ export function DiffTab({ params }: DetailTabProps) {
     <div className="flex h-full flex-col" data-context={JSON.stringify({ gitmenuDiffFocus: true, isInDiffEditor: true })}>
       <EditorActions>
         {right.kind === 'worktree' && (
-          <ActionButton icon="go-to-file" label={vs('command.openFile')} onClick={() => void ipc.openPath(`${root}/${path}`)} />
+          <>
+            <ActionButton icon="go-to-file" label={vs('command.openFile')} onClick={() => openFile(root, path)} />
+            <ActionButton icon="link-external" label={t('file.openWithDefaultApp')} onClick={() => openFileWithDefaultApp(root, path)} />
+          </>
         )}
         <ActionButton icon="arrow-up" label={t('diff.previousChange')} command="workbench.action.editor.previousChange" disabled={hunkCount === 0} onClick={previousChange} />
         <ActionButton icon="arrow-down" label={t('diff.nextChange')} command="workbench.action.editor.nextChange" disabled={hunkCount === 0} onClick={nextChange} />

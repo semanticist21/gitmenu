@@ -15,6 +15,7 @@ const fr: Partial<Record<AppKey, string>> = {
   'project.missing.remove': 'Supprimer l’onglet',
   'project.pickTitle': 'Ouvrir un dossier contenant un dépôt git',
   'project.tabs': "Projets",
+  'file.openWithDefaultApp': 'Ouvrir avec l’application par défaut',
   'project.quickOpen': 'Aller au projet…',
   'project.quickOpen.placeholder': 'Tapez le nom d’un projet à ouvrir',
   'project.next': 'Projet suivant',

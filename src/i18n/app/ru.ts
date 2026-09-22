@@ -15,6 +15,7 @@ const ru: Partial<Record<AppKey, string>> = {
   'project.missing.remove': 'Удалить вкладку',
   'project.pickTitle': 'Откройте папку с репозиторием git',
   'project.tabs': "Проекты",
+  'file.openWithDefaultApp': 'Открыть в приложении по умолчанию',
   'project.quickOpen': 'Перейти к проекту…',
   'project.quickOpen.placeholder': 'Введите имя проекта для открытия',
   'project.next': 'Следующий проект',
