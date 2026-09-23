@@ -111,8 +111,61 @@ const IMAGE_EXTENSIONS: [(&str, &str); 9] = [
 /// Images larger than this are summarized like other binary files
 const IMAGE_PREVIEW_LIMIT: usize = 20 * 1024 * 1024;
 
+/// VS Code looks for NUL bytes in this much of a file (encoding.ts `ZERO_BYTE_DETECTION_BUFFER_MAX_LEN`)
+const ZERO_BYTE_DETECTION_LIMIT: usize = 512;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Encoding {
+    Utf8,
+    Utf16Le,
+    Utf16Be,
+    Binary,
+}
+
+/// VS Code's `detectEncodingFromBuffer`: a UTF-16 BOM, or NUL bytes in the first 512 bytes that
+/// all sit on one side of each code unit, mean UTF-16; any other NUL there means binary. A NUL
+/// further in doesn't make the file binary (git looks at 8000 bytes, VS Code only at 512).
+fn detect_encoding(bytes: &[u8]) -> Encoding {
+    if bytes.starts_with(&[0xFF, 0xFE]) {
+        return Encoding::Utf16Le;
+    }
+    if bytes.starts_with(&[0xFE, 0xFF]) {
+        return Encoding::Utf16Be;
+    }
+    let head = &bytes[..bytes.len().min(ZERO_BYTE_DETECTION_LIMIT)];
+    if !head.contains(&0) {
+        return Encoding::Utf8;
+    }
+    let (mut le, mut be) = (true, true);
+    for (i, &b) in head.iter().enumerate() {
+        let (odd, zero) = (i % 2 == 1, b == 0);
+        le &= odd == zero;
+        be &= odd != zero;
+    }
+    if le {
+        Encoding::Utf16Le
+    } else if be {
+        Encoding::Utf16Be
+    } else {
+        Encoding::Binary
+    }
+}
+
 fn is_binary(bytes: &[u8]) -> bool {
-    bytes[..bytes.len().min(8000)].contains(&0)
+    detect_encoding(bytes) == Encoding::Binary
+}
+
+/// Text of a non-binary file; UTF-16 drops its BOM, as the editor shows it.
+fn decode(bytes: &[u8]) -> String {
+    let utf16 = |bom: [u8; 2], unit: fn([u8; 2]) -> u16| {
+        let body = bytes.strip_prefix(&bom).unwrap_or(bytes);
+        String::from_utf16_lossy(&body.chunks_exact(2).map(|c| unit([c[0], c[1]])).collect::<Vec<_>>())
+    };
+    match detect_encoding(bytes) {
+        Encoding::Utf16Le => utf16([0xFF, 0xFE], u16::from_le_bytes),
+        Encoding::Utf16Be => utf16([0xFE, 0xFF], u16::from_be_bytes),
+        Encoding::Utf8 | Encoding::Binary => String::from_utf8_lossy(bytes).into_owned(),
+    }
 }
 
 fn image_mime(path: &str) -> Option<&'static str> {
@@ -166,8 +219,8 @@ pub fn diff(
     if binary {
         return DiffResult { kind: ContentKind::Binary, left: side(&left), right: side(&right), hunks: Vec::new() };
     }
-    let left_text = left.as_ref().map(|b| String::from_utf8_lossy(b).into_owned());
-    let right_text = right.as_ref().map(|b| String::from_utf8_lossy(b).into_owned());
+    let left_text = left.as_deref().map(decode);
+    let right_text = right.as_deref().map(decode);
     let hunks = line_hunks(
         left_text.as_deref().unwrap_or_default(),
         right_text.as_deref().unwrap_or_default(),
@@ -237,7 +290,20 @@ mod tests {
         let options = DiffOptions { max_bytes: 10, ignore_trim_whitespace: false };
         assert_eq!(diff("a.txt", "a.txt", Some(b"0123456789ab".to_vec()), None, &options).kind, ContentKind::TooLarge);
         let options = DiffOptions { max_bytes: 1 << 20, ignore_trim_whitespace: false };
-        assert_eq!(diff("a.bin", "a.bin", Some(vec![0, 1]), Some(vec![0, 2]), &options).kind, ContentKind::Binary);
+        assert_eq!(
+            diff("a.bin", "a.bin", Some(vec![0, 0, 1]), Some(vec![0, 0, 2]), &options).kind,
+            ContentKind::Binary
+        );
+        // A NUL past the first 512 bytes (a test fixture, say) leaves the file text, as in VS Code
+        let mut late_nul = b"export const x = 1\n".repeat(40);
+        late_nul.push(0);
+        assert_eq!(diff("test.ts", "test.ts", None, Some(late_nul), &options).kind, ContentKind::Text);
+        let utf16: Vec<u8> =
+            [0xFF, 0xFE].into_iter().chain("a\nb\n".encode_utf16().flat_map(u16::to_le_bytes)).collect();
+        let text = diff("a.ts", "a.ts", None, Some(utf16), &options);
+        assert_eq!((text.kind, text.right.text.as_deref()), (ContentKind::Text, Some("a\nb\n")));
+        let utf16be: Vec<u8> = "ab".encode_utf16().flat_map(u16::to_be_bytes).collect();
+        assert_eq!(diff("a.ts", "a.ts", None, Some(utf16be), &options).right.text.as_deref(), Some("ab"));
         let image = diff("a.png", "a.png", None, Some(vec![0x89, b'P', b'N', b'G', 0]), &options);
         assert_eq!(image.kind, ContentKind::Image);
         assert!(image.right.data_url.unwrap().starts_with("data:image/png;base64,"));
