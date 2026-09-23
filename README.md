@@ -31,6 +31,13 @@ brew install --cask kobbokkom/tap/gitmenu
 
 Requires macOS 13+ on Apple silicon. Releases are signed with a Developer ID certificate and notarized by Apple, so the DMG opens without a Gatekeeper prompt and `brew install` needs no extra step. The app checks for updates itself and asks before installing one; **About gitmenu → Check for Updates…** does it on demand.
 
+If `brew` stops with `It seems the App source '/Applications/gitmenu.app' is not there`, the app was deleted or moved while Homebrew still lists an older version as installed. Clear that record, then install again:
+
+```sh
+brew uninstall --cask --force gitmenu
+brew install --cask kobbokkom/tap/gitmenu
+```
+
 ## Build from source
 
 ```sh
