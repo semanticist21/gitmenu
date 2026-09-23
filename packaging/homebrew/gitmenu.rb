@@ -16,6 +16,14 @@ cask "gitmenu" do
 
   app "gitmenu.app"
 
+  # An upgrade first moves the installed app aside, so one deleted or moved by hand stops it with
+  # "It seems the App source '/Applications/gitmenu.app' is not there". Nothing in this cask runs
+  # before that except loading it, so say how to recover here.
+  if !Cask.generating_hash? && cask.caskroom_path.directory? && !Pathname("#{appdir}/gitmenu.app").exist?
+    opoo "Homebrew lists gitmenu as installed, but #{appdir}/gitmenu.app is missing. If the " \
+         "upgrade fails, run `brew uninstall --cask --force gitmenu`, then install it again."
+  end
+
   zap trash: [
     "~/Library/Application Support/gitmenu",
     "~/Library/Caches/net.kkom.gitmenu",
