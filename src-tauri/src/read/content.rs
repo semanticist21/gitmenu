@@ -159,7 +159,7 @@ fn is_binary(bytes: &[u8]) -> bool {
 fn decode(bytes: &[u8]) -> String {
     let utf16 = |bom: [u8; 2], unit: fn([u8; 2]) -> u16| {
         let body = bytes.strip_prefix(&bom).unwrap_or(bytes);
-        String::from_utf16_lossy(&body.chunks_exact(2).map(|c| unit([c[0], c[1]])).collect::<Vec<_>>())
+        String::from_utf16_lossy(&body.as_chunks::<2>().0.iter().map(|&c| unit(c)).collect::<Vec<_>>())
     };
     match detect_encoding(bytes) {
         Encoding::Utf16Le => utf16([0xFF, 0xFE], u16::from_le_bytes),
