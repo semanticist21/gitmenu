@@ -23,6 +23,7 @@ import { useUiState } from '@/lib/uiState'
 import { cn } from '@/lib/utils'
 import type { DetailTabProps } from '@/routes/detail/DetailApp'
 import { ActionButton, Breadcrumbs, EditorActions } from '@/routes/detail/EditorChrome'
+import { useIsTabActive } from '@/routes/detail/tabActive'
 import { setSetting, useSetting } from '@/settings/settings'
 import { isDark } from '@/theme/theme'
 import { DiffView, type GutterAction } from './DiffView'
@@ -194,15 +195,18 @@ export function DiffTab({ params }: DetailTabProps) {
   // Staging acts on the index: worktree changes stage/revert, index changes unstage
   const canStage = left.kind === 'index' && right.kind === 'worktree'
   const canUnstage = left.kind === 'head' && right.kind === 'index'
+  // Hidden tabs stay mounted but must not answer commands or hold context keys
+  const active = useIsTabActive()
 
   useEffect(() => {
+    if (!active) return
     setContext('gitmenuDiffCanStage', canStage)
     setContext('gitmenuDiffCanUnstage', canUnstage)
     return () => {
       setContext('gitmenuDiffCanStage', false)
       setContext('gitmenuDiffCanUnstage', false)
     }
-  }, [canStage, canUnstage])
+  }, [active, canStage, canUnstage])
 
   const refresh = useCallback(() => {
     setSelection(emptySelection())
@@ -240,6 +244,7 @@ export function DiffTab({ params }: DetailTabProps) {
 
   // Commands act on the selection, or on the block under it when nothing is selected
   useEffect(() => {
+    if (!active) return
     const selected = () => (selection.left.size + selection.right.size > 0 ? selection : null)
     const disposers = [
       registerHandler('git.stageSelectedRanges', () => canStage && selected() && apply(selection, 'stage')),
@@ -251,7 +256,7 @@ export function DiffTab({ params }: DetailTabProps) {
       registerHandler('gitmenu.toggleFileBlame', () => setBlameOn(!blameOn)),
     ]
     return () => disposers.forEach((d) => d())
-  }, [selection, canStage, canUnstage, apply, result, sideBySide, blameOn, setBlameOn])
+  }, [active, selection, canStage, canUnstage, apply, result, sideBySide, blameOn, setBlameOn])
 
   const onSelectLine = (side: 'left' | 'right', line: number, extend: boolean) => {
     const next = extend ? { left: new Set(selection.left), right: new Set(selection.right) } : emptySelection()

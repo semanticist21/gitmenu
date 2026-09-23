@@ -1,8 +1,11 @@
 // The detail window: one window, tabs for diffs, Graph, Settings, Keyboard Shortcuts and
 // terminals. Opening something already open switches to its tab. Tabs survive closing the window.
-// The tab strip is VS Code's editor title (multieditortabscontrol.css): 35px tabs, the active
-// one with a 1px top border, close buttons shown on the active or hovered tab, and at the right
-// end New Terminal, the active tab's title actions and Keep on Top.
+// Open tabs' editors stay mounted while hidden (the most recent MOUNTED_TAB_CAP of them), so
+// switching back shows them as they were (VS Code keeps editors alive); terminals instead keep
+// their screen in the session (sessions.ts), so only the active one mounts. The tab strip is
+// VS Code's editor title (multieditortabscontrol.css): 35px tabs, the active one with a 1px top
+// border, close buttons shown on the active or hovered tab, and at the right end New Terminal,
+// the active tab's title actions and Keep on Top.
 import { emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { type ComponentType, type KeyboardEvent, useEffect, useRef, useState, useSyncExternalStore } from 'react'
@@ -20,6 +23,7 @@ import { useUiState } from '@/lib/uiState'
 import { ScrollableTabs } from '@/components/ScrollableTabs'
 import { cn } from '@/lib/utils'
 import { ActionButton, EditorActionsSlot } from './EditorChrome'
+import { TabActiveContext } from './tabActive'
 import { useNoInitialFocusRing } from '@/lib/initialFocus'
 
 export interface DetailTabProps {
@@ -63,6 +67,13 @@ const closeRequests = new Set<CloseRequest>()
 export function closeDetailTabs(kind: string, match: (params: URLSearchParams) => boolean, keepWindow?: Promise<unknown>) {
   closeRequests.forEach((request) => request(kind, match, keepWindow))
 }
+
+/**
+ * How many of the open tabs keep their editor mounted while hidden, most recent kept. A hidden
+ * editor holds its diff, highlight and scroll, so switching back redraws it instantly (VS Code
+ * keeps editors alive); the cap bounds what the hidden ones hold, per SPEC's memory notes.
+ */
+const MOUNTED_TAB_CAP = 8
 
 /** Whether the editors of `routes` let them close: each kind with a close handler asks once for its tabs. */
 async function confirmClose(routes: string[]): Promise<boolean> {
@@ -148,6 +159,16 @@ export function DetailApp() {
   useOpSync()
   const [tabs, setTabs, loaded] = useUiState<string[]>('detail.tabs', [])
   const [active, setActive] = useUiState<string | null>('detail.active', null)
+  // Open tabs keep their editor mounted while hidden, most recent activation last (up to
+  // MOUNTED_TAB_CAP), so switching back shows them as they were. `activate` is the one way the
+  // active tab changes, so this set follows it; a tab that drops out just remounts on its next
+  // visit, the way tabs always did
+  const [recent, setRecent] = useState<string[]>([])
+  const activate = (route: string | null) => {
+    setActive(route)
+    if (!route) return
+    setRecent((prev) => [...prev.filter((r) => tabs.includes(r) && r !== route), route].slice(-MOUNTED_TAB_CAP))
+  }
   const [onTop, setOnTop] = useState(false)
   const [slot, setSlot] = useState<HTMLElement | null>(null)
   const focused = useWindowFocused()
@@ -157,11 +178,12 @@ export function DetailApp() {
 
   const open = (route: string) => {
     setTabs(tabs.includes(route) ? tabs : [...tabs, route])
-    setActive(route)
+    activate(route)
   }
 
   useEffect(() => {
     if (!loaded) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring the persisted route is a one-time read of an external store; later routes arrive through detail://navigate
     open(initialRoute())
     // Only on first load: later routes arrive through detail://navigate
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -180,7 +202,7 @@ export function DetailApp() {
     reopenable.current = [...reopenable.current.filter((r) => !routes.includes(r)), ...routes].slice(-20)
     const next = tabs.filter((r) => !routes.includes(r))
     setTabs(next)
-    if (active && routes.includes(active)) setActive(next[next.length - 1] ?? null)
+    if (active && routes.includes(active)) activate(next[next.length - 1] ?? null)
     if (next.length > 0) return
     if (!keepWindow) void getCurrentWindow().close()
     else void keepWindow.then(() => latest.current.tabs.length === 0 && void getCurrentWindow().close())
@@ -211,7 +233,7 @@ export function DetailApp() {
   /** Activates the tab at `index`; out of range does nothing, the way an absent tab should. */
   const at = (index: number) => {
     const route = tabs[index]
-    if (route) setActive(route)
+    if (route) activate(route)
   }
 
   /** Next/previous tab, wrapping at the ends like Chrome and VS Code. */
@@ -263,7 +285,6 @@ export function DetailApp() {
   }, [active, tabs])
 
   const current = active ? parse(active) : null
-  const Current = current ? kinds.get(current.kind)?.component : undefined
 
   // The panel's File History follows the file of the active tab
   const activeRoot = current?.params.get('repo')
@@ -278,7 +299,7 @@ export function DetailApp() {
     const target = { ArrowLeft: index - 1, ArrowRight: index + 1, Home: 0, End: tabs.length - 1 }[event.key]
     if (target === undefined || !tabs[target]) return
     event.preventDefault()
-    setActive(tabs[target])
+    activate(tabs[target])
     requestAnimationFrame(() => stripRef.current?.querySelector<HTMLElement>('[role=tab][aria-selected=true]')?.focus())
   }
 
@@ -312,7 +333,7 @@ export function DetailApp() {
                             ? 'bg-tab-active text-tab-active-foreground'
                             : 'bg-tab-inactive text-tab-inactive-foreground hover:bg-tab-hover',
                         )}
-                        onClick={() => (isActive ? tabKind?.focus?.(params) : setActive(route))}
+                        onClick={() => (isActive ? tabKind?.focus?.(params) : activate(route))}
                         onAuxClick={(e) => e.button === 1 && requestClose([route])}
                         onKeyDown={(e) => onTabKeyDown(e, route)}
                       />
@@ -374,9 +395,23 @@ export function DetailApp() {
           </div>
         </header>
         <main className="min-h-0 flex-1 bg-editor">
-          <EditorActionsSlot.Provider value={slot}>
-            {current && Current && <Current key={active} route={active!} params={current.params} />}
-          </EditorActionsSlot.Provider>
+          {tabs.map((route) => {
+            const tab = parse(route)
+            const Editor = kinds.get(tab.kind)?.component
+            const isActive = route === active
+            // Hidden tabs keep their editor while in `recent` (the active one always mounts);
+            // a terminal's screen lives in its session, so only the active terminal mounts
+            if (!Editor || (!isActive && !recent.includes(route)) || (tab.kind === 'terminal' && !isActive)) return null
+            return (
+              <div key={route} className="h-full" hidden={!isActive || undefined} inert={!isActive || undefined}>
+                <TabActiveContext.Provider value={isActive}>
+                  <EditorActionsSlot.Provider value={isActive ? slot : null}>
+                    <Editor route={route} params={tab.params} />
+                  </EditorActionsSlot.Provider>
+                </TabActiveContext.Provider>
+              </div>
+            )
+          })}
         </main>
       </div>
     </TooltipProvider>

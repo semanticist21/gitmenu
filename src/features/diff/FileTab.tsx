@@ -13,6 +13,7 @@ import { errorMessage } from '@/lib/ipc'
 import { useUiState } from '@/lib/uiState'
 import type { DetailTabProps } from '@/routes/detail/DetailApp'
 import { ActionButton, Breadcrumbs, EditorActions } from '@/routes/detail/EditorChrome'
+import { useIsTabActive } from '@/routes/detail/tabActive'
 import { useSetting } from '@/settings/settings'
 import { EditorPlaceholder, NonTextDiff, useDarkMode } from './DiffTab'
 import { DiffView } from './DiffView'
@@ -45,8 +46,13 @@ export function FileTab({ params }: DetailTabProps) {
   const [selection, setSelection] = useState<LineSelection>({ left: new Set(), right: new Set() })
   const [anchor, setAnchor] = useState<number | null>(null)
   const dark = useDarkMode()
+  // Hidden tabs stay mounted but must not answer commands
+  const active = useIsTabActive()
 
-  useEffect(() => registerHandler('gitmenu.toggleFileBlame', () => setBlameOn(!blameOn)), [blameOn, setBlameOn])
+  useEffect(() => {
+    if (!active) return
+    return registerHandler('gitmenu.toggleFileBlame', () => setBlameOn(!blameOn))
+  }, [active, blameOn, setBlameOn])
 
   const onSelectLine = (_side: 'left' | 'right', line: number, extend: boolean) => {
     const right = new Set<number>()
