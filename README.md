@@ -2,7 +2,14 @@
 
 ![gitmenu](scripts/icon/app.svg)
 
+[![Release](https://img.shields.io/github/v/release/semanticist21/gitmenu)](https://github.com/semanticist21/gitmenu/releases/latest)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS%2013%2B%20Apple%20silicon-lightgrey)](#install)
+
 VS Code's Source Control and GitLens-style views, in a lightweight macOS menu bar app. Keep your editor for code — gitmenu handles the git panel, diffs, and the commit graph, one click above whatever you're working on.
+
+<!-- TODO(demo): record a ~10s GIF — open the panel, browse the commit graph, stage and commit a change — then show it here:
+![gitmenu in action](docs/demo.gif) -->
 
 [Download](https://github.com/semanticist21/gitmenu/releases/latest) · [Product page & screenshots](https://kkom.net/products/gitmenu) · `brew tap kobbokkom/tap && brew install --cask kobbokkom/tap/gitmenu`
 

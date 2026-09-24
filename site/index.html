@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- The gitmenu page for kkom.net/gitmenu. Static; deploy by copying this folder. -->
+<!-- The gitmenu page for kkom.net/products/gitmenu. Static; deploy by copying this folder. -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -54,11 +54,13 @@
     </ul>
 
     <h2>Install with Homebrew</h2>
-    <pre>brew install --cask semanticist21/tap/gitmenu</pre>
+    <pre>brew tap kobbokkom/tap
+brew install --cask kobbokkom/tap/gitmenu</pre>
+    <p>Or grab the DMG from <a href="https://github.com/semanticist21/gitmenu/releases/latest">Releases</a>. It is signed with a Developer ID certificate and notarized by Apple, so it opens without a Gatekeeper prompt, and the app checks for updates itself and asks before installing one.</p>
 
     <h2>Requirements</h2>
     <ul>
-      <li>macOS 13 Ventura or later, Apple silicon or Intel.</li>
+      <li>macOS 13 Ventura or later, Apple silicon.</li>
       <li>git (Xcode Command Line Tools or Homebrew).</li>
       <li>Commit message generation needs macOS 26 with Apple Intelligence turned on.</li>
     </ul>
