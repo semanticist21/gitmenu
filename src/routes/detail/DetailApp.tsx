@@ -394,7 +394,7 @@ export function DetailApp() {
             />
           </div>
         </header>
-        <main className="min-h-0 flex-1 bg-editor">
+        <main className="relative min-h-0 flex-1 bg-editor">
           {tabs.map((route) => {
             const tab = parse(route)
             const Editor = kinds.get(tab.kind)?.component
@@ -403,7 +403,13 @@ export function DetailApp() {
             // a terminal's screen lives in its session, so only the active terminal mounts
             if (!Editor || (!isActive && !recent.includes(route)) || (tab.kind === 'terminal' && !isActive)) return null
             return (
-              <div key={route} className="h-full" hidden={!isActive || undefined} inert={!isActive || undefined}>
+              <div
+                key={route}
+                // Hidden editors keep their layout (visibility, not display:none) so the scroll
+                // survives the round trip, while staying unfocusable and out of the a11y tree
+                className={cn('h-full', !isActive && 'absolute inset-0 invisible')}
+                inert={!isActive || undefined}
+              >
                 <TabActiveContext.Provider value={isActive}>
                   <EditorActionsSlot.Provider value={isActive ? slot : null}>
                     <Editor route={route} params={tab.params} />
