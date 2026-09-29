@@ -3,7 +3,9 @@
 use std::{os::unix::fs::PermissionsExt, path::PathBuf, sync::Arc};
 
 use serde_json::{Map, Value};
-use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+    AppHandle, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
+};
 
 use crate::{
     env::{EnvStatus, GitEnv},
@@ -265,15 +267,39 @@ fn show_detail(app: &AppHandle, route: &str) -> Result<()> {
         return Ok(());
     }
     let url = format!("index.html#{route}");
-    WebviewWindowBuilder::new(app, DETAIL, WebviewUrl::App(url.into()))
+    // VS Code's first window is 1024x768 (window.ts `defaultWindowState`); window-state restores
+    // the last size over it while the window is being built
+    let window = WebviewWindowBuilder::new(app, DETAIL, WebviewUrl::App(url.into()))
         .title("gitmenu")
-        .inner_size(1100.0, 760.0)
+        .inner_size(1024.0, 768.0)
         .min_inner_size(640.0, 400.0)
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .hidden_title(true)
         .visible(true)
         .focused(true)
         .build()?;
+    fit_to_screen(&window)?;
+    Ok(())
+}
+
+/// VS Code's `validateWindowState`: a size saved on a larger display shrinks to this display's
+/// work area, and a window hanging off its edges moves back onto it.
+fn fit_to_screen(window: &WebviewWindow) -> tauri::Result<()> {
+    let Some(monitor) = window.current_monitor()?.or(window.primary_monitor()?) else { return Ok(()) };
+    let area = monitor.work_area();
+    let (outer, inner) = (window.outer_size()?, window.inner_size()?);
+    let width = outer.width.min(area.size.width);
+    let height = outer.height.min(area.size.height);
+    if (width, height) != (outer.width, outer.height) {
+        let (frame_w, frame_h) = (outer.width.saturating_sub(inner.width), outer.height.saturating_sub(inner.height));
+        window.set_size(PhysicalSize::new(width.saturating_sub(frame_w), height.saturating_sub(frame_h)))?;
+    }
+    let position = window.outer_position()?;
+    let x = position.x.clamp(area.position.x, area.position.x + (area.size.width - width) as i32);
+    let y = position.y.clamp(area.position.y, area.position.y + (area.size.height - height) as i32);
+    if (x, y) != (position.x, position.y) {
+        window.set_position(PhysicalPosition::new(x, y))?;
+    }
     Ok(())
 }
 
