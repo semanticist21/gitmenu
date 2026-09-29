@@ -1,9 +1,10 @@
-# Lint, typecheck, tests and clippy on every push and pull request.
+# Lint, typecheck, tests and clippy on every push and pull request, and before every release.
 name: check
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
 
 jobs:
   check:

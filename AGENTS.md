@@ -19,8 +19,9 @@ what the workflow does not do for you.
 
 1. Bump the version in `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`
    (then `cargo update -p gitmenu --offline`) and `packaging/homebrew/gitmenu.rb`.
-2. Commit, push, then push the `vX.Y.Z` tag. The workflow runs only when `APPLE_CERTIFICATE`
-   is set; without it, it does nothing.
+2. Commit, push, then push the `vX.Y.Z` tag. The workflow builds only after `check` passes on
+   the tag and fails when `APPLE_CERTIFICATE` is missing. A ruleset blocks moving or deleting
+   `v*` tags, so fix a bad release with a new version.
 3. It leaves a **draft** release. Before publishing, mount the DMG and check the app:
    `spctl -a -t exec -vv` must say `source=Notarized Developer ID`, and
    `xcrun stapler validate` must pass. Then `gh release edit vX.Y.Z --draft=false --latest`.

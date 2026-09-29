@@ -11,21 +11,25 @@ permissions:
   contents: write
 
 jobs:
-  # A signed, notarized release needs the signing secrets; until they are configured, releases
-  # are built locally and this workflow does nothing.
+  check:
+    uses: ./.github/workflows/check.yml
+    permissions:
+      contents: read
+
+  # A release must be signed and notarized, so a tag without the signing secrets fails.
   guard:
     runs-on: ubuntu-latest
-    outputs:
-      run: ${{ steps.check.outputs.run }}
     steps:
-      - id: check
-        env:
+      - env:
           CERT: ${{ secrets.APPLE_CERTIFICATE }}
-        run: echo "run=$([ -n "$CERT" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+        run: |
+          if [ -z "$CERT" ]; then
+            echo "::error::APPLE_CERTIFICATE is not set; a release cannot be signed"
+            exit 1
+          fi
 
   release:
-    needs: guard
-    if: needs.guard.outputs.run == 'true'
+    needs: [check, guard]
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
