@@ -1,6 +1,6 @@
 [package]
 name = "gitmenu"
-version = "0.1.7"
+version = "0.1.8"
 description = "Menu bar git panel"
 authors = ["Kobbokkom"]
 license = "MIT"
