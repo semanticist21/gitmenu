@@ -21,7 +21,7 @@ use std::{
 
 use serde::Serialize;
 use tauri::{
-    AppHandle, Emitter, Manager, PhysicalPosition, Rect,
+    AppHandle, Emitter, LogicalPosition, Manager, Rect,
     image::Image,
     tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
 };
@@ -392,6 +392,11 @@ pub fn set_pinned(app: &AppHandle, pinned: bool) {
 }
 
 /// Restores the remembered size and centers the panel under the icon, inside the screen.
+///
+/// tray-icon, tao's monitors and their work areas all report global points multiplied by *their
+/// own* screen's backing scale, so with a Retina and a non-Retina display the physical numbers
+/// of the two can't be compared. Everything here is in points, each value divided by the scale
+/// it was multiplied with.
 fn place_panel(app: &AppHandle, window: &tauri::WebviewWindow) {
     let tray = app.state::<Arc<Tray>>();
     // The icon's rect right after launch is wrong, so it's read at click time when possible
@@ -401,19 +406,25 @@ fn place_panel(app: &AppHandle, window: &tauri::WebviewWindow) {
         .unwrap()
         .or_else(|| app.tray_by_id(TRAY_ID).and_then(|t: TrayIcon| t.rect().ok().flatten()));
     let Some(rect) = rect else { return };
-    let scale = window.scale_factor().unwrap_or(2.0);
-    let icon_pos = rect.position.to_physical::<f64>(scale);
-    let icon_size = rect.size.to_physical::<f64>(scale);
+    // The icon's display is the one whose bounds hold the icon at that display's scale
     let monitor = window
         .available_monitors()
-        .ok()
-        .and_then(|monitors| {
-            monitors.into_iter().find(|m| {
-                let (p, s) = (m.position(), m.size());
-                icon_pos.x >= p.x as f64 && icon_pos.x < (p.x + s.width as i32) as f64
-            })
+        .unwrap_or_default()
+        .into_iter()
+        .find(|m| {
+            let scale = m.scale_factor();
+            let icon = rect.position.to_logical::<f64>(scale);
+            let (p, s) = (m.position().to_logical::<f64>(scale), m.size().to_logical::<f64>(scale));
+            (p.x..p.x + s.width).contains(&icon.x) && (p.y..p.y + s.height).contains(&icon.y)
         })
         .or_else(|| window.current_monitor().ok().flatten());
+    let scale = monitor.as_ref().map_or(2.0, |m| m.scale_factor());
+    let icon_pos = rect.position.to_logical::<f64>(scale);
+    let icon_size = rect.size.to_logical::<f64>(scale);
+    let area = monitor.as_ref().map(|m| {
+        let area = m.work_area();
+        (area.position.to_logical::<f64>(scale), area.size.to_logical::<f64>(scale))
+    });
 
     let (mut width, mut height) = app
         .state::<Arc<UiState>>()
@@ -423,23 +434,18 @@ fn place_panel(app: &AppHandle, window: &tauri::WebviewWindow) {
         .filter(|(_, h)| *h > 320.0)
         .unwrap_or((360.0, 640.0));
     let top = icon_pos.y + icon_size.height;
-    if let Some(m) = &monitor {
-        let area = m.work_area();
-        let max_h = (area.size.height as f64 / scale) - (top - area.position.y as f64) / scale - MARGIN;
-        height = height.min(max_h).max(320.0);
+    if let Some((pos, size)) = area {
+        height = height.min(size.height - (top - pos.y) - MARGIN).max(320.0);
         width = width.max(300.0);
     }
     let _ = window.set_size(tauri::LogicalSize::new(width, height));
     *tray.applied_size.lock().unwrap() = Some((width, height));
-    let phys_w = width * scale;
-    let mut x = icon_pos.x + icon_size.width / 2.0 - phys_w / 2.0;
-    if let Some(m) = &monitor {
-        let area = m.work_area();
-        let left = area.position.x as f64 + MARGIN * scale;
-        let right = (area.position.x + area.size.width as i32) as f64 - MARGIN * scale - phys_w;
+    let mut x = icon_pos.x + icon_size.width / 2.0 - width / 2.0;
+    if let Some((pos, size)) = area {
+        let (left, right) = (pos.x + MARGIN, pos.x + size.width - MARGIN - width);
         x = x.clamp(left, right.max(left));
     }
-    let _ = window.set_position(PhysicalPosition::new(x.round() as i32, (top + 4.0 * scale).round() as i32));
+    let _ = window.set_position(LogicalPosition::new(x.round(), (top + 4.0).round()));
 }
 
 pub fn set_activity(app: &AppHandle, activity: Option<Activity>) {
