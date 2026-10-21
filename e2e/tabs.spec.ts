@@ -40,3 +40,40 @@ test('a diff tab keeps its scroll and data across switches, without refetching',
   await expect.poll(() => doc.evaluate((el) => el.scrollTop)).toBe(scrolled)
   expect(await called(page, 'repo_diff')).toBe(reads)
 })
+
+test('many tabs and long file names stay within the detail window', async ({ page }) => {
+  await page.goto('/#/detail/settings')
+  await expect(page.getByRole('tab', { name: 'Settings', exact: true })).toBeVisible()
+
+  for (let i = 0; i < 20; i++) {
+    const path = `src/${'long-file-name-'.repeat(10)}${i}.tsx`
+    await page.evaluate(
+      (route) => (window as unknown as { __emit: (event: string, payload: string) => Promise<void> }).__emit('detail://navigate', route),
+      diffUrl(path).slice(1),
+    )
+    await expect(page.getByRole('tab')).toHaveCount(i + 2)
+  }
+
+  const strip = page.getByRole('tablist')
+  const last = strip.getByRole('tab').last()
+  await expect.poll(() => strip.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true)
+  for (const width of [900, 640, 1280]) {
+    await page.setViewportSize({ width, height: 600 })
+    await expect.poll(() => page.locator('header').evaluate((el) => el.getBoundingClientRect().width)).toBe(width)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+    await expect.poll(() => last.evaluate((el) => el.getBoundingClientRect().width <= el.parentElement!.clientWidth)).toBe(true)
+    await expect(page.getByRole('button', { name: 'New Terminal' })).toBeInViewport()
+    await expect(page.getByRole('button', { name: 'Keep on Top', exact: true })).toBeInViewport()
+  }
+
+  await last.focus()
+  await expect(last.getByRole('button', { name: 'Close Editor' })).toBeInViewport()
+  await page.keyboard.press('Home')
+  await expect(strip.getByRole('tab', { name: 'Settings', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(strip.getByRole('tab', { name: 'Settings', exact: true })).toBeInViewport()
+  await page.keyboard.press('End')
+  await expect(last).toHaveAttribute('aria-selected', 'true')
+  await expect(last.getByRole('button', { name: 'Close Editor' })).toBeInViewport()
+  await last.getByRole('button', { name: 'Close Editor' }).click()
+  await expect(page.getByRole('tab')).toHaveCount(20)
+})

@@ -305,7 +305,7 @@ export function DetailApp() {
 
   return (
     <TooltipProvider>
-      <div className="flex h-screen flex-col overflow-hidden bg-editor text-foreground">
+      <div className="flex h-screen w-screen flex-col overflow-hidden bg-editor text-foreground">
         {/* The title bar is overlaid: the strip leaves room for the traffic lights and drags the window */}
         <header
           data-tauri-drag-region
@@ -328,7 +328,7 @@ export function DetailApp() {
                         aria-selected={isActive}
                         tabIndex={isActive ? 0 : -1}
                         className={cn(
-                          'group/tab relative flex h-tab w-fit shrink-0 cursor-pointer items-center whitespace-nowrap border-tab-border border-r ps-2.5 text-ui outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-focus',
+                          'group/tab relative flex h-tab w-fit max-w-[240px] shrink-0 cursor-pointer items-center whitespace-nowrap border-tab-border border-r ps-2.5 text-ui outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-focus',
                           isActive
                             ? 'bg-tab-active text-tab-active-foreground'
                             : 'bg-tab-inactive text-tab-inactive-foreground hover:bg-tab-hover',
@@ -349,7 +349,7 @@ export function DetailApp() {
                     )}
                     {isActive && <span className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-px bg-tab-active-border" />}
                     <TabIcon kind={kind} />
-                    <span className="flex-1 leading-tab">{label}</span>
+                    <span className="min-w-0 flex-1 truncate leading-tab">{label}</span>
                     <span className="flex w-7 shrink-0 items-center justify-center">
                       <button
                         type="button"
