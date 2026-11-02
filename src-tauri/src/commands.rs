@@ -258,6 +258,9 @@ pub async fn detail_open(app: AppHandle, route: String) -> Result<()> {
 
 /// Shows the detail window at `route`, building it the first time. Main thread only.
 fn show_detail(app: &AppHandle, route: &str) -> Result<()> {
+    // The app is an accessory that never activates on its own: without this the window opens
+    // (or comes back) behind the frontmost app. window-state's restore used to cover the first open.
+    activate_app();
     if let Some(window) = app.get_webview_window(DETAIL) {
         let _ = tauri::Emitter::emit_to(app, DETAIL, "detail://navigate", route);
         window.show()?;
@@ -284,7 +287,9 @@ fn show_detail(app: &AppHandle, route: &str) -> Result<()> {
         Some([x, y, w, h]) => builder.inner_size(w, h).position(x, y),
         None => builder.inner_size(DETAIL_DEFAULT_SIZE[0], DETAIL_DEFAULT_SIZE[1]).center(),
     };
-    builder.build()?;
+    let window = builder.build()?;
+    window.show()?;
+    window.set_focus()?;
     Ok(())
 }
 
