@@ -181,12 +181,10 @@ export function DetailApp() {
     activate(route)
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only on first load; later routes arrive through detail://navigate
   useEffect(() => {
     if (!loaded) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring the persisted route is a one-time read of an external store; later routes arrive through detail://navigate
     open(initialRoute())
-    // Only on first load: later routes arrive through detail://navigate
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded])
 
   useTauriEvent<string>('detail://navigate', open)
@@ -243,6 +241,7 @@ export function DetailApp() {
     at((i + delta + tabs.length) % tabs.length)
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `open`/`close` read the latest tabs and active through these
   useEffect(() => {
     setContext('gitmenu.window', 'detail')
     const disposers = [
@@ -274,8 +273,6 @@ export function DetailApp() {
       disposers.forEach((d) => d())
       closeRequests.delete(request)
     }
-    // `open`/`close` read the latest tabs and active through these
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, tabs])
 
   // The active tab scrolls into view in an overflowing strip

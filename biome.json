@@ -1,0 +1,36 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": { "includes": ["**/*.ts", "**/*.tsx"] },
+  "formatter": { "enabled": false },
+  "assist": { "enabled": false },
+  "linter": {
+    "enabled": true,
+    "domains": { "react": "recommended" },
+    "rules": {
+      "preset": "recommended",
+      "a11y": "off",
+      "complexity": "off",
+      "performance": "off",
+      "security": "off",
+      "style": "off",
+      "correctness": {
+        "useExhaustiveDependencies": { "level": "error", "options": { "reportUnnecessaryDependencies": false } }
+      },
+      "suspicious": {
+        "noArrayIndexKey": "off",
+        "noAssignInExpressions": "off",
+        "noDoubleEquals": "off",
+        "noImplicitAnyLet": "off",
+        "noTemplateCurlyInString": "off",
+        "useIterableCallbackReturn": "off"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/components/ui/**", "src/hooks/**", "src/lib/segmented-control.ts"],
+      "linter": { "rules": { "correctness": { "noComponentHookFactories": "off" } } }
+    }
+  ]
+}

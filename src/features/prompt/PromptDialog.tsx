@@ -21,6 +21,7 @@ export function PromptDialog() {
   const add = (prompt: Prompt) => setQueue((q) => (q.some((p) => p.id === prompt.id) ? q : [...q, prompt]))
   useTauriEvent<Prompt>('prompt://request', add)
   // Events aren't replayed: git may already be waiting from before this window mounted
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once on mount; `add` only queues through setQueue
   useEffect(() => {
     void ipc.promptOpen().then((open) => open.forEach(add))
   }, [])

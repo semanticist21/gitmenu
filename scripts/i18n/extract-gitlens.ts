@@ -21,7 +21,7 @@ const PATTERNS = [
 const OBJECT_LOOKUP = /\bgl\(\{([^}]*)\}\[/g
 const OBJECT_VALUE = new RegExp(String.raw`:\s*${LIT}`, 'g')
 
-const unescape = (body: string) => body.replace(/\\(.)/g, '$1')
+const unescapeLiteral = (body: string) => body.replace(/\\(.)/g, '$1')
 const placeholders = (text: string) => [...text.matchAll(/\{\d+\}/g)].map((m) => m[0]).sort().join()
 
 function sourceFiles(dir: string): string[] {
@@ -42,11 +42,11 @@ for (const file of sourceFiles(src)) {
     for (const m of code.matchAll(pattern)) {
       // Menu tuples share the ['gitlens.id', …] shape but carry a group (`inline@1`)
       if (i === 3 && m[2].includes('@')) continue
-      strings.add(unescape(m[2]))
+      strings.add(unescapeLiteral(m[2]))
     }
   }
   for (const m of code.matchAll(OBJECT_LOOKUP)) {
-    for (const v of m[1].matchAll(OBJECT_VALUE)) strings.add(unescape(v[2]))
+    for (const v of m[1].matchAll(OBJECT_VALUE)) strings.add(unescapeLiteral(v[2]))
   }
 }
 const english = [...strings].sort()
