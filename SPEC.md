@@ -133,9 +133,9 @@ VS Code와 GitLens가 이미 정해 둔 동작과 기본값은 그대로 따른�
 - 속도 0.5~1초(짧은 diff). 품질이 약해 엄격한 프롬프트, 크기 확인·분할, 출력 형식 검증이 필요하다.
 
 ### 메뉴 막대 패널 동작 (tauri 2.11.5 `tray-icon`, tauri-plugin-positioner 2.3.4, global-shortcut 2.3.2, window-state 2.4.1, tauri-nspanel git `v2.1`, objc2 0.6)
-- Tauri API로 되는 것: `set_activation_policy(Accessory)`, `.icon_as_template(true)` + `set_title`, 애니메이션은 `set_icon_with_as_template(img, true)`(그냥 `set_icon`은 템플릿 플래그가 빠짐), 유휴 시 스레드 park로 CPU 0%. 아이콘 위치는 앱 시작 직후 `tray.rect()`가 틀리므로 클릭 시점에 읽는다. 핀은 `set_always_on_top`, 크기 기억은 window-state 플러그인.
+- Tauri API로 되는 것: `set_activation_policy(Accessory)`, `.icon_as_template(true)` + `set_title`, 애니메이션은 `set_icon_with_as_template(img, true)`(그냥 `set_icon`은 템플릿 플래그가 빠짐), 유휴 시 스레드 park로 CPU 0%. 아이콘 위치는 앱 시작 직후 `tray.rect()`가 틀리므로 클릭 시점에 읽는다. 핀은 `set_always_on_top`, detail 창 크기·위치는 `state.json`에 포인트 단위로 기억한다(window-state 플러그인은 픽셀로 저장해 Retina↔1x 디스플레이 사이에서 창이 두 배씩 커졌다).
 - 바깥 클릭 닫기: blur 후 80ms 뒤 우리 창 중 `is_focused()`가 없으면 숨긴다. 닫힌 직후 300ms 안의 아이콘 클릭은 무시한다.
-- 전체화면 앱 위 표시와 포커스를 뺏지 않는 열기는 `tauri-nspanel`이 필요하다(NSPanel, non-activating, collectionBehavior CanJoinAllSpaces|FullScreenAuxiliary). 패널 호출은 반드시 `run_on_main_thread`에서 한다(아니면 데드락). 적용 후 Tauri 포커스 이벤트가 끊기므로 닫기 감지는 `window_did_resign_key`로 하고, 크기 이벤트도 끊길 수 있어 window-state 동작을 다시 확인해야 한다.
+- 전체화면 앱 위 표시와 포커스를 뺏지 않는 열기는 `tauri-nspanel`이 필요하다(NSPanel, non-activating, collectionBehavior CanJoinAllSpaces|FullScreenAuxiliary). 패널 호출은 반드시 `run_on_main_thread`에서 한다(아니면 데드락). 적용 후 Tauri 포커스 이벤트가 끊기므로 닫기 감지는 `window_did_resign_key`로 하고, 크기 이벤트도 끊길 수 있다.
 
 ### 메모리 참고 (M2 Pro, physical footprint)
 - WKWebView 하나를 띄운 최소 Swift 앱: 앱 본체 21.5MB + WebContent 17.9MB + GPU 11.1MB + Networking 5.3MB = 약 56MB.

@@ -20,7 +20,6 @@ use std::sync::Arc;
 
 use tauri::{ActivationPolicy, AppHandle, Emitter, Listener, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
-use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 pub use env::run_helper;
 
@@ -37,12 +36,6 @@ pub fn run() {
         .plugin(tauri_plugin_nspanel_init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(
-            tauri_plugin_window_state::Builder::default()
-                // The panel is sized and placed under the menu bar icon by tray.rs
-                .with_denylist(&[tray::PANEL])
-                .build(),
-        )
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, _shortcut, event| {
@@ -240,10 +233,8 @@ pub fn run() {
             tauri::RunEvent::WindowEvent { label, event, .. } if label == tray::DETAIL => match event {
                 // Terminal tabs live in the detail window; their shells end with it
                 tauri::WindowEvent::Destroyed => app.state::<Arc<Terminals>>().kill_all(),
-                // Saved while the window still exists: the plugin reads its frame to write the file
-                tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Focused(false) => {
-                    save_window_state(app)
-                }
+                // In points, so a frame saved on a Retina display opens the same size on a 1x one
+                tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) => commands::note_detail_frame(app),
                 _ => {}
             },
             tauri::RunEvent::WindowEvent { label, event, .. } if label == tray::PANEL => match event {
@@ -258,15 +249,6 @@ pub fn run() {
             },
             _ => {}
         });
-}
-
-/// window-state writes its file only on a clean exit, so a menu bar app that is killed, crashes
-/// or is stopped from a terminal forgot every size since launch. Write it whenever the detail
-/// window closes or loses focus as well.
-fn save_window_state(app: &AppHandle) {
-    if let Err(e) = app.save_window_state(StateFlags::all()) {
-        log::warn!("window state: {e}");
-    }
 }
 
 fn tauri_plugin_nspanel_init() -> tauri::plugin::TauriPlugin<tauri::Wry> {

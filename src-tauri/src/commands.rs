@@ -3,9 +3,7 @@
 use std::{os::unix::fs::PermissionsExt, path::PathBuf, sync::Arc};
 
 use serde_json::{Map, Value};
-use tauri::{
-    AppHandle, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
-};
+use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 use crate::{
     env::{EnvStatus, GitEnv},
@@ -267,40 +265,84 @@ fn show_detail(app: &AppHandle, route: &str) -> Result<()> {
         return Ok(());
     }
     let url = format!("index.html#{route}");
-    // VS Code's first window is 1024x768 (window.ts `defaultWindowState`); window-state restores
-    // the last size over it while the window is being built
-    let window = WebviewWindowBuilder::new(app, DETAIL, WebviewUrl::App(url.into()))
+    let saved = app
+        .state::<Arc<UiState>>()
+        .get(DETAIL_FRAME_KEY)
+        .and_then(|v| serde_json::from_value::<[f64; 4]>(v).ok())
+        .filter(|f| f.iter().all(|n| n.is_finite()) && f[2] > 0.0 && f[3] > 0.0);
+    let areas = work_areas(app);
+    let builder = WebviewWindowBuilder::new(app, DETAIL, WebviewUrl::App(url.into()))
         .title("gitmenu")
-        .inner_size(1024.0, 768.0)
-        .min_inner_size(640.0, 400.0)
+        .min_inner_size(DETAIL_MIN_SIZE[0], DETAIL_MIN_SIZE[1])
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .hidden_title(true)
         .visible(true)
-        .focused(true)
-        .build()?;
-    fit_to_screen(&window)?;
+        .focused(true);
+    // Sized and placed before the window exists: on macOS a resize after `build` lands
+    // asynchronously, so it could not be checked against the screen afterwards
+    let builder = match fit_detail_frame(saved, &areas) {
+        Some([x, y, w, h]) => builder.inner_size(w, h).position(x, y),
+        None => builder.inner_size(DETAIL_DEFAULT_SIZE[0], DETAIL_DEFAULT_SIZE[1]).center(),
+    };
+    builder.build()?;
     Ok(())
 }
 
-/// VS Code's `validateWindowState`: a size saved on a larger display shrinks to this display's
-/// work area, and a window hanging off its edges moves back onto it.
-fn fit_to_screen(window: &WebviewWindow) -> tauri::Result<()> {
-    let Some(monitor) = window.current_monitor()?.or(window.primary_monitor()?) else { return Ok(()) };
-    let area = monitor.work_area();
-    let (outer, inner) = (window.outer_size()?, window.inner_size()?);
-    let width = outer.width.min(area.size.width);
-    let height = outer.height.min(area.size.height);
-    if (width, height) != (outer.width, outer.height) {
-        let (frame_w, frame_h) = (outer.width.saturating_sub(inner.width), outer.height.saturating_sub(inner.height));
-        window.set_size(PhysicalSize::new(width.saturating_sub(frame_w), height.saturating_sub(frame_h)))?;
+/// `state.json` key of the detail window's last frame, `[x, y, width, height]` in points.
+/// Points, not pixels: a pixel size saved on a Retina display and applied on a 1x one (or the
+/// other way round) doubles or halves the window every time it opens.
+pub const DETAIL_FRAME_KEY: &str = "detail.frame";
+/// VS Code's first window is 1024x768 (window.ts `defaultWindowState`).
+const DETAIL_DEFAULT_SIZE: [f64; 2] = [1024.0, 768.0];
+const DETAIL_MIN_SIZE: [f64; 2] = [640.0, 400.0];
+
+/// Records the detail window's frame in points (on move and resize; written out coalesced).
+pub fn note_detail_frame(app: &AppHandle) {
+    let Some(window) = app.get_webview_window(DETAIL) else { return };
+    if window.is_minimized().unwrap_or(true) || window.is_fullscreen().unwrap_or(true) {
+        return;
     }
-    let position = window.outer_position()?;
-    let x = position.x.clamp(area.position.x, area.position.x + (area.size.width - width) as i32);
-    let y = position.y.clamp(area.position.y, area.position.y + (area.size.height - height) as i32);
-    if (x, y) != (position.x, position.y) {
-        window.set_position(PhysicalPosition::new(x, y))?;
+    if let (Ok(pos), Ok(size), Ok(scale)) = (window.outer_position(), window.inner_size(), window.scale_factor()) {
+        let p = pos.to_logical::<f64>(scale);
+        let s = size.to_logical::<f64>(scale);
+        if s.width > 0.0 && s.height > 0.0 {
+            app.state::<Arc<UiState>>().set(DETAIL_FRAME_KEY, serde_json::json!([p.x, p.y, s.width, s.height]));
+        }
     }
-    Ok(())
+}
+
+/// Every display's work area in points, `[x, y, width, height]`, the primary display first.
+fn work_areas(app: &AppHandle) -> Vec<[f64; 4]> {
+    let to_points = |m: &tauri::Monitor| {
+        let area = m.work_area();
+        let p = area.position.to_logical::<f64>(m.scale_factor());
+        let s = area.size.to_logical::<f64>(m.scale_factor());
+        [p.x, p.y, s.width, s.height]
+    };
+    let mut areas: Vec<_> = app.primary_monitor().ok().flatten().iter().map(to_points).collect();
+    for m in app.available_monitors().unwrap_or_default() {
+        let area = to_points(&m);
+        if !areas.contains(&area) {
+            areas.push(area);
+        }
+    }
+    areas
+}
+
+/// VS Code's `validateWindowState`: the saved frame goes back on the display it was on (the
+/// primary one if that display is gone), shrunk to fit its work area and moved fully onto it.
+/// `None` when nothing was saved (or no display is known) and the window opens centered.
+fn fit_detail_frame(saved: Option<[f64; 4]>, areas: &[[f64; 4]]) -> Option<[f64; 4]> {
+    let [x, y, w, h] = saved?;
+    let (cx, cy) = (x + w / 2.0, y + h / 2.0);
+    let contains = |a: &&[f64; 4]| cx >= a[0] && cx < a[0] + a[2] && cy >= a[1] && cy < a[1] + a[3];
+    let overlaps = |a: &&[f64; 4]| x < a[0] + a[2] && x + w > a[0] && y < a[1] + a[3] && y + h > a[1];
+    let area = areas.iter().find(contains).or_else(|| areas.iter().find(overlaps)).or(areas.first())?;
+    let w = w.min(area[2]).max(DETAIL_MIN_SIZE[0].min(area[2]));
+    let h = h.min(area[3]).max(DETAIL_MIN_SIZE[1].min(area[3]));
+    let x = x.clamp(area[0], area[0] + area[2] - w);
+    let y = y.clamp(area[1], area[1] + area[3] - h);
+    Some([x, y, w, h])
 }
 
 #[tauri::command]
@@ -477,4 +519,41 @@ pub async fn update_install(app: AppHandle) -> Result<()> {
 #[tauri::command]
 pub fn crash_report(message: String) {
     crate::crash::report(&message);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fit_detail_frame;
+
+    const RETINA: [f64; 4] = [0.0, 0.0, 1728.0, 1084.0];
+    const SIDE: [f64; 4] = [1728.0, -400.0, 1200.0, 1920.0];
+
+    #[test]
+    fn nothing_saved_opens_centered() {
+        assert_eq!(fit_detail_frame(None, &[RETINA]), None);
+    }
+
+    #[test]
+    fn saved_frame_that_fits_is_kept() {
+        let frame = [100.0, 80.0, 1100.0, 700.0];
+        assert_eq!(fit_detail_frame(Some(frame), &[RETINA, SIDE]), Some(frame));
+    }
+
+    #[test]
+    fn oversized_frame_shrinks_to_its_display() {
+        let fitted = fit_detail_frame(Some([110.0, 164.0, 8688.0, 2474.0]), &[RETINA, SIDE]);
+        assert_eq!(fitted, Some(RETINA));
+    }
+
+    #[test]
+    fn frame_on_second_display_stays_there() {
+        let fitted = fit_detail_frame(Some([1800.0, 0.0, 1100.0, 700.0]), &[RETINA, SIDE]);
+        assert_eq!(fitted, Some([1800.0, 0.0, 1100.0, 700.0]));
+    }
+
+    #[test]
+    fn frame_from_a_missing_display_moves_to_the_primary() {
+        let fitted = fit_detail_frame(Some([5000.0, 0.0, 1100.0, 700.0]), &[RETINA]);
+        assert_eq!(fitted, Some([628.0, 0.0, 1100.0, 700.0]));
+    }
 }
