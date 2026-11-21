@@ -2,7 +2,7 @@
 # release, setting version and sha256 (`shasum -a 256 gitmenu_<version>_aarch64.dmg`).
 cask "gitmenu" do
   version "0.1.10"
-  sha256 "4db72cd348b25b2fb0713d61f3c83013a71179a2f7e2374132a0dd9fb1b1e302"
+  sha256 "e0e07280c1b00788e07c5f99c7f131cf891d66e68f602ff2d0766e3998680b0c"
 
   url "https://github.com/semanticist21/gitmenu/releases/download/v#{version}/gitmenu_#{version}_aarch64.dmg"
   name "gitmenu"
