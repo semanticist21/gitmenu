@@ -147,7 +147,7 @@ export function ViewContainer({ render, actions, progress }: Props) {
   }
 
   return (
-    <div ref={containerRef} className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div ref={containerRef} className="flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto">
       {visible.map((view, index) => {
         const collapsed = collapsedSet.has(view.id)
         const previous = visible[index - 1]

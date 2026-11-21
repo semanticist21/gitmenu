@@ -200,6 +200,12 @@ impl GitEnv {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
+        if args.contains(&"--pathspec-file-nul") {
+            // Selected files carry literal pathspecs and must not inherit glob or case overrides.
+            for name in ["GIT_LITERAL_PATHSPECS", "GIT_GLOB_PATHSPECS", "GIT_NOGLOB_PATHSPECS", "GIT_ICASE_PATHSPECS"] {
+                cmd.env_remove(name);
+            }
+        }
         Ok(cmd)
     }
 

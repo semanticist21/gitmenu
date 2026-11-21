@@ -62,7 +62,7 @@ test('⌘W closes the active detail tab', async ({ page }) => {
 
 test('detach is in the panel menu', async ({ page }) => {
   await page.goto('/?window=panel')
-  await page.getByRole('button', { name: 'More' }).click()
+  await page.locator('header').getByRole('button', { name: 'More' }).click()
   await expect(page.getByRole('menuitem', { name: 'Detach into a Window' })).toBeVisible()
 })
 

@@ -16,15 +16,15 @@ export function LineHistoryView({ repo }: ViewProps) {
   const target = useLineHistoryTarget()
   const active = target && target.root === root ? target : null
   const log = usePagedLog(
-    ['repo', root, 'lineHistory', active?.path, active?.start, active?.end, active?.rev],
-    (skip, limit) => git.lineHistory(root, active!.path, active!.start, active!.end, active!.rev, skip, limit),
+    ['repo', root, 'lineHistory', active],
+    (skip, limit) => git.lineHistory(active!, skip, limit),
     active !== null,
   )
 
   // GitLens's LineHistoryNode: `file:lines` (expanded, its folder as the description) holds the
   // commits, and the view description is that label
   const name = active ? (active.path.split('/').pop() ?? active.path) : ''
-  const lines = active ? (active.start === active.end ? `${active.start}` : `${active.start}-${active.end}`) : ''
+  const lines = active?.ranges.map(({ start, end }) => start === end ? `${start}` : `${start}-${end}`).join(', ') ?? ''
   useViewDescription('lineHistory', active ? `${name}:${lines}` : undefined)
   const nodes: TreeNode[] = []
   if (!active) nodes.push(messageNode('empty', gl('There are no editors open that can provide line history information.')))
@@ -33,7 +33,7 @@ export function LineHistoryView({ repo }: ViewProps) {
     if (log.error) children.push(messageNode('error', errorMessage(log.error)))
     else if (!log.isPending && log.commits.length === 0) children.push(messageNode('none', gl('No line history could be found.')))
     for (const commit of log.commits) {
-      children.push(commitNode(root, { ...commit, path: active.path, status: 'modified' }, { idPrefix: 'lh', locale, file: true }))
+      children.push(commitNode(root, { ...commit, path: commit.path ?? active.path, status: 'modified' }, { idPrefix: 'lh', locale, file: true }))
     }
     if (log.more) children.push(loadMore('lh/more', log.loadingMore, log.loadMore))
     const folder = active.path.includes('/') ? active.path.slice(0, active.path.lastIndexOf('/')) : undefined
@@ -41,7 +41,7 @@ export function LineHistoryView({ repo }: ViewProps) {
       id: 'file',
       label: `${name}:${lines}`,
       ariaLabel: `${active.path}:${lines}`,
-      description: [folder, active.rev?.slice(0, 7)].filter(Boolean).join(' ') || undefined,
+      description: [folder, active.side.kind === 'commit' ? active.side.rev.slice(0, 7) : null].filter(Boolean).join(' ') || undefined,
       tooltip: `${active.path}:${lines}`,
       expanded: true,
       children,

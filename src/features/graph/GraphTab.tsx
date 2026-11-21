@@ -55,7 +55,9 @@ const COLUMNS = { refs: 150, author: 130, date: 130, sha: 72 }
 
 function refMenu(root: string, row: GraphRow, ref: GraphRef): { context: Record<string, unknown>; arg: unknown } | null {
   if (ref.kind === 'stash') {
-    const index = Number(/\{(\d+)\}/.exec(ref.name)?.[1] ?? 0)
+    const match = /^stash@\{(\d+)\}$/.exec(ref.name)
+    if (!match) return null
+    const index = Number(match[1])
     const arg: StashArg = { root, stash: { index, commit: row.id, message: row.subject, time: row.committer.time } }
     return { context: { view: 'gitmenu.views.graph', viewItem: 'gitlens:stash' }, arg }
   }
@@ -371,6 +373,8 @@ export function GraphTab({ params }: DetailTabProps) {
             const isSelected = row.id === selected
             const isHead = row.refs.some((r) => r.kind === 'head')
             const arg: CommitArg = { root, commit: row }
+            const stash = row.refs.find((ref) => ref.kind === 'stash')
+            const stashMenu = stash && refMenu(root, row, stash)
             return (
               <ContextMenu key={row.id}>
                 <ContextMenuTrigger
@@ -415,8 +419,8 @@ export function GraphTab({ params }: DetailTabProps) {
                   <MenuItems
                     menu="view/item/context"
                     kind="context"
-                    context={{ view: 'gitmenu.views.graph', viewItem: row.stash ? 'gitlens:stash' : `gitlens:commit${row.current ? '+current' : ''}` }}
-                    args={[arg]}
+                    context={stashMenu?.context ?? { view: 'gitmenu.views.graph', viewItem: `gitlens:commit${row.current ? '+current' : ''}` }}
+                    args={[stashMenu?.arg ?? arg]}
                   />
                 </ContextMenuPopup>
               </ContextMenu>

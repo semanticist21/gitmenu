@@ -21,6 +21,8 @@ pub enum Error {
     AlreadyRunning(String),
     #[error("cancelled")]
     Cancelled,
+    #[error("The stash list changed. Select the stash again.")]
+    StashChanged,
     #[error("not found: {0}")]
     NotFound(String),
     #[error("{0}")]
@@ -39,6 +41,7 @@ impl Error {
             Error::IndexLocked { .. } => "indexLocked",
             Error::AlreadyRunning(_) => "alreadyRunning",
             Error::Cancelled => "cancelled",
+            Error::StashChanged => "stashChanged",
             Error::NotFound(_) => "notFound",
             Error::Other(_) => "other",
         }

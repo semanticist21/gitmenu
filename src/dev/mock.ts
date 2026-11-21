@@ -313,6 +313,9 @@ export function installMocks() {
             }, 30),
           )
         }
+        case 'git_stash_selected':
+          if (scenario.get('staleStash')) return Promise.reject({ kind: 'stashChanged', message: 'The stash list changed.', stderr: null })
+          return null
         case 'repo_status': {
           const plain = repoCount ? repoStatus(a.root as string) : status
           const base =

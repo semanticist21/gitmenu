@@ -1,5 +1,5 @@
 // Builds unified patches for part of a file's change (a block or selected lines), to apply
-// with `git apply --cached` (stage), `--cached -R` (unstage) or `-R` (revert in the worktree).
+// with `git apply --cached` (stage/unstage) or `git apply` (revert in the worktree).
 //
 // The patch goes from `left` to `right` text. Lines of the change that aren't selected stay
 // as they are on the left: unselected removals become context, unselected additions are
@@ -29,8 +29,17 @@ export function splitLines(text: string): string[] {
 }
 
 function header(path: string, originalPath?: string) {
-  const a = originalPath ?? path
-  return `diff --git a/${a} b/${path}\n--- a/${a}\n+++ b/${path}\n`
+  const quote = (name: string) => {
+    const escaped = [...name].map((char) => {
+      if (char === '"' || char === '\\') return `\\${char}`
+      if (char < ' ' || char === '\x7f') return `\\${char.charCodeAt(0).toString(8).padStart(3, '0')}`
+      return char
+    }).join('')
+    return escaped === name ? name : `"${escaped}"`
+  }
+  const a = quote(`a/${originalPath ?? path}`)
+  const b = quote(`b/${path}`)
+  return `diff --git ${a} ${b}\n--- ${a}\n+++ ${b}\n`
 }
 
 /**
@@ -44,7 +53,18 @@ export function buildPatch(
   hunks: Hunk[],
   selection: LineSelection,
   originalPath?: string,
+  reverse = false,
 ): string | null {
+  if (reverse) {
+    // Unselected edits remain on the actual destination (the right side).
+    const backwards = hunks.map(({ leftStart, leftCount, rightStart, rightCount }) => ({
+      leftStart: rightStart,
+      leftCount: rightCount,
+      rightStart: leftStart,
+      rightCount: leftCount,
+    }))
+    return buildPatch(path, rightText, leftText, backwards, { left: selection.right, right: selection.left })
+  }
   const left = splitLines(leftText)
   const right = splitLines(rightText)
   const leftEndsWithNewline = leftText === '' || leftText.endsWith('\n')

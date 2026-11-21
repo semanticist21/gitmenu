@@ -180,6 +180,7 @@ export function KeybindingsTab() {
   const [selected, setSelected] = useState<string | null>(null)
   const [editing, setEditing] = useState<Row | null>(null)
   const tableRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
   // One row per keybinding, plus one for each command without any (VS Code's model)
   const rows = useMemo<Row[]>(() => {
@@ -373,6 +374,7 @@ export function KeybindingsTab() {
       <div className="shrink-0 pe-2.5 pb-[11px]">
         <InputGroup>
           <InputGroupInput
+            ref={searchRef}
             placeholder={recording ? 'Recording Keys. Press Escape to exit' : t('keys.search')}
             value={query}
             onChange={(e) => !recording && setQuery(e.target.value)}
@@ -398,7 +400,10 @@ export function KeybindingsTab() {
                     aria-label="Record Keys"
                     aria-pressed={recording}
                     className="flex size-5 cursor-pointer items-center justify-center rounded-inset border border-transparent text-inherit hover:bg-input-option-hover aria-pressed:border-input-option-active-border aria-pressed:bg-input-option-active aria-pressed:text-input-option-active-foreground"
-                    onClick={() => setRecording(!recording)}
+                    onClick={() => {
+                      setRecording(!recording)
+                      if (!recording) searchRef.current?.focus()
+                    }}
                   />
                 }
               >

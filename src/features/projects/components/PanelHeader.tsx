@@ -136,7 +136,7 @@ function ProjectTab({ project, active, windowFocused }: { project: ProjectInfo; 
 export function PanelHeader({ projects, active, pinned, onTogglePin, detached, onToggleDetach }: Props) {
   useLocale()
   const windowFocused = useWindowFocused()
-  const recent = useQuery({ queryKey: ['recentProjects'], queryFn: ipc.projectsRecent })
+  const recent = useQuery({ queryKey: ['recentProjects'], queryFn: ipc.projectsRecent, enabled: false })
   const openIds = new Set(projects.map((p) => p.id))
   const recentClosed = (recent.data ?? []).filter((p) => !openIds.has(p))
 
@@ -157,7 +157,7 @@ export function PanelHeader({ projects, active, pinned, onTogglePin, detached, o
           {t('view.sourceControl')}
         </h2>
         <div className="flex shrink-0 items-center gap-1 pe-1">
-          <Menu>
+          <Menu onOpenChange={(open) => open && void recent.refetch()}>
             <ActionButton icon="add" label={t('project.open')} render={<MenuTrigger />} />
             <MenuPopup align="end">
               <MenuItem onClick={() => void executeCommand('gitmenu.openProject')}>{t('project.open')}</MenuItem>
@@ -167,7 +167,7 @@ export function PanelHeader({ projects, active, pinned, onTogglePin, detached, o
               <MenuSeparator />
               <MenuGroup>
                 <MenuGroupLabel>{t('project.openRecent')}</MenuGroupLabel>
-                {recentClosed.length === 0 && <MenuItem disabled>{t('project.noRecent')}</MenuItem>}
+                {recent.isSuccess && recentClosed.length === 0 && <MenuItem disabled>{t('project.noRecent')}</MenuItem>}
                 {/* VS Code's Open Recent lists folders by their full (~) path */}
                 {recentClosed.map((path) => (
                   <MenuItem key={path} onClick={() => void ipc.projectOpen(path)}>

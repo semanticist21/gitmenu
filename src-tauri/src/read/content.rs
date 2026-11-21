@@ -156,7 +156,7 @@ fn is_binary(bytes: &[u8]) -> bool {
 }
 
 /// Text of a non-binary file; UTF-16 drops its BOM, as the editor shows it.
-fn decode(bytes: &[u8]) -> String {
+pub(crate) fn decode(bytes: &[u8]) -> String {
     let utf16 = |bom: [u8; 2], unit: fn([u8; 2]) -> u16| {
         let body = bytes.strip_prefix(&bom).unwrap_or(bytes);
         String::from_utf16_lossy(&body.as_chunks::<2>().0.iter().map(|&c| unit(c)).collect::<Vec<_>>())

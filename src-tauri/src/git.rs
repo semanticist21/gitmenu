@@ -5,13 +5,12 @@ use std::{
     sync::Arc,
 };
 
-use serde_json::Value;
 use tauri::State;
 
 use crate::{
     error::{Error, Result},
     project::{HugeRepos, Projects},
-    queue::{OpKind, Output, Queue},
+    queue::{ExpectedStash, OpKind, Output, Queue, Target},
     read::{
         Repos,
         blame::{self, Blame},
@@ -122,14 +121,10 @@ pub async fn repo_blame(
     repos: State<'_, Arc<Repos>>,
     root: PathBuf,
     path: String,
-    rev: String,
-    worktree: bool,
+    original_path: Option<String>,
+    side: Side,
 ) -> Result<Blame> {
-    read(&repos, root.clone(), move |repo| {
-        let text = if worktree { std::fs::read_to_string(root.join(&path)).ok() } else { None };
-        blame::blame(repo, &path, &rev, text.as_deref())
-    })
-    .await
+    read(&repos, root.clone(), move |repo| blame::blame_side(repo, &root, &path, original_path.as_deref(), &side)).await
 }
 
 #[tauri::command]
@@ -183,29 +178,96 @@ pub async fn repo_log(
 }
 
 /// Commits that changed lines `start..=end` (1-based) of `path` (`git log -L`).
+#[derive(serde::Deserialize)]
+pub struct LineRange {
+    start: u32,
+    end: u32,
+}
+
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn repo_line_history(
     env: State<'_, Arc<crate::env::GitEnv>>,
+    repos: State<'_, Arc<Repos>>,
     root: PathBuf,
     path: String,
-    start: u32,
-    end: u32,
-    rev: Option<String>,
+    original_path: Option<String>,
+    ranges: Vec<LineRange>,
+    side: Side,
     skip: usize,
     limit: usize,
 ) -> Result<LogPage> {
-    let args = vec![
+    if ranges.iter().any(|range| range.start == 0 || range.end < range.start) {
+        return Err(Error::Other("Invalid line range".into()));
+    }
+    let requested: Vec<_> = ranges.into_iter().map(|range| (range.start - 1)..range.end).collect();
+    let at = root.clone();
+    let (path, rev, mut ranges) = read(&repos, root.clone(), move |repo| {
+        let result = match &side {
+            Side::Empty => (path, "HEAD".into(), Vec::new()),
+            Side::Head => (path, repo.head_id().map_err(|e| Error::Repo(e.to_string()))?.to_string(), requested),
+            Side::Commit { rev } => {
+                let id = repo.rev_parse_single(rev.as_str()).map_err(|e| Error::Repo(e.to_string()))?;
+                (path, id.to_string(), requested)
+            }
+            Side::Index | Side::Worktree => {
+                let Some((head_path, before, rev)) = blame::head_text(repo, &at, &path, original_path.as_deref())?
+                else {
+                    return Ok((path, "HEAD".into(), Vec::new()));
+                };
+                let after = content::load(repo, &at, &path, &side)?;
+                let ranges = match after {
+                    Some(bytes) => {
+                        let after = content::decode(&bytes);
+                        let hunks = content::line_hunks(&before, &after, false);
+                        let lines = after.lines().count() as u32;
+                        requested.into_iter().flat_map(|range| blame::committed_ranges(&hunks, lines, range)).collect()
+                    }
+                    // The left side of a worktree diff falls back to HEAD when the index has no entry.
+                    None if matches!(side, Side::Index) => requested,
+                    None => Vec::new(),
+                };
+                (head_path, rev, ranges)
+            }
+        };
+        Ok(result)
+    })
+    .await?;
+    if ranges.is_empty() {
+        return Ok(page(Vec::new(), limit));
+    }
+    ranges.sort_unstable_by_key(|range| range.start);
+    let mut joined: Vec<std::ops::Range<u32>> = Vec::new();
+    for range in ranges {
+        if let Some(last) = joined.last_mut()
+            && range.start <= last.end
+        {
+            last.end = last.end.max(range.end);
+        } else {
+            joined.push(range);
+        }
+    }
+    let ranges = joined;
+    if ranges.len() > 128 {
+        return Err(Error::Other(
+            "Too many disjoint committed ranges. Select fewer lines to see their history.".into(),
+        ));
+    }
+    let mut args = vec![
         "log".to_owned(),
         log::CLI_FORMAT.to_owned(),
         "--no-patch".to_owned(),
-        format!("-L{start},{end}:{path}"),
         format!("--skip={skip}"),
         format!("--max-count={}", limit + 1),
-        rev.unwrap_or_else(|| "HEAD".into()),
+        rev,
     ];
+    args.extend(ranges.into_iter().map(|range| format!("-L{},{}:{path}", range.start + 1, range.end)));
     let out = cli_read(&env, &root, &args).await?;
-    Ok(page(log::parse_cli(&out), limit))
+    let mut commits = log::parse_cli(&out);
+    for commit in &mut commits {
+        commit.path = Some(path.clone());
+    }
+    Ok(page(commits, limit))
 }
 
 #[tauri::command]
@@ -302,6 +364,19 @@ pub async fn git_unstage(
 }
 
 #[tauri::command]
+pub async fn git_remove_conflict(
+    queue: State<'_, Arc<Queue>>,
+    projects: State<'_, Arc<Projects>>,
+    repos: State<'_, Arc<Repos>>,
+    root: PathBuf,
+    path: String,
+    label: String,
+) -> Result<Output> {
+    let (common, root) = target!(projects, repos, root);
+    write::remove_conflict(&queue, Repo { root: &root, common_dir: &common }, path, &label).await
+}
+
+#[tauri::command]
 pub async fn git_discard(
     queue: State<'_, Arc<Queue>>,
     projects: State<'_, Arc<Projects>>,
@@ -325,6 +400,33 @@ pub async fn git_recovery_point(
 ) -> Result<Option<String>> {
     let (common, root) = target!(projects, repos, root);
     write::recovery_point(&queue, &Repo { root: &root, common_dir: &common }, &label).await
+}
+
+#[tauri::command]
+pub async fn git_undo_discard(
+    queue: State<'_, Arc<Queue>>,
+    projects: State<'_, Arc<Projects>>,
+    repos: State<'_, Arc<Repos>>,
+    root: PathBuf,
+    recovery: String,
+    paths: Vec<String>,
+    label: String,
+) -> Result<()> {
+    let (common, root) = target!(projects, repos, root);
+    let patch = read(&repos, root.clone(), move |repo| write::recovery::patch(repo, &recovery, &paths)).await?;
+    if !patch.is_empty() {
+        let target = Target { worktree: &root, common_dir: &common };
+        queue
+            .run_with_stdin(
+                target,
+                OpKind::Other,
+                &label,
+                &["apply", "--binary", "--whitespace=nowarn", "-"],
+                Some(patch),
+            )
+            .await?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -376,6 +478,30 @@ pub async fn git_exec(
         repos.forget(&root);
     }
     result
+}
+
+#[tauri::command]
+pub async fn git_stash_selected(
+    queue: State<'_, Arc<Queue>>,
+    projects: State<'_, Arc<Projects>>,
+    repos: State<'_, Arc<Repos>>,
+    root: PathBuf,
+    label: String,
+    action: String,
+    expected: ExpectedStash,
+) -> Result<Output> {
+    if !matches!(action.as_str(), "pop" | "drop") {
+        return Err(Error::Other("Unsupported stash action".into()));
+    }
+    let (common, root) = target!(projects, repos, root);
+    let target = Target { worktree: &root, common_dir: &common };
+    let reference = format!("stash@{{{}}}", expected.index);
+    let mut args = vec!["stash", action.as_str()];
+    if action == "pop" && expected.restore_index {
+        args.push("--index");
+    }
+    args.push(&reference);
+    queue.run_stash(target, &label, &args, &expected).await
 }
 
 /// Subcommands the windows may run through `git_exec`; anything that could point git at
@@ -458,17 +584,64 @@ pub fn trash_paths(paths: Vec<PathBuf>) -> Result<()> {
     Ok(())
 }
 
-/// Reads a file inside `root` as text, for AI context and conflict checks.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictText {
+    text: String,
+    marker_size: usize,
+    head_marker_size: Option<usize>,
+}
+
+fn conflict_marker_size(mut attrs: gix::AttributeStack<'_>, path: &str) -> Result<usize> {
+    use gix::bstr::ByteSlice;
+    let mut matches = gix::attrs::search::Outcome::default();
+    attrs.at_path(path, None)?.matching_attributes(&mut matches);
+    Ok(matches
+        .iter()
+        .find(|m| m.assignment.name.as_str() == "conflict-marker-size")
+        .and_then(|m| m.assignment.state.as_bstr()?.to_str().ok()?.parse::<usize>().ok())
+        .filter(|size| *size > 0)
+        .unwrap_or(7))
+}
+
+/// Reads complete UTF-8 conflict text and the configured marker width, or fails closed.
 #[tauri::command]
-pub fn read_text_file(root: PathBuf, path: String, max_bytes: Option<usize>) -> Result<Value> {
-    let root = std::fs::canonicalize(&root)?;
-    let full = std::fs::canonicalize(root.join(&path))?;
-    if !full.starts_with(&root) {
-        return Err(Error::Other(format!("{path} is outside the repository")));
-    }
-    let bytes = std::fs::read(&full)?;
-    let cut = max_bytes.map_or(bytes.len(), |m| m.min(bytes.len()));
-    Ok(Value::String(String::from_utf8_lossy(&bytes[..cut]).into_owned()))
+pub async fn read_text_file(repos: State<'_, Arc<Repos>>, root: PathBuf, path: String) -> Result<ConflictText> {
+    use gix::worktree::stack::state::attributes::Source;
+    use std::io::Read;
+    read(&repos, root.clone(), move |repo| {
+        const LIMIT: u64 = 2_000_000;
+        let root = std::fs::canonicalize(&root)?;
+        let full = std::fs::canonicalize(root.join(&path))?;
+        if !full.starts_with(&root) {
+            return Err(Error::Other(format!("{path} is outside the repository")));
+        }
+        let mut bytes = Vec::new();
+        std::fs::File::open(full)?.take(LIMIT + 1).read_to_end(&mut bytes)?;
+        if bytes.len() as u64 > LIMIT {
+            return Err(Error::Other("Conflict file is too large".into()));
+        }
+        let text = String::from_utf8(bytes).map_err(|e| Error::Other(e.to_string()))?;
+        let index = repo.index_or_empty().map_err(|e| Error::Repo(e.to_string()))?;
+        let attrs =
+            repo.attributes_only(&index, Source::WorktreeThenIdMapping).map_err(|e| Error::Repo(e.to_string()))?;
+        let marker_size = conflict_marker_size(attrs, &path)?;
+        // Merging .gitattributes itself can change the configured width after Git writes the markers.
+        let head_marker_size = if text.lines().any(|line| {
+            let Some(token @ (b'<' | b'>' | b'|' | b'=')) = line.bytes().next() else { return false };
+            let width = line.bytes().take_while(|byte| *byte == token).count();
+            width != marker_size && matches!(line.as_bytes().get(width), None | Some(b' ' | b'\t'))
+        }) && let Ok(head) = repo.head_tree_id()
+        {
+            let head_index = repo.index_from_tree(&head).map_err(|e| Error::Repo(e.to_string()))?;
+            let attrs = repo.attributes_only(&head_index, Source::IdMapping).map_err(|e| Error::Repo(e.to_string()))?;
+            Some(conflict_marker_size(attrs, &path)?).filter(|width| *width != marker_size)
+        } else {
+            None
+        };
+        Ok(ConflictText { text, marker_size, head_marker_size })
+    })
+    .await
 }
 
 /// A page of the commit graph for the Graph tab.

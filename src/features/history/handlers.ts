@@ -1,6 +1,5 @@
 // GitLens commands on commits and files in the history views, remote links, and the
 // Search & Compare commands (which reveal that view).
-import { emit } from '@tauri-apps/api/event'
 import { executeCommand, registerHandler } from '@/commands/registry'
 import { setContext } from '@/commands/context'
 import { type QuickPickItem, showInputBox, showQuickPick } from '@/components/dialogs/dialogs'
@@ -16,7 +15,7 @@ import { toggleView } from '../views/ViewContainer'
 import { DEFAULT_LAYOUT, type ViewLayout } from '../views/views'
 import { type CommitArg, type FileArg, openFile, openFileChange, openFileWithDefaultApp, shortSha } from './nodes'
 import { pickReference, type ResultArg, type SearchCompareItem } from './SearchCompareView'
-import { type FileTarget, SHOW_FILE_EVENT } from './state'
+import type { FileTarget } from './state'
 
 const isCommitArg = (arg: unknown): arg is CommitArg => typeof arg === 'object' && arg !== null && 'commit' in arg
 const isFileArg = (arg: unknown): arg is FileArg => typeof arg === 'object' && arg !== null && 'file' in arg && 'sha' in arg
@@ -229,8 +228,9 @@ async function openFileHistory(arg: unknown) {
   if (!root) return
   const path = isFileArg(arg) ? arg.file.path : isSelection(arg) ? arg.changes[0]?.path : (arg as Partial<FileTarget> | undefined)?.path
   if (!path) return
-  writeUiState(scmQueryClient(), 'fileHistory.pinned', true)
-  await emit(SHOW_FILE_EVENT, { root, path })
+  const client = scmQueryClient()
+  writeUiState(client, 'fileHistory.pinned', true)
+  writeUiState<FileTarget>(client, 'fileHistory.target', { root, path })
   await revealView('fileHistory')
 }
 

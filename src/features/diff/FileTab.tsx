@@ -39,8 +39,8 @@ export function FileTab({ params }: DetailTabProps) {
   })
   const [blameOn, setBlameOn] = useUiState<boolean>('diff.blame', false)
   const blame = useQuery({
-    queryKey: ['repo', root, 'blame', path, ref],
-    queryFn: () => git.blame(root, path, ref === 'worktree' ? 'HEAD' : ref, ref === 'worktree'),
+    queryKey: ['repo', root, 'blame', path, side],
+    queryFn: () => git.blame(root, path, side),
     enabled: blameOn && data?.kind === 'text',
   })
   const [selection, setSelection] = useState<LineSelection>({ left: new Set(), right: new Set() })
@@ -60,7 +60,7 @@ export function FileTab({ params }: DetailTabProps) {
     for (let i = a; i <= b; i++) right.add(i)
     setSelection({ left: new Set(), right })
     if (!extend) setAnchor(line)
-    void emit('lineHistory://select', { root, path, start: a + 1, end: b + 1, rev: ref === 'HEAD' || ref === 'worktree' ? null : ref })
+    void emit('lineHistory://select', { root, path, ranges: [{ start: a + 1, end: b + 1 }], side })
   }
 
   let body

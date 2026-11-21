@@ -13,6 +13,8 @@ use crate::{
     queue::{OpKind, Output, Queue, Target},
 };
 
+pub mod recovery;
+
 pub struct Repo<'a> {
     pub root: &'a Path,
     pub common_dir: &'a Path,
@@ -25,9 +27,10 @@ impl<'a> Repo<'a> {
 }
 
 fn pathspec_stdin(paths: &[String]) -> Vec<u8> {
-    // NUL-separated with --pathspec-file-nul so any file name survives
+    // NUL preserves every filename; literal magic prevents a selected path from matching other files.
     let mut bytes = Vec::new();
     for path in paths {
+        bytes.extend_from_slice(b":(literal)");
         bytes.extend_from_slice(path.as_bytes());
         bytes.push(0);
     }
@@ -46,14 +49,29 @@ pub async fn stage(queue: &Queue, repo: Repo<'_>, paths: &[String], label: &str)
         .await
 }
 
-pub async fn unstage(queue: &Queue, repo: Repo<'_>, paths: &[String], unborn: bool, label: &str) -> Result<Output> {
-    // Before the first commit there is no HEAD to restore from; drop the entries instead
-    let args: &[&str] = if unborn {
-        &["rm", "--cached", "-r", "-q", "--pathspec-from-file=-", "--pathspec-file-nul"]
+pub async fn remove_conflict(queue: &Queue, repo: Repo<'_>, path: String, label: &str) -> Result<Output> {
+    queue
+        .run_conflict_removal(
+            repo.target(),
+            label,
+            &["rm", "-q", "--pathspec-from-file=-", "--pathspec-file-nul"],
+            pathspec_stdin(std::slice::from_ref(&path)),
+            &path,
+        )
+        .await
+}
+
+fn unstage_args(unborn: bool) -> &'static [&'static str] {
+    // Before the first commit, remove entries even if they differ from the untouched worktree.
+    if unborn {
+        &["rm", "--cached", "--force", "-r", "-q", "--pathspec-from-file=-", "--pathspec-file-nul"]
     } else {
         &["restore", "--staged", "--pathspec-from-file=-", "--pathspec-file-nul"]
-    };
-    queue.run_with_stdin(repo.target(), OpKind::Stage, label, args, Some(pathspec_stdin(paths))).await
+    }
+}
+
+pub async fn unstage(queue: &Queue, repo: Repo<'_>, paths: &[String], unborn: bool, label: &str) -> Result<Output> {
+    queue.run_with_stdin(repo.target(), OpKind::Stage, label, unstage_args(unborn), Some(pathspec_stdin(paths))).await
 }
 
 /// Captures tracked changes (index and worktree) as a dangling stash commit.
@@ -67,10 +85,11 @@ pub async fn recovery_point(queue: &Queue, repo: &Repo<'_>, label: &str) -> Resu
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiscardResult {
-    /// Apply with `git stash apply` to undo
+    /// Worktree and index snapshots for undoing the selected tracked paths.
     pub recovery: Option<String>,
     /// Untracked files moved to the Trash
     pub trashed: Vec<PathBuf>,
+    pub trash_error: Option<String>,
 }
 
 /// Discards worktree changes to `tracked` paths (restored from the index, as VS Code does)
@@ -82,25 +101,28 @@ pub async fn discard(
     untracked: &[String],
     label: &str,
 ) -> Result<DiscardResult> {
-    let recovery = if tracked.is_empty() { None } else { recovery_point(queue, &repo, label).await? };
-    if !tracked.is_empty() {
+    let recovery = if tracked.is_empty() {
+        None
+    } else {
         queue
-            .run_with_stdin(
+            .run_with_recovery(
                 repo.target(),
-                OpKind::Other,
                 label,
                 &["checkout", "-q", "--pathspec-from-file=-", "--pathspec-file-nul", "--"],
-                Some(pathspec_stdin(tracked)),
+                pathspec_stdin(tracked),
             )
-            .await?;
-    }
+            .await?
+            .recovery
+    };
     let mut trashed = Vec::new();
     for rel in untracked {
         let path = repo.root.join(rel);
-        trash(&path)?;
+        if let Err(error) = trash(&path) {
+            return Ok(DiscardResult { recovery, trashed, trash_error: Some(error.to_string()) });
+        }
         trashed.push(path);
     }
-    Ok(DiscardResult { recovery, trashed })
+    Ok(DiscardResult { recovery, trashed, trash_error: None })
 }
 
 /// Moves a file or folder to the user's Trash (recoverable from Finder).
@@ -197,4 +219,111 @@ pub async fn apply_patch(
 pub async fn exec(queue: &Queue, repo: Repo<'_>, kind: OpKind, label: &str, args: &[String]) -> Result<Output> {
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
     queue.run(repo.target(), kind, label, &args).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        fs,
+        io::Write,
+        process::{Command, Stdio},
+    };
+
+    fn git(root: &Path, args: &[&str], stdin: &[u8]) -> String {
+        let mut child = Command::new("git")
+            .current_dir(root)
+            .args(["-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgSign=false"])
+            .args(args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child.stdin.take().unwrap().write_all(stdin).unwrap();
+        let output = child.wait_with_output().unwrap();
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        String::from_utf8(output.stdout).unwrap()
+    }
+
+    #[test]
+    fn file_actions_only_touch_selected_literal_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let selected = pathspec_stdin(&["[id].txt".into()]);
+        let add = ["add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul"];
+        git(root, &["init", "-q"], b"");
+        for path in ["[id].txt", "i.txt"] {
+            fs::write(root.join(path), "original\n").unwrap();
+        }
+        git(root, &add, &selected);
+        assert_eq!(git(root, &["ls-files"], b""), "[id].txt\n");
+        fs::write(root.join("[id].txt"), "newer edit\n").unwrap();
+        git(root, unstage_args(true), &selected);
+        assert_eq!(git(root, &["ls-files"], b""), "");
+        assert_eq!(fs::read_to_string(root.join("[id].txt")).unwrap(), "newer edit\n");
+
+        git(root, &["add", "-A"], b"");
+        git(root, &["commit", "-qm", "initial"], b"");
+        for path in ["[id].txt", "i.txt"] {
+            fs::write(root.join(path), "modified\n").unwrap();
+        }
+        git(root, &["add", "-A"], b"");
+        git(root, unstage_args(false), &selected);
+        assert_eq!(git(root, &["diff", "--cached", "--name-only"], b""), "i.txt\n");
+        fs::write(root.join("i.txt"), "untouched edit\n").unwrap();
+        git(root, &["checkout", "-q", "--pathspec-from-file=-", "--pathspec-file-nul", "--"], &selected);
+        assert_eq!(fs::read_to_string(root.join("[id].txt")).unwrap(), "newer edit\n");
+        assert_eq!(fs::read_to_string(root.join("i.txt")).unwrap(), "untouched edit\n");
+    }
+
+    #[test]
+    fn discard_undo_restores_only_selected_changes_and_refuses_new_edits() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let binary = "line\t[id].dat";
+        let removed = "removed.txt";
+        let link = "changed-kind.txt";
+        let paths = vec![binary.to_owned(), removed.to_owned(), link.to_owned()];
+        let checkout = ["checkout", "-q", "--pathspec-from-file=-", "--pathspec-file-nul", "--"];
+        git(root, &["init", "-q"], b"");
+        fs::write(root.join(binary), b"old\0data").unwrap();
+        fs::write(root.join(removed), "first\n").unwrap();
+        fs::write(root.join("neighbor.txt"), "first\n").unwrap();
+        fs::write(root.join(link), "first\n").unwrap();
+        git(root, &["add", "-A"], b"");
+        git(root, &["commit", "-qm", "base"], b"");
+        fs::write(root.join("neighbor.txt"), "staged\n").unwrap();
+        git(root, &["add", "neighbor.txt"], b"");
+        fs::write(root.join("neighbor.txt"), "untouched edit\n").unwrap();
+        let contents = (0..=255).collect::<Vec<u8>>();
+        fs::write(root.join(binary), &contents).unwrap();
+        fs::remove_file(root.join(removed)).unwrap();
+        fs::remove_file(root.join(link)).unwrap();
+        std::os::unix::fs::symlink("neighbor.txt", root.join(link)).unwrap();
+        let recovery = git(root, &["stash", "create"], b"");
+        git(root, &checkout, &pathspec_stdin(&paths));
+        let patch = recovery::patch(&gix::open(root).unwrap(), recovery.trim(), &paths).unwrap();
+        git(root, &["apply", "--binary", "-"], &patch);
+        assert_eq!(fs::read(root.join(binary)).unwrap(), contents);
+        assert!(!root.join(removed).exists());
+        assert_eq!(fs::read_link(root.join(link)).unwrap(), Path::new("neighbor.txt"));
+        assert_eq!(fs::read_to_string(root.join("neighbor.txt")).unwrap(), "untouched edit\n");
+        assert_eq!(git(root, &["show", ":neighbor.txt"], b""), "staged\n");
+
+        git(root, &checkout, &pathspec_stdin(&paths));
+        fs::write(root.join(binary), "newer edit\n").unwrap();
+        let mut child = Command::new("git")
+            .current_dir(root)
+            .args(["apply", "--binary", "-"])
+            .stdin(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child.stdin.take().unwrap().write_all(&patch).unwrap();
+        assert!(!child.wait_with_output().unwrap().status.success());
+        assert_eq!(fs::read_to_string(root.join(binary)).unwrap(), "newer edit\n");
+        assert!(root.join(removed).exists());
+        assert_eq!(fs::read_to_string(root.join(link)).unwrap(), "first\n");
+    }
 }

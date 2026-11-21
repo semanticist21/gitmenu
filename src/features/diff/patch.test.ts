@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { conflictPatch, hasConflictMarkers } from '../scm/conflicts'
 import { buildPatch, type Hunk, selectHunks } from './patch'
 
 const dirs: string[] = []
@@ -69,8 +70,25 @@ describe('buildPatch', () => {
   test('reverts a block in the worktree', () => {
     const { dir } = repo(left)
     writeFileSync(join(dir, 'f.txt'), right)
-    apply(dir, buildPatch('f.txt', left, right, hunks, selectHunks([hunks[0]]))!, ['-R'])
+    apply(dir, buildPatch('f.txt', left, right, hunks, selectHunks([hunks[0]]), undefined, true)!, [])
     expect(readFileSync(join(dir, 'f.txt'), 'utf8')).toBe('a\nb\nc\nd\ne\nf\ng\nh\nI\nj\nk\n')
+  })
+
+  test('reverts or unstages only a selected replacement line from the right side', () => {
+    const base = 'x\nold1\nold2\ny\n'
+    const next = 'x\nnew1\nnew2\ny\n'
+    const { dir, git } = repo(base)
+    const file = join(dir, 'f.txt')
+    writeFileSync(file, next)
+    git('add', 'f.txt')
+    const h: Hunk[] = [{ leftStart: 1, leftCount: 2, rightStart: 1, rightCount: 2 }]
+    const patch = buildPatch('f.txt', base, next, h, { left: new Set(), right: new Set([1]) }, undefined, true)!
+    const remaining = 'x\nnew2\ny\n'
+    apply(dir, patch, ['--cached'])
+    expect(staged(git)).toBe(remaining)
+    expect(readFileSync(file, 'utf8')).toBe(next)
+    apply(dir, patch, [])
+    expect(readFileSync(file, 'utf8')).toBe(remaining)
   })
 
   test('handles a missing trailing newline', () => {
@@ -86,4 +104,23 @@ describe('buildPatch', () => {
   test('returns null for an empty selection', () => {
     expect(buildPatch('f.txt', left, right, hunks, { left: new Set(), right: new Set() })).toBeNull()
   })
+})
+
+test('accepting marked conflicts preserves clean edits and supports diff3 and custom marker widths', () => {
+  const conflict = 'clean edit\n<<<<< HEAD\nours\n||||| base\nbase\n=====\ntheirs\n>>>>> incoming\nmanual edit\n'
+  const { dir } = repo(conflict)
+  const file = join(dir, 'f.txt')
+  for (const [side, line] of [['current', 'ours'], ['incoming', 'theirs']] as const) {
+    writeFileSync(file, conflict)
+    apply(dir, conflictPatch('f.txt', conflict, side, 5)!, [])
+    expect(readFileSync(file, 'utf8')).toBe(`clean edit\n${line}\nmanual edit\n`)
+  }
+  expect(conflictPatch('f.txt', conflict.replace('>>>>> incoming', ''), 'incoming', 5)).toBeNull()
+  expect(conflictPatch('f.txt', conflict, 'incoming', 7, 5)).toBe(conflictPatch('f.txt', conflict, 'incoming', 5))
+  const defaultBlock = '<<<<<<< HEAD\na\n=======\nb\n>>>>>>> other\n'
+  expect(conflictPatch('f.txt', conflict + defaultBlock, 'incoming', 7, 5)).toBeNull()
+  expect(conflictPatch('f.txt', defaultBlock.replace('>>>>>>> other\n', '') + conflict, 'incoming', 7, 5)).toBeNull()
+  expect(conflictPatch('f.txt', defaultBlock.replace('<<<<<<< HEAD\n', '') + conflict, 'incoming', 7, 5)).toBeNull()
+  expect(hasConflictMarkers(conflict, 7)).toBe(true)
+  expect(hasConflictMarkers('=======\n', 5)).toBe(true)
 })

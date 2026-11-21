@@ -104,6 +104,8 @@ const commands: CommandContribution[] = [
   command('git.viewStagedChanges', { icon: 'diff-multiple' }),
   command('git.viewUntrackedChanges', { icon: 'diff-multiple' }),
   command('git.stage', { icon: 'add' }),
+  command('gitmenu.acceptCurrent', { title: { app: 'scm.acceptCurrent' } }),
+  command('gitmenu.acceptIncoming', { title: { app: 'scm.acceptIncoming' } }),
   command('git.unstage', { icon: 'remove' }),
   command('git.clean', { icon: 'discard' }),
   command('git.openFile', { icon: 'go-to-file', enablement: undefined }),
@@ -144,6 +146,8 @@ export const scmContribution: Contribution = {
       { command: 'git.continueOperation', when: 'false' },
       { command: 'git.abortOperation', when: 'false' },
       { command: 'git.stage', when: 'false' },
+      { command: 'gitmenu.acceptCurrent', when: 'false' },
+      { command: 'gitmenu.acceptIncoming', when: 'false' },
       { command: 'git.unstage', when: 'false' },
       { command: 'git.clean', when: 'false' },
       { command: 'git.openChange', when: 'false' },
@@ -302,6 +306,8 @@ export const scmContribution: Contribution = {
     ],
     'scm/resourceState/context': [
       ...resourceItems('merge', [
+        ['gitmenu.acceptCurrent', '1_conflict@1'],
+        ['gitmenu.acceptIncoming', '1_conflict@2'],
         ['git.stage', '1_modification'],
         ['git.openFile', 'navigation'],
         ['git.stage', 'inline@2'],

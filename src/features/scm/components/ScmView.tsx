@@ -202,6 +202,7 @@ function scmActionButton({
 
   const commit = (enabled: boolean) => {
     if (!show.commit) return null
+    const choice = postCommit === 'push' || postCommit === 'sync' ? postCommit : null
     const title =
       postCommit === 'push' ? vsb('{0} Commit & Push', '$(check)') : postCommit === 'sync' ? vsb('{0} Commit & Sync', '$(check)') : vsb('{0} Commit', '$(check)')
     const hover = ops.commit ? vsb('Committing Changes...') : branch ? vsb('Commit Changes on "{0}"', branch) : vsb('Commit Changes')
@@ -209,7 +210,7 @@ function scmActionButton({
     return (
       <ButtonGroup className="w-full">
         <Hover label={hover}>
-          <Button className="min-w-0 flex-1" disabled={disabled} onClick={() => void executeCommand('git.commit', root)}>
+          <Button className="min-w-0 flex-1" disabled={disabled} onClick={() => void executeCommand('git.commit', root, choice)}>
             <LabelWithIcons text={title} />
           </Button>
         </Hover>
@@ -221,8 +222,8 @@ function scmActionButton({
             </MenuTrigger>
           </Hover>
           <MenuPopup align="end">
-            <MenuItem onClick={() => void executeCommand('git.commit', root)}>{vsb('{0} Commit', '').trim()}</MenuItem>
-            <MenuItem onClick={() => void executeCommand('git.commitAmend', root)}>{vsb('{0} Commit (Amend)', '').trim()}</MenuItem>
+            <MenuItem onClick={() => void executeCommand('git.commit', root, null)}>{vsb('{0} Commit', '').trim()}</MenuItem>
+            <MenuItem onClick={() => void executeCommand('git.commitAmend', root, null)}>{vsb('{0} Commit (Amend)', '').trim()}</MenuItem>
             <MenuSeparator />
             <MenuItem onClick={() => void executeCommand('gitmenu.commitAndPush', root)}>{vsb('{0} Commit & Push', '').trim()}</MenuItem>
             <MenuItem onClick={() => void executeCommand('gitmenu.commitAndSync', root)}>{vsb('{0} Commit & Sync', '').trim()}</MenuItem>
@@ -276,7 +277,7 @@ function syncTooltip(status: RepoStatus): string {
 }
 
 /** A merge, rebase or other paused operation, with Continue and Abort (SPEC). */
-function OperationBanner({ root, operation }: { root: string; operation: string }) {
+function OperationBanner({ root, operation }: { root: string; operation: NonNullable<RepoStatus['operation']> }) {
   useLocale()
   const label =
     operation === 'rebase' ? vsb('Continue Rebase') : operation === 'merge' ? vsb('Continue Merge') : t('scm.continue')
@@ -284,12 +285,16 @@ function OperationBanner({ root, operation }: { root: string; operation: string 
     <div role="status" className={cn('flex items-center gap-1 pt-[5px]', headerInset)}>
       <Icon name="git-branch-conflicts" className="me-0.5 text-gitlens-merging" />
       <span className="min-w-0 flex-1 truncate">{t(`scm.operation.${operation}` as never)}</span>
-      <Button size="small" className="min-w-0" onClick={() => void executeCommand('git.continueOperation', root)}>
-        <span className="truncate">{label}</span>
-      </Button>
-      <Button size="small" variant="secondary" className="min-w-0" onClick={() => void executeCommand('git.abortOperation', root)}>
-        <span className="truncate">{t('scm.abort')}</span>
-      </Button>
+      {operation !== 'bisect' && operation !== 'applyMailbox' && (
+        <>
+          <Button size="small" className="min-w-0" onClick={() => void executeCommand('git.continueOperation', root)}>
+            <span className="truncate">{label}</span>
+          </Button>
+          <Button size="small" variant="secondary" className="min-w-0" onClick={() => void executeCommand('git.abortOperation', root)}>
+            <span className="truncate">{t('scm.abort')}</span>
+          </Button>
+        </>
+      )}
     </div>
   )
 }

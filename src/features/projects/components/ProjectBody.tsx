@@ -14,7 +14,7 @@ import { plainVs, t, useLocale, vs, vsb } from '@/i18n'
 import { errorMessage, ipc, type ProjectInfo, type RepoInfo } from '@/lib/ipc'
 import { tildify } from '@/lib/paths'
 import { useUiState } from '@/lib/uiState'
-import { setSetting, settingDefault } from '@/settings/settings'
+import { setSetting, useSetting } from '@/settings/settings'
 import { INDENT, ROW_HEIGHT } from '@/theme/metrics'
 
 async function run(action: () => Promise<unknown>) {
@@ -100,12 +100,13 @@ export function ParentRepoQuestion({ project }: { project: ProjectInfo }) {
 
 export function NoRepository({ project }: { project: ProjectInfo }) {
   useLocale()
+  const branch = useSetting<string>('git.defaultBranchName')
   const [message] = plainVs('view.workbench.scm.folder')
   return (
     <div className="h-full overflow-auto">
       <Empty>
         <p>{message}</p>
-        <WelcomeButton onClick={() => void run(() => ipc.projectInitRepo(project.id, vs('command.init'), settingDefault('git.defaultBranchName') as string))}>
+        <WelcomeButton onClick={() => void run(() => ipc.projectInitRepo(project.id, vs('command.init'), branch || null))}>
           {vs('command.init')}
         </WelcomeButton>
       </Empty>

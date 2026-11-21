@@ -136,6 +136,7 @@ function Control({ name, schema, value }: { name: string; schema: Schema; value:
   const save = (next: unknown) => void setSetting(name, next).catch((e) => toastManager.add({ type: 'error', title: errorMessage(e) }))
   const terminals = useQuery({ queryKey: ['terminalApps'], queryFn: ipc.terminalApps, enabled: name === 'gitmenu.terminal.app' })
   const { label } = displayName(name)
+  const text = String(value ?? '')
 
   if (name === 'gitmenu.terminal.app') {
     const options = [...new Set([...(terminals.data ?? []), String(value)])]
@@ -155,25 +156,27 @@ function Control({ name, schema, value }: { name: string; schema: Schema; value:
   if (types.includes('number')) {
     return (
       <Input
+        key={text}
         type="number"
         aria-label={label}
         className="w-[200px] max-w-full [&_input::-webkit-inner-spin-button]:appearance-none"
-        defaultValue={value == null ? '' : String(value)}
-        onBlur={(e) => save(e.target.value === '' ? null : Number(e.target.value))}
+        defaultValue={text}
+        onBlur={(e) => e.target.value !== text && save(e.target.value === '' ? null : Number(e.target.value))}
         onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
       />
     )
   }
   if (name === 'gitmenu.ai.commitMessage.customInstructions') {
-    return <Textarea aria-label={label} className="w-[420px] max-w-full" rows={3} defaultValue={String(value ?? '')} onBlur={(e) => save(e.target.value)} />
+    return <Textarea key={text} aria-label={label} className="w-[420px] max-w-full" rows={3} defaultValue={text} onBlur={(e) => e.target.value !== text && save(e.target.value)} />
   }
   if (types.includes('string')) {
     return (
       <Input
+        key={text}
         aria-label={label}
         className="w-[420px] max-w-full"
-        defaultValue={value == null ? '' : String(value)}
-        onBlur={(e) => save(e.target.value === '' ? null : e.target.value)}
+        defaultValue={text}
+        onBlur={(e) => e.target.value !== text && save(e.target.value === '' ? null : e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
       />
     )

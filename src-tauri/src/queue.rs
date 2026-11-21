@@ -71,6 +71,8 @@ impl OpKind {
 pub struct Output {
     pub stdout: String,
     pub stderr: String,
+    #[serde(skip)]
+    pub recovery: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -99,13 +101,39 @@ struct OpDone<'a> {
 pub struct Queue {
     env: Arc<GitEnv>,
     app: AppHandle,
-    slots: Mutex<HashMap<PathBuf, Arc<tokio::sync::Mutex<()>>>>,
+    slots: Mutex<Slots>,
     network: Mutex<HashSet<(PathBuf, OpKind)>>,
     cancels: Mutex<HashMap<u64, oneshot::Sender<()>>>,
     active: Mutex<HashMap<u64, OpKind>>,
     writing: Mutex<HashMap<PathBuf, usize>>,
     next_id: AtomicU64,
     log: GitLog,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+enum Slot {
+    Worktree(PathBuf),
+    Stash(PathBuf),
+}
+
+type Slots = HashMap<Slot, Arc<tokio::sync::Mutex<()>>>;
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExpectedStash {
+    pub index: usize,
+    pub commit: String,
+    #[serde(default)]
+    pub restore_index: bool,
+}
+
+#[derive(Default)]
+struct Request<'a> {
+    stdin: Option<Vec<u8>>,
+    background: bool,
+    stash: Option<&'a ExpectedStash>,
+    recover: bool,
+    conflict: Option<&'a str>,
 }
 
 /// What an operation runs against.
@@ -143,13 +171,13 @@ impl Queue {
 
     /// Runs `git <args>` for `target`. `label` is shown in the panel while it runs.
     pub async fn run(&self, target: Target<'_>, kind: OpKind, label: &str, args: &[&str]) -> Result<Output> {
-        self.run_inner(target, kind, label, args, None, false).await
+        self.run_inner(target, kind, label, args, Request::default()).await
     }
 
     /// A run the user didn't ask for: it still queues and blinks the badge, but stays out of
     /// the ops bar and never toasts.
     pub async fn run_background(&self, target: Target<'_>, kind: OpKind, label: &str, args: &[&str]) -> Result<Output> {
-        self.run_inner(target, kind, label, args, None, true).await
+        self.run_inner(target, kind, label, args, Request { background: true, ..Request::default() }).await
     }
 
     pub async fn run_with_stdin(
@@ -160,7 +188,52 @@ impl Queue {
         args: &[&str],
         stdin: Option<Vec<u8>>,
     ) -> Result<Output> {
-        self.run_inner(target, kind, label, args, stdin, false).await
+        self.run_inner(target, kind, label, args, Request { stdin, ..Request::default() }).await
+    }
+
+    pub async fn run_stash(
+        &self,
+        target: Target<'_>,
+        label: &str,
+        args: &[&str],
+        stash: &ExpectedStash,
+    ) -> Result<Output> {
+        self.run_inner(target, OpKind::Other, label, args, Request { stash: Some(stash), ..Request::default() }).await
+    }
+
+    pub async fn run_with_recovery(
+        &self,
+        target: Target<'_>,
+        label: &str,
+        args: &[&str],
+        stdin: Vec<u8>,
+    ) -> Result<Output> {
+        self.run_inner(
+            target,
+            OpKind::Other,
+            label,
+            args,
+            Request { stdin: Some(stdin), recover: true, ..Request::default() },
+        )
+        .await
+    }
+
+    pub async fn run_conflict_removal(
+        &self,
+        target: Target<'_>,
+        label: &str,
+        args: &[&str],
+        stdin: Vec<u8>,
+        path: &str,
+    ) -> Result<Output> {
+        self.run_inner(
+            target,
+            OpKind::Stage,
+            label,
+            args,
+            Request { stdin: Some(stdin), conflict: Some(path), ..Request::default() },
+        )
+        .await
     }
 
     async fn run_inner(
@@ -169,10 +242,11 @@ impl Queue {
         kind: OpKind,
         label: &str,
         args: &[&str],
-        stdin: Option<Vec<u8>>,
-        background: bool,
+        request: Request<'_>,
     ) -> Result<Output> {
-        let network_key = (target.common_dir.to_path_buf(), kind);
+        let Request { stdin, background, stash, recover, conflict } = request;
+        let common = std::fs::canonicalize(target.common_dir).unwrap_or_else(|_| target.common_dir.to_path_buf());
+        let network_key = (common.clone(), kind);
         if kind.is_network() && !self.network.lock().unwrap().insert(network_key.clone()) {
             return Err(Error::AlreadyRunning(format!("{kind:?}").to_lowercase()));
         }
@@ -180,18 +254,28 @@ impl Queue {
             self.network.lock().unwrap().remove(&network_key);
         });
 
-        let slot = kind
-            .takes_write_slot()
-            .then(|| Arc::clone(self.slots.lock().unwrap().entry(target.worktree.to_path_buf()).or_default()));
-        let _slot_guard = match &slot {
-            Some(slot) => Some(slot.lock().await),
-            None => None,
-        };
-        let _slot_cleanup = scopeguard(slot.is_some(), || {
-            // Only this call and the map hold the slot: nothing is queued behind it
+        let keys = [
+            kind.takes_write_slot().then(|| Slot::Worktree(target.worktree.to_path_buf())),
+            matches!(args.first(), Some(&("stash" | "pull" | "merge" | "rebase" | "reset")))
+                .then(|| Slot::Stash(common)),
+        ];
+        let slots = {
             let mut slots = self.slots.lock().unwrap();
-            if slots.get(target.worktree).is_some_and(|s| Arc::strong_count(s) <= 2) {
-                slots.remove(target.worktree);
+            keys.into_iter()
+                .flatten()
+                .map(|key| (Arc::clone(slots.entry(key.clone()).or_default()), key))
+                .collect::<Vec<_>>()
+        };
+        let mut guards = Vec::with_capacity(slots.len());
+        for (slot, _) in &slots {
+            guards.push(slot.lock().await);
+        }
+        let _slot_cleanup = scopeguard(!slots.is_empty(), || {
+            let mut known = self.slots.lock().unwrap();
+            for (_, key) in &slots {
+                if known.get(key).is_some_and(|s| Arc::strong_count(s) <= 2) {
+                    known.remove(key);
+                }
             }
         });
         let worktree = target.worktree.to_path_buf();
@@ -204,10 +288,32 @@ impl Queue {
             }
         });
 
+        let check = || {
+            if let Some(stash) = stash {
+                verify_expected_stash(target.worktree, stash)?;
+            }
+            if let Some(path) = conflict {
+                verify_deletion_conflict(target.worktree, path)?;
+            }
+            Ok(())
+        };
+        check()?;
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         self.begin(id, kind);
         let _ = self.app.emit("op://started", OpEvent { id, repo: target.worktree, kind, label, background });
-        let result = self.run_retrying(id, target.worktree, args, stdin).await;
+        let result = async {
+            let recovery = if recover {
+                let snapshot = self.run_retrying(id, target.worktree, &["stash", "create"], None, || Ok(())).await?;
+                let snapshot = snapshot.stdout.trim();
+                (!snapshot.is_empty()).then(|| snapshot.to_owned())
+            } else {
+                None
+            };
+            let mut output = self.run_retrying(id, target.worktree, args, stdin, check).await?;
+            output.recovery = recovery;
+            Ok(output)
+        }
+        .await;
         self.end(id, result.as_ref().err());
         let output = match &result {
             Err(Error::Cancelled | Error::AlreadyRunning(_)) | Ok(_) => None,
@@ -227,9 +333,19 @@ impl Queue {
         }
     }
 
-    async fn run_retrying(&self, id: u64, cwd: &Path, args: &[&str], stdin: Option<Vec<u8>>) -> Result<Output> {
+    async fn run_retrying(
+        &self,
+        id: u64,
+        cwd: &Path,
+        args: &[&str],
+        stdin: Option<Vec<u8>>,
+        check: impl Fn() -> Result<()>,
+    ) -> Result<Output> {
         let mut attempt = 0;
         loop {
+            if attempt > 0 {
+                check()?;
+            }
             match self.spawn(id, cwd, args, stdin.clone()).await {
                 Err(Error::Git { stderr, .. }) if is_index_locked(&stderr) && attempt < LOCK_RETRIES.len() => {
                     tokio::time::sleep(Duration::from_millis(LOCK_RETRIES[attempt])).await;
@@ -307,7 +423,7 @@ impl Queue {
         let stdout = String::from_utf8_lossy(&stdout.await.unwrap_or_default()).into_owned();
         let stderr = String::from_utf8_lossy(&stderr.await.unwrap_or_default()).into_owned();
         if status.success() {
-            Ok(Output { stdout, stderr })
+            Ok(Output { stdout, stderr, recovery: None })
         } else {
             Err(Error::Git { message: git_message(&stderr, args), stderr, code: status.code() })
         }
@@ -361,6 +477,29 @@ async fn lock_holder(path: &Path) -> String {
     "no running process has it open; it may be left over from a crashed git command".into()
 }
 
+fn verify_expected_stash(root: &Path, expected: &ExpectedStash) -> Result<()> {
+    let repo = gix::open(root).map_err(|e| Error::Repo(e.to_string()))?;
+    let stashes = crate::read::refs::stashes(&repo)?;
+    if stashes.get(expected.index).is_some_and(|stash| stash.commit == expected.commit) {
+        Ok(())
+    } else {
+        Err(Error::StashChanged)
+    }
+}
+
+fn verify_deletion_conflict(root: &Path, path: &str) -> Result<()> {
+    use gix::{bstr::BStr, index::entry::Stage};
+    let repo = gix::open(root).map_err(|e| Error::Repo(e.to_string()))?;
+    let index = repo.index_or_empty().map_err(|e| Error::Repo(e.to_string()))?;
+    let path = BStr::new(path);
+    let has = |stage| index.entry_by_path_and_stage(path, stage).is_some();
+    if has(Stage::Base) && (has(Stage::Ours) ^ has(Stage::Theirs)) {
+        Ok(())
+    } else {
+        Err(Error::Other(format!("{path} is no longer a modify/delete conflict")))
+    }
+}
+
 /// The line users need from git's stderr: the first `fatal:`/`error:` line, else the last line.
 fn git_message(stderr: &str, args: &[&str]) -> String {
     let lines: Vec<&str> = stderr.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
@@ -396,5 +535,43 @@ mod tests {
         assert!(is_index_locked(stderr));
         assert_eq!(locked_path(stderr), Some(PathBuf::from("/tmp/repo/.git/index.lock")));
         assert_eq!(git_message(stderr, &["commit"]), "Unable to create '/tmp/repo/.git/index.lock': File exists.");
+    }
+
+    #[test]
+    fn detects_a_stash_shifted_by_a_linked_worktree() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("main");
+        let linked = dir.path().join("linked");
+        std::fs::create_dir(&root).unwrap();
+        let git = |cwd: &Path, args: &[&str]| {
+            let out = std::process::Command::new("git")
+                .current_dir(cwd)
+                .args(["-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgSign=false"])
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+            String::from_utf8(out.stdout).unwrap()
+        };
+        git(&root, &["init", "-q"]);
+        std::fs::write(root.join("f.txt"), "base").unwrap();
+        git(&root, &["add", "f.txt"]);
+        git(&root, &["commit", "-qm", "base"]);
+        git(&root, &["worktree", "add", "-qb", "linked", linked.to_str().unwrap()]);
+        std::fs::write(root.join("f.txt"), "wanted").unwrap();
+        git(&root, &["stash", "push", "-qm", "wanted"]);
+        let expected = ExpectedStash {
+            index: 0,
+            commit: git(&root, &["rev-parse", "refs/stash"]).trim().to_owned(),
+            restore_index: false,
+        };
+        assert_eq!(
+            std::fs::canonicalize(gix::open(&root).unwrap().common_dir()).unwrap(),
+            std::fs::canonicalize(gix::open(&linked).unwrap().common_dir()).unwrap(),
+        );
+        assert!(verify_expected_stash(&root, &expected).is_ok());
+        std::fs::write(linked.join("f.txt"), "newer").unwrap();
+        git(&linked, &["stash", "push", "-qm", "newer"]);
+        assert!(matches!(verify_expected_stash(&root, &expected), Err(Error::StashChanged)));
     }
 }

@@ -185,10 +185,9 @@ export function DiffTab({ params }: DetailTabProps) {
   const [focusHunk, setFocusHunk] = useState<number | undefined>(undefined)
   const dark = useDarkMode()
 
-  const blameRev = right.kind === 'commit' ? right.rev : 'HEAD'
   const blame = useQuery({
-    queryKey: ['repo', root, 'blame', path, blameRev, right.kind],
-    queryFn: () => git.blame(root, path, blameRev, right.kind === 'worktree'),
+    queryKey: ['repo', root, 'blame', path, right, original],
+    queryFn: () => git.blame(root, path, right, original ?? undefined),
     enabled: blameOn && right.kind !== 'empty' && result?.kind === 'text',
   })
 
@@ -216,7 +215,7 @@ export function DiffTab({ params }: DetailTabProps) {
   const apply = useCallback(
     async (sel: LineSelection, mode: 'stage' | 'unstage' | 'revert') => {
       if (!result || result.kind !== 'text') return
-      const patch = buildPatch(path, result.left.text ?? '', result.right.text ?? '', result.hunks, sel, original ?? undefined)
+      const patch = buildPatch(path, result.left.text ?? '', result.right.text ?? '', result.hunks, sel, original ?? undefined, mode !== 'stage')
       if (!patch) return
       if (mode === 'revert') {
         const answer = await showMessage({
@@ -228,7 +227,7 @@ export function DiffTab({ params }: DetailTabProps) {
       }
       const label = mode === 'stage' ? vs('command.stageSelectedRanges') : mode === 'unstage' ? vs('command.unstageSelectedRanges') : vs('command.revertSelectedRanges')
       try {
-        await git.apply(root, patch, mode !== 'revert', mode !== 'stage', label)
+        await git.apply(root, patch, mode !== 'revert', false, label)
       } catch (e) {
         toastManager.add({ type: 'error', title: errorMessage(e) })
       }
@@ -272,10 +271,18 @@ export function DiffTab({ params }: DetailTabProps) {
     setAnchor({ side, line })
     setFocusHunk(undefined)
     // The panel's Line History follows the selected lines of the current file
-    const lines = [...next.right].sort((x, y) => x - y)
-    if (side === 'right' && lines.length) {
-      void emit('lineHistory://select', { root, path, start: lines[0] + 1, end: lines[lines.length - 1] + 1, rev: right.kind === 'commit' ? right.rev : null })
+    const ranges: { start: number; end: number }[] = []
+    for (const line of [...next[side]].sort((x, y) => x - y)) {
+      const last = ranges.at(-1)
+      if (last?.end === line) last.end++
+      else ranges.push({ start: line + 1, end: line + 1 })
     }
+    const source = side === 'left' ? left : right
+    void emit('lineHistory://select', ranges.length && source.kind !== 'empty' ? {
+      root, path: side === 'left' ? original ?? path : path,
+      originalPath: side === 'right' ? original ?? undefined : undefined,
+      ranges, side: source,
+    } : null)
   }
 
   // VS Code's diffEditor/gutter menus: Stage Block (git), Revert Block (arrow-right side by side, discard inline)

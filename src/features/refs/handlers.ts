@@ -7,7 +7,7 @@ import { git, type RefInfo } from '@/lib/git'
 import { ipc } from '@/lib/ipc'
 import { addResult, copy, pickProvider } from '../history/handlers'
 import { providerFor, type RemoteSetting } from '../remote/providers'
-import { confirm, exec, guard, setting } from '../scm/handlers'
+import { confirm, exec, guard, runSelectedStash, setting } from '../scm/handlers'
 import { getCommitInput, setCommitInput } from '../scm/state'
 import type { ContributorArg, RefArg, RemoteArg, StashArg, WorktreeArg } from './views'
 
@@ -29,13 +29,11 @@ async function switchTo(arg: unknown) {
   if (ref.kind === 'branch') return guard(() => exec(root, 'checkout', gl('Switch'), ['switch', ref.short]))
   if (ref.kind === 'tag') {
     if (!(await confirm(gl('Switch to {0}? You will be in a detached HEAD state.', ref.short), gl('Switch')))) return
-    return guard(() => exec(root, 'checkout', gl('Switch'), ['switch', '--detach', ref.short]))
+    return guard(() => exec(root, 'checkout', gl('Switch'), ['switch', '--detach', ref.name]))
   }
   // A remote branch: switch to its local branch, creating one that tracks it if needed
-  const [, name] = splitRemote(ref)
-  const locals = await git.refs(root)
-  const existing = locals.some((r) => r.kind === 'branch' && r.short === name)
-  const args = existing ? ['switch', name] : ['switch', '--track', ref.short]
+  const branch = (await git.branches(root)).find((entry) => entry.upstream?.name === ref.short)
+  const args = branch ? ['switch', branch.short] : ['switch', '--track', ref.name]
   return guard(() => exec(root, 'checkout', gl('Switch'), args))
 }
 
@@ -51,14 +49,14 @@ async function mergeIntoCurrent(arg: unknown) {
     ],
     { placeholder: gl('Choose a merge command') },
   )
-  if (mode) await guard(() => exec(root, 'other', gl('Merge'), ['merge', ...mode, ref.short]))
+  if (mode) await guard(() => exec(root, 'other', gl('Merge'), ['merge', ...mode, ref.name]))
 }
 
 async function rebaseCurrentOnto(arg: unknown) {
   if (!isRef(arg)) return
   const { root, ref } = arg
   if (!(await confirm(gl('Rebase the current branch onto {0}?', ref.short), gl('Rebase')))) return
-  await guard(() => exec(root, 'other', gl('Rebase'), ['rebase', ref.short]))
+  await guard(() => exec(root, 'other', gl('Rebase'), ['rebase', ref.name]))
 }
 
 async function renameBranch(arg: unknown) {
@@ -102,8 +100,8 @@ async function createBranchFrom(arg: unknown) {
   if (andSwitch === undefined) return
   await guard(() =>
     andSwitch
-      ? exec(root, 'checkout', gl('Create & Switch to Branch'), ['switch', '-c', name.trim(), ref.short])
-      : exec(root, 'other', gl('Create Branch'), ['branch', name.trim(), ref.short]),
+      ? exec(root, 'checkout', gl('Create & Switch to Branch'), ['switch', '-c', name.trim(), ref.name])
+      : exec(root, 'other', gl('Create Branch'), ['branch', name.trim(), ref.name]),
   )
 }
 
@@ -118,7 +116,7 @@ async function pushRef(arg: unknown) {
   }
   const branch = ref as RefArg['ref'] & { upstream?: { remote: string } | null }
   const remote = branch.upstream?.remote
-  await guard(() => (remote ? exec(root, 'push', gl('Push'), ['push', remote, ref.short]) : exec(root, 'push', gl('Publish Branch'), ['push', '-u', 'origin', ref.short])))
+  await guard(() => (remote ? exec(root, 'push', gl('Push'), ['push', remote, ref.name]) : exec(root, 'push', gl('Publish Branch'), ['push', '-u', 'origin', ref.name])))
 }
 
 async function openRefOnRemote(arg: unknown, copyOnly: boolean) {
@@ -145,7 +143,7 @@ async function stashCommand(arg: unknown, action: 'apply' | 'pop' | 'drop') {
   const name = `stash@{${stash.index}}`
   if (action === 'drop' && !(await confirm(gl('Delete the stash {0}? It can’t be restored.', name), gl('Delete'), { destructive: true }))) return
   const label = { apply: gl('Apply Stash'), pop: gl('Pop Stash'), drop: gl('Delete Stash') }[action]
-  await guard(() => exec(root, 'other', label, ['stash', action, name]))
+  await guard(() => runSelectedStash(root, action, label, stash))
 }
 
 async function stashOpenAll(arg: unknown) {

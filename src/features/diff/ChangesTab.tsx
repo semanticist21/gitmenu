@@ -3,10 +3,12 @@
 // The list is a VS Code list: 22px rows, file name and folder on one line, the status letter
 // in its git decoration color on the right.
 import { type KeyboardEvent, useMemo, useState } from 'react'
+import { ProgressBar } from '@/components/ui/progress'
 import { FileIcon } from '@/features/fileIcons/FileIcon'
 import { useRepoStatus } from '@/features/scm/api'
 import { LETTER, statusColor, statusText } from '@/features/scm/status'
 import { t, useLocale, vsb } from '@/i18n'
+import { errorMessage } from '@/lib/ipc'
 import { cn } from '@/lib/utils'
 import type { DetailTabProps } from '@/routes/detail/DetailApp'
 import { useSetting } from '@/settings/settings'
@@ -22,7 +24,7 @@ export function ChangesTab({ params, route }: DetailTabProps) {
   const root = params.get('repo') ?? ''
   const group = (params.get('group') ?? 'workingTree') as DiffGroup
   const mixed = useSetting<string>('git.untrackedChanges') === 'mixed'
-  const { data: status } = useRepoStatus(root)
+  const { data: status, isPending, error } = useRepoStatus(root)
   const files = useMemo(() => {
     if (!status) return []
     if (group === 'index') return status.index
@@ -32,6 +34,8 @@ export function ChangesTab({ params, route }: DetailTabProps) {
   const [selected, setSelected] = useState<string | null>(null)
   const current = files.find((f) => f.path === selected) ?? files[0]
 
+  if (isPending) return <ProgressBar />
+  if (error && !status) return <EditorPlaceholder icon="error" message={errorMessage(error)} />
   if (files.length === 0) return <EditorPlaceholder icon="info" message={t('diff.noChanges')} />
   const params2 = new URLSearchParams({
     repo: root,

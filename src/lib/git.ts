@@ -242,8 +242,8 @@ export const git = {
   worktrees: (root: string) => invoke<WorktreeInfo[]>('repo_worktrees', { root }),
   contributors: (root: string) => invoke<Contributor[]>('repo_contributors', { root }),
   log: (root: string, query: LogQuery) => invoke<LogPage>('repo_log', { root, query: { skip: 0, ...query } }),
-  lineHistory: (root: string, path: string, start: number, end: number, rev: string | null, skip: number, limit: number) =>
-    invoke<LogPage>('repo_line_history', { root, path, start, end, rev, skip, limit }),
+  lineHistory: (target: { root: string; path: string; ranges: { start: number; end: number }[]; side: Side; originalPath?: string }, skip: number, limit: number) =>
+    invoke<LogPage>('repo_line_history', { ...target, skip, limit }),
   commitDetails: (root: string, rev: string) => invoke<CommitDetails>('repo_commit', { root, rev }),
   compare: (root: string, base: string, head: string) => invoke<Comparison>('repo_compare', { root, base, head }),
   remotes: (root: string) => invoke<RemoteInfo[]>('repo_remotes', { root }),
@@ -252,20 +252,25 @@ export const git = {
   diff: (root: string, path: string, originalPath: string | null, left: Side, right: Side, maxBytes: number, ignoreTrimWhitespace: boolean) =>
     invoke<DiffResult>('repo_diff', { root, path, originalPath, left, right, maxBytes, ignoreTrimWhitespace }),
   file: (root: string, path: string, side: Side, maxBytes: number) => invoke<DiffResult>('repo_file', { root, path, side, maxBytes }),
-  blame: (root: string, path: string, rev: string, worktree: boolean) =>
-    invoke<BlameResult>('repo_blame', { root, path, rev, worktree }),
+  blame: (root: string, path: string, side: Side, originalPath?: string) =>
+    invoke<BlameResult>('repo_blame', { root, path, originalPath, side }),
   status: (root: string) => invoke<RepoStatus>('repo_status', { root }),
   headMessage: (root: string) => invoke<string | null>('repo_head_message', { root }),
   refs: (root: string) => invoke<RefInfo[]>('repo_refs', { root }),
   stashes: (root: string) => invoke<StashInfo[]>('repo_stashes', { root }),
+  stashSelected: (root: string, label: string, action: 'pop' | 'drop', { index, commit }: StashInfo, restoreIndex: boolean) =>
+    invoke<GitOutput>('git_stash_selected', { root, label, action, expected: { index, commit, restoreIndex } }),
   config: (root: string, key: string) => invoke<string | null>('repo_config', { root, key }),
   stage: (root: string, paths: string[], label: string) => invoke<GitOutput>('git_stage', { root, paths, label }),
   unstage: (root: string, paths: string[], label: string) => invoke<GitOutput>('git_unstage', { root, paths, label }),
+  removeConflict: (root: string, path: string, label: string) => invoke<GitOutput>('git_remove_conflict', { root, path, label }),
   discard: (root: string, tracked: string[], untracked: string[], label: string) =>
-    invoke<{ recovery: string | null; trashed: string[] }>('git_discard', { root, tracked, untracked, label }),
+    invoke<{ recovery: string | null; trashed: string[]; trashError: string | null }>('git_discard', { root, tracked, untracked, label }),
+  undoDiscard: (root: string, recovery: string, paths: string[], label: string) =>
+    invoke<void>('git_undo_discard', { root, recovery, paths, label }),
   recoveryPoint: (root: string, label: string) => invoke<string | null>('git_recovery_point', { root, label }),
   /** Text of a file inside the repository (refused outside it) */
-  readTextFile: (root: string, path: string, maxBytes: number) => invoke<string>('read_text_file', { root, path, maxBytes }),
+  readTextFile: (root: string, path: string) => invoke<{ text: string; markerSize: number; headMarkerSize?: number | null }>('read_text_file', { root, path }),
   commit: (root: string, message: string, options: CommitOptions, label: string) =>
     invoke<GitOutput>('git_commit', { root, message, options, label }),
   apply: (root: string, patch: string, cached: boolean, reverse: boolean, label: string) =>

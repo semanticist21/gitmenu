@@ -2,11 +2,12 @@
 // safety prompts follow the git extension (same text, so its translations apply).
 import { isCancelledError } from '@tanstack/react-query'
 import { registerHandler } from '@/commands/registry'
+import { conflictPatch, hasConflictMarkers } from './conflicts'
 import { holdOp } from '@/features/ops/operations'
 import { type QuickPickItem, showInputBox, showMessage, showQuickPick } from '@/components/dialogs/dialogs'
 import { toastManager } from '@/components/ui/toast'
 import { t, vs, vsb } from '@/i18n'
-import { type CommitOptions, type FileChange, git, type OpKind, type RefInfo, type RepoStatus } from '@/lib/git'
+import { type CommitOptions, type FileChange, git, type OpKind, type RefInfo, type RepoStatus, type StashInfo } from '@/lib/git'
 import { errorMessage, ipc, isIpcError } from '@/lib/ipc'
 import { settingsQuery, settingDefault } from '@/settings/settings'
 import { statusQuery } from './api'
@@ -104,7 +105,7 @@ export async function exec(root: string, kind: OpKind, label: string, args: stri
 }
 
 /** Offers an undo for a recovery point made before a destructive change. */
-export function offerUndo(root: string, recovery: string | null, title: string) {
+export function offerUndo(root: string, recovery: string | null, title: string, paths?: string[]) {
   if (!recovery) return
   toastManager.add({
     type: 'success',
@@ -113,13 +114,14 @@ export function offerUndo(root: string, recovery: string | null, title: string) 
       children: t('scm.undo'),
       onClick: () =>
         void guard(async () => {
-          await exec(root, 'other', t('scm.undo'), ['stash', 'apply', '--index', recovery])
+          if (paths) {
+            await git.undoDiscard(root, recovery, paths, t('scm.undo'))
+            refresh(root)
+          } else await exec(root, 'other', t('scm.undo'), ['stash', 'apply', '--index', recovery])
         }),
     },
   })
 }
-
-const hasConflictMarkers = (text: string) => /^<{7}(?: |$)|^={7}$|^>{7}(?: |$)/m.test(text)
 
 // ——— pickers ———
 
@@ -180,17 +182,37 @@ export async function branchName(title: string, value = ''): Promise<string | un
 
 // ——— resources ———
 
-async function stage(args: unknown[]) {
+async function stage(args: unknown[], label = vs('command.stage')) {
   for (const selection of selections(args)) {
     let changes = selection.changes
     if (selection.group === 'merge') {
       // VS Code asks before staging files that still contain conflict markers
       const withMarkers: FileChange[] = []
+      const stageable: FileChange[] = []
       for (const change of changes) {
+        if (change.status === 'deletedByThem' || change.status === 'deletedByUs') {
+          const deletedByThem = change.status === 'deletedByThem'
+          const removeLabel = vsb('Delete File')
+          const answer = await showMessage({
+            message: vsb(deletedByThem
+              ? 'File "{0}" was deleted by them and modified by us.\n\nWhat would you like to do?'
+              : 'File "{0}" was deleted by us and modified by them.\n\nWhat would you like to do?', basename(change.path)),
+            buttons: [{ label: vsb(deletedByThem ? 'Keep Our Version' : 'Keep Their Version'), value: 'keep' }, { label: removeLabel, value: 'delete', variant: 'destructive' }],
+          })
+          if (answer?.value === 'delete') await git.removeConflict(selection.root, change.path, removeLabel)
+          if (answer?.value !== 'keep') continue
+          const file = await git.file(selection.root, change.path, { kind: 'worktree' }, 0)
+          if (!file.right.exists) {
+            toastManager.add({ type: 'error', title: vsb('The file {0} does not exist.', basename(change.path)) })
+            continue
+          }
+        }
+        stageable.push(change)
         // Unreadable counts as conflicted: the check must not fail open
-        const text = await readText(selection.root, change.path)
-        if (text === null || hasConflictMarkers(text)) withMarkers.push(change)
+        const file = await readText(selection.root, change.path)
+        if (!file || hasConflictMarkers(file.text, file.markerSize, file.headMarkerSize)) withMarkers.push(change)
       }
+      changes = stageable
       if (withMarkers.length > 0) {
         const message =
           withMarkers.length === 1
@@ -199,17 +221,36 @@ async function stage(args: unknown[]) {
         if (!(await confirm(message, vs('command.stage')))) changes = changes.filter((c) => !withMarkers.includes(c))
       }
     }
-    if (changes.length) await git.stage(selection.root, pathsOf(changes), vs('command.stage'))
+    if (changes.length) await git.stage(selection.root, pathsOf(changes), label)
     refresh(selection.root)
   }
 }
 
-async function readText(root: string, path: string): Promise<string | null> {
+async function readText(root: string, path: string) {
   try {
-    return await git.readTextFile(root, path, 2_000_000)
+    return await git.readTextFile(root, path)
   } catch (error) {
     console.warn('[gitmenu] could not read', path, error)
     return null
+  }
+}
+
+async function acceptConflict(args: unknown[], side: 'current' | 'incoming') {
+  for (const { root, group, changes } of selections(args)) {
+    if (group !== 'merge') continue
+    const status = await freshStatus(root)
+    const label = t(side === 'current' ? 'scm.acceptCurrent' : 'scm.acceptIncoming')
+    for (const { path } of changes) {
+      if (!status.merge.some((change) => change.path === path)) continue
+      const file = await git.readTextFile(root, path)
+      const patch = conflictPatch(path, file.text, side, file.markerSize, file.headMarkerSize)
+      if (!patch) {
+        toastManager.add({ type: 'info', title: t('scm.noConflictMarkers', basename(path)) })
+        continue
+      }
+      await git.apply(root, patch, false, false, label)
+    }
+    refresh(root)
   }
 }
 
@@ -236,9 +277,11 @@ async function discard(root: string, changes: FileChange[], all: boolean) {
   }
   const detail = untracked.length && setting<boolean>('git.discardUntrackedChangesToTrash') ? t('scm.trashDetail') : t('scm.recoveryDetail')
   if (!(await confirm(message, ok, { detail, destructive: true }))) return
-  const result = await git.discard(root, pathsOf(tracked), untracked.map((c) => c.path), vs('command.clean'))
+  const paths = pathsOf(tracked)
+  const result = await git.discard(root, paths, untracked.map((c) => c.path), vs('command.clean'))
   refresh(root)
-  offerUndo(root, result.recovery, t('scm.discarded', changes.length))
+  offerUndo(root, result.recovery, t('scm.discarded', tracked.length + result.trashed.length), paths)
+  if (result.trashError) toastManager.add({ type: 'error', title: result.trashError })
 }
 
 async function clean(args: unknown[]) {
@@ -269,6 +312,7 @@ async function groupCommand(arg: unknown, group: GroupId | 'all' | 'allTracked',
   const status = await freshStatus(root)
   const changes = isSelection(arg) && group === arg.group ? arg.changes : groupChanges(status, group)
   if (action === 'stage') {
+    if (group === 'merge') return stage([{ root, group, changes }], vs('command.stageAllMerge'))
     if (changes.length) await git.stage(root, pathsOf(changes), vs('command.stageAll'))
     refresh(root)
   } else {
@@ -309,6 +353,13 @@ interface CommitRequest {
   signoff?: boolean
   noVerify?: boolean
   empty?: boolean
+  postCommit?: 'push' | 'sync' | null
+}
+
+type PostCommit = CommitRequest['postCommit']
+
+function postCommitChoice(value: unknown): PostCommit {
+  return value === 'push' || value === 'sync' || value === null ? value : undefined
 }
 
 async function commit(arg: unknown, request: CommitRequest): Promise<boolean> {
@@ -335,7 +386,9 @@ async function commit(arg: unknown, request: CommitRequest): Promise<boolean> {
       return false
   }
 
-  const workingChanges = [...status.workingTree, ...status.untracked]
+  const workingChanges = setting<string>('git.untrackedChanges') === 'mixed' && setting<string>('git.smartCommitChanges') === 'all'
+    ? [...status.workingTree, ...status.untracked]
+    : status.workingTree
   let stageAll = request.scope === 'all'
   if (request.scope === 'default' && status.index.length === 0 && !request.empty && !(request.amend && workingChanges.length === 0)) {
     if (workingChanges.length === 0) {
@@ -371,10 +424,9 @@ async function commit(arg: unknown, request: CommitRequest): Promise<boolean> {
     if (!(await confirm(vsb('Are you sure you want to create an empty commit?'), vsb('Yes'), { neverAgainSetting: 'git.confirmEmptyCommits' }))) return false
   }
 
-  if (stageAll) {
-    // smartCommitChanges "all" includes untracked files, "tracked" only tracked ones
-    const include = setting<string>('git.smartCommitChanges') === 'all' ? workingChanges : status.workingTree
-    if (include.length) await git.stage(root, pathsOf(include), vs('command.stageAll'))
+  if (stageAll && !status.index.length && !workingChanges.length && !request.amend) {
+    toastManager.add({ type: 'info', title: vsb('There are no changes to commit.') })
+    return false
   }
 
   const message = getCommitInput(root)
@@ -392,12 +444,13 @@ async function commit(arg: unknown, request: CommitRequest): Promise<boolean> {
       return false
     }
   }
+  if (stageAll && workingChanges.length) await git.stage(root, pathsOf(workingChanges), vs('command.stageAll'))
   const ok = await guard(() => git.commit(root, message, options, vs('command.commit')))
   refresh(root)
   if (ok === undefined) return false
   setCommitInput(root, '')
 
-  const post = setting<string>('git.postCommitCommand')
+  const post = request.postCommit === undefined ? setting<string>('git.postCommitCommand') : request.postCommit
   if (post === 'push') await push(root, {})
   else if (post === 'sync') await sync(root, false)
   return true
@@ -412,11 +465,17 @@ async function undoCommit(arg: unknown) {
     return
   }
   const message = await git.headMessage(root)
-  const parents = (await git.exec(root, 'other', vs('command.undoCommit'), ['rev-list', '--parents', '-n', '1', 'HEAD'])).stdout.trim().split(' ')
-  if (parents.length > 2 && !(await confirm(vsb('The last commit was a merge commit. Are you sure you want to undo it?'), vsb('Undo merge commit')))) return
+  const parents = (await git.log(root, { revs: [status.head.commit], limit: 1 })).commits[0]?.parents
+  if (!parents) return
+  if (parents.length > 1 && !(await confirm(vsb('The last commit was a merge commit. Are you sure you want to undo it?'), vsb('Undo merge commit')))) return
   // The first commit has no parent: move HEAD back to "unborn" by deleting the branch ref
-  if (parents.length === 1) await exec(root, 'other', vs('command.undoCommit'), ['update-ref', '-d', 'HEAD'])
-  else await exec(root, 'other', vs('command.undoCommit'), ['reset', '--soft', 'HEAD~'])
+  if (parents.length === 0) {
+    if (!status.head.branch) {
+      toastManager.add({ type: 'error', title: t('scm.undoDetachedRoot') })
+      return
+    }
+    await exec(root, 'other', vs('command.undoCommit'), ['update-ref', '-d', `refs/heads/${status.head.branch}`, status.head.commit])
+  } else await exec(root, 'other', vs('command.undoCommit'), ['reset', '--soft', 'HEAD~'])
   if (message) setCommitInput(root, message)
 }
 
@@ -523,7 +582,7 @@ async function checkout(root: string, detached: boolean) {
     types.includes(k === 'branch' ? 'local' : k === 'remote' ? 'remote' : 'tags'),
   )
   const status = await freshStatus(root)
-  const list = (await refs(root)).filter((r) => kinds.includes(r.kind) && r.short !== status.head.branch)
+  const list = (await refs(root)).filter((r) => kinds.includes(r.kind) && !(r.kind === 'branch' && r.short === status.head.branch))
   type Choice = { kind: 'ref'; ref: RefInfo } | { kind: 'new' } | { kind: 'newFrom' } | { kind: 'detached' }
   const items: QuickPickItem<Choice>[] = detached
     ? []
@@ -542,11 +601,10 @@ async function checkout(root: string, detached: boolean) {
   if (choice.kind === 'detached') return checkout(root, true)
   const ref = choice.ref
   const label = vsb('Checking Out Branch/Tag...')
-  if (detached) await exec(root, 'checkout', label, ['checkout', '-q', '--detach', ref.short])
+  if (detached || ref.kind === 'tag') await exec(root, 'checkout', label, ['checkout', '-q', '--detach', ref.name])
   else if (ref.kind === 'remote') {
-    const local = ref.short.split('/').slice(1).join('/')
-    const exists = list.some((r) => r.kind === 'branch' && r.short === local)
-    await exec(root, 'checkout', label, exists ? ['checkout', '-q', local] : ['checkout', '-q', '--track', ref.short])
+    const branch = (await git.branches(root)).find((branch) => branch.upstream?.name === ref.short)
+    await exec(root, 'checkout', label, branch ? ['checkout', '-q', branch.short] : ['checkout', '-q', '--track', ref.name])
   } else await exec(root, 'checkout', label, ['checkout', '-q', ref.short])
 }
 
@@ -555,7 +613,7 @@ async function createBranch(root: string, from: boolean) {
   if (from) {
     const ref = await pickRef(root, vsb('Select a ref to create the branch from'), ['branch', 'remote', 'tag'])
     if (!ref) return
-    base = ref.short
+    base = ref.name
   }
   const name = await branchName(vsb('Please provide a new branch name'))
   if (!name) return
@@ -606,7 +664,7 @@ async function mergeOrRebase(root: string, mode: 'merge' | 'rebase') {
     status.head.branch ?? undefined,
   )
   if (!ref) return
-  await exec(root, 'other', vs(`command.${mode}`), [mode, ref.short])
+  await exec(root, 'other', vs(`command.${mode}`), [mode, ref.name])
 }
 
 // ——— stash, tags, remotes, worktrees ———
@@ -632,16 +690,28 @@ async function stash(root: string, flags: string[]) {
   if (useInput) setCommitInput(root, '')
 }
 
-async function pickStash(root: string, placeholder: string): Promise<number | undefined> {
+async function pickStash(root: string, placeholder: string): Promise<StashInfo | undefined> {
   const stashes = await git.stashes(root)
   if (stashes.length === 0) {
     toastManager.add({ type: 'info', title: vsb('There are no stashes in the repository.') })
     return undefined
   }
   return showQuickPick(
-    stashes.map((s) => ({ label: `#${s.index}: ${s.message}`, value: s.index })),
+    stashes.map((s) => ({ label: `#${s.index}: ${s.message}`, value: s })),
     { placeholder },
   )
+}
+
+export async function runSelectedStash(root: string, action: 'apply' | 'pop' | 'drop', label: string, stash: StashInfo, restoreIndex = false) {
+  if (action === 'apply') return exec(root, 'other', label, ['stash', 'apply', ...(restoreIndex ? ['--index'] : []), stash.commit])
+  try {
+    await git.stashSelected(root, label, action, stash, restoreIndex)
+  } catch (error) {
+    if (isIpcError(error) && error.kind === 'stashChanged') throw new Error(t('scm.stashChanged'))
+    throw error
+  } finally {
+    refresh(root)
+  }
 }
 
 async function stashApply(root: string, pop: boolean, latest: boolean) {
@@ -649,9 +719,11 @@ async function stashApply(root: string, pop: boolean, latest: boolean) {
     toastManager.add({ type: 'info', title: vsb('There are no stashes in the repository.') })
     return
   }
-  const index = latest ? 0 : await pickStash(root, pop ? vsb('Pick a stash to pop') : vsb('Pick a stash to apply'))
-  if (index === undefined) return
-  await exec(root, 'other', vs(pop ? 'command.stashPop' : 'command.stashApply'), ['stash', pop ? 'pop' : 'apply', '--index', `stash@{${index}}`])
+  const action = pop ? 'pop' : 'apply'
+  const label = vs(pop ? 'command.stashPop' : 'command.stashApply')
+  if (latest) return exec(root, 'other', label, ['stash', action, '--index', 'stash@{0}'])
+  const stash = await pickStash(root, pop ? vsb('Pick a stash to pop') : vsb('Pick a stash to apply'))
+  if (stash) await runSelectedStash(root, action, label, stash, true)
 }
 
 async function stashDrop(root: string, all: boolean) {
@@ -669,11 +741,10 @@ async function stashDrop(root: string, all: boolean) {
     await exec(root, 'other', vs('command.stashDropAll'), ['stash', 'clear'])
     return
   }
-  const index = await pickStash(root, vsb('Pick a stash to drop'))
-  if (index === undefined) return
-  const stashes = await git.stashes(root)
-  if (!(await confirm(vsb('Are you sure you want to drop the stash: {0}?', stashes[index]?.message ?? `stash@{${index}}`), vs('command.stashDrop'), { destructive: true }))) return
-  await exec(root, 'other', vs('command.stashDrop'), ['stash', 'drop', `stash@{${index}}`])
+  const stash = await pickStash(root, vsb('Pick a stash to drop'))
+  if (!stash) return
+  if (!(await confirm(vsb('Are you sure you want to drop the stash: {0}?', stash.message), vs('command.stashDrop'), { destructive: true }))) return
+  await runSelectedStash(root, 'drop', vs('command.stashDrop'), stash)
 }
 
 async function createTag(root: string) {
@@ -743,7 +814,7 @@ async function createWorktree(root: string) {
   const name = await showInputBox({ title: vsb('Please provide a worktree path'), placeholder: vsb('Worktree path'), value: `${basename(root)}.${ref.short.replace(/\//g, '-')}` })
   if (!name?.trim()) return
   const path = `${parent}/${name.trim()}`
-  await exec(root, 'other', vs('command.createWorktree'), ['worktree', 'add', path, ref.short])
+  await exec(root, 'other', vs('command.createWorktree'), ['worktree', 'add', path, ref.kind === 'branch' ? ref.short : ref.name])
   await ipc.projectOpen(path)
 }
 
@@ -807,11 +878,7 @@ export async function commitAndThen(arg: unknown, then: 'push' | 'sync') {
   // One operation from the commit through the push, like VS Code's "Commit & Push"
   const release = holdOp(root, 'commit', vsb(then === 'push' ? '{0} Commit & Push' : '{0} Commit & Sync', '').trim())
   try {
-    const committed = await commit(root, { scope: 'default' })
-    if (!committed) return
-    // postCommitCommand may already have pushed or synced
-    if (setting<string>('git.postCommitCommand') === then) return
-    await guard(() => (then === 'push' ? push(root, {}) : sync(root, false)))
+    await guard(() => commit(root, { scope: 'default', postCommit: then }))
   } finally {
     release()
   }
@@ -835,6 +902,8 @@ export function registerScmHandlers() {
       if (root) refresh(root)
     },
     'git.stage': (...args) => guard(() => stage(args)),
+    'gitmenu.acceptCurrent': (...args) => guard(() => acceptConflict(args, 'current')),
+    'gitmenu.acceptIncoming': (...args) => guard(() => acceptConflict(args, 'incoming')),
     'git.unstage': (...args) => guard(() => unstage(args)),
     'git.clean': (...args) => guard(() => clean(args)),
     'git.stageAll': (arg) => guard(() => groupCommand(arg, 'all', 'stage')),
@@ -867,13 +936,13 @@ export function registerScmHandlers() {
     'git.viewStagedChanges': (arg) => viewGroup(arg, 'index'),
     'git.viewUntrackedChanges': (arg) => viewGroup(arg, 'untracked'),
 
-    'git.commit': (arg) => commit(arg, { scope: 'default' }),
+    'git.commit': (arg, postCommit) => commit(arg, { scope: 'default', postCommit: postCommitChoice(postCommit) }),
     'git.commitStaged': (arg) => commit(arg, { scope: 'staged' }),
     'git.commitAll': (arg) => commit(arg, { scope: 'all' }),
     'git.commitNoVerify': (arg) => commit(arg, { scope: 'default', noVerify: true }),
     'git.commitStagedNoVerify': (arg) => commit(arg, { scope: 'staged', noVerify: true }),
     'git.commitAllNoVerify': (arg) => commit(arg, { scope: 'all', noVerify: true }),
-    'git.commitAmend': (arg) => commit(arg, { scope: 'default', amend: true }),
+    'git.commitAmend': (arg, postCommit) => commit(arg, { scope: 'default', amend: true, postCommit: postCommitChoice(postCommit) }),
     'git.commitStagedAmend': (arg) => commit(arg, { scope: 'staged', amend: true }),
     'git.commitAllAmend': (arg) => commit(arg, { scope: 'all', amend: true }),
     'git.commitAmendNoVerify': (arg) => commit(arg, { scope: 'default', amend: true, noVerify: true }),
@@ -896,9 +965,11 @@ export function registerScmHandlers() {
     'git.pullFrom': withRepo(async (root) => {
       const remote = await pickRemote(root, vsb('Pick a remote to pull the branch from'))
       if (!remote) return
-      const ref = await pickRef(root, vsb('Pick a branch to pull from'), ['remote'])
+      const prefix = `refs/remotes/${remote}/`
+      const branches = (await refs(root)).filter((ref) => ref.kind === 'remote' && ref.name.startsWith(prefix))
+      const ref = await showQuickPick(branches.map(refItem), { placeholder: vsb('Pick a branch to pull from') })
       if (!ref) return
-      await pull(root, [remote, ref.short.split('/').slice(1).join('/')])
+      await pull(root, [remote, ref.name.slice(prefix.length)])
     }),
     'git.push': withRepo((root) => push(root, {})),
     'git.pushForce': withRepo((root) => push(root, { force: true })),

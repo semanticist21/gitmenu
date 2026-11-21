@@ -2,12 +2,12 @@
 //! carried through the diff from HEAD to the file on disk, and changed lines are reported as
 //! not committed yet (what VS Code and GitLens show).
 
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Range, path::Path};
 
 use gix::bstr::{BStr, ByteSlice};
 use serde::Serialize;
 
-use super::content::line_hunks;
+use super::content::{self, Hunk, Side, line_hunks};
 use crate::error::{Error, Result};
 
 #[derive(Debug, Clone, Serialize)]
@@ -36,6 +36,69 @@ pub struct BlameRange {
 pub struct Blame {
     pub ranges: Vec<BlameRange>,
     pub commits: HashMap<String, BlameCommit>,
+}
+
+/// The HEAD path and text behind an uncommitted version, including a known rename.
+pub fn head_text(
+    repo: &gix::Repository,
+    root: &Path,
+    path: &str,
+    original: Option<&str>,
+) -> Result<Option<(String, String, String)>> {
+    let Ok(id) = repo.head_id() else { return Ok(None) };
+    let rev = id.to_string();
+    let side = Side::Commit { rev: rev.clone() };
+    for path in std::iter::once(path).chain(original.filter(|original| *original != path)) {
+        if let Some(bytes) = content::load(repo, root, path, &side)? {
+            return Ok(Some((path.to_owned(), content::decode(&bytes), rev)));
+        }
+    }
+    Ok(None)
+}
+
+/// Map only unchanged selected lines to their source. Deletions can split the range.
+pub fn committed_ranges(hunks: &[Hunk], after_len: u32, selected: Range<u32>) -> Vec<Range<u32>> {
+    let mut ranges = Vec::new();
+    let (mut left, mut right) = (0, 0);
+    for hunk in hunks {
+        let start = selected.start.max(right);
+        let end = selected.end.min(hunk.right_start);
+        if start < end {
+            ranges.push((left + (start - right))..(left + (end - right)));
+        }
+        left = hunk.left_start + hunk.left_count;
+        right = hunk.right_start + hunk.right_count;
+    }
+    let start = selected.start.max(right);
+    let end = selected.end.min(after_len);
+    if start < end {
+        ranges.push((left + (start - right))..(left + (end - right)));
+    }
+    ranges
+}
+
+pub fn blame_side(
+    repo: &gix::Repository,
+    root: &Path,
+    path: &str,
+    original: Option<&str>,
+    side: &Side,
+) -> Result<Blame> {
+    match side {
+        Side::Head => blame(repo, path, "HEAD", None),
+        Side::Commit { rev } => blame(repo, path, rev, None),
+        Side::Index | Side::Worktree => {
+            let Some(bytes) = content::load(repo, root, path, side)? else {
+                return Ok(Blame { ranges: Vec::new(), commits: HashMap::new() });
+            };
+            let text = content::decode(&bytes);
+            if let Some((original, _, rev)) = head_text(repo, root, path, original)? {
+                return blame(repo, &original, &rev, Some(&text));
+            }
+            Ok(Blame { ranges: to_ranges(&vec![None; text.lines().count()]), commits: HashMap::new() })
+        }
+        Side::Empty => Ok(Blame { ranges: Vec::new(), commits: HashMap::new() }),
+    }
 }
 
 /// Blames `path` at `rev`; when `worktree_text` is given, maps the result onto that text.
@@ -86,7 +149,7 @@ pub fn blame(repo: &gix::Repository, path: &str, rev: &str, worktree_text: Optio
     }
 
     if let Some(text) = worktree_text {
-        per_line = carry_through(&outcome.blob.to_str_lossy(), text, &per_line);
+        per_line = carry_through(&content::decode(&outcome.blob), text, &per_line);
     }
     Ok(Blame { ranges: to_ranges(&per_line), commits })
 }
@@ -142,6 +205,15 @@ mod tests {
     }
 
     #[test]
+    fn history_maps_insertions_and_excludes_a_deleted_gap() {
+        let hunks = line_hunks("a\nb\nc\n", "new\na\nc\n", false);
+        assert_eq!(committed_ranges(&hunks, 3, 0..3), [0..1, 2..3]);
+        assert!(committed_ranges(&hunks, 3, 0..1).is_empty());
+        let tail = line_hunks("a\nb\nc\n", "a\nb\nc\nnew\n", false);
+        assert_eq!(committed_ranges(&tail, 4, 1..3), std::iter::once(1..3).collect::<Vec<_>>());
+    }
+
+    #[test]
     fn blames_like_git() {
         let dir = std::env::temp_dir().join(format!("gitmenu-blame-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -176,5 +248,14 @@ mod tests {
             .collect();
         assert_eq!(summaries, vec![None, Some("first".into()), Some("first".into()), Some("second".into())]);
         assert_eq!(result.commits.values().next().unwrap().author, "Ada");
+
+        git(&["mv", "f.txt", "renamed.txt"]);
+        git(&["add", "renamed.txt"]);
+        std::fs::write(dir.join("renamed.txt"), "other\nworking\none\ntwo\nthree\n").unwrap();
+        let staged = blame_side(&repo, &dir, "renamed.txt", Some("f.txt"), &Side::Index).unwrap();
+        let working = blame_side(&repo, &dir, "renamed.txt", Some("f.txt"), &Side::Worktree).unwrap();
+        assert_eq!((staged.ranges[0].commit.clone(), staged.ranges[0].len), (None, 1));
+        assert_eq!((working.ranges[0].commit.clone(), working.ranges[0].len), (None, 2));
+        assert_eq!(staged.ranges[1].commit, working.ranges[1].commit);
     }
 }
