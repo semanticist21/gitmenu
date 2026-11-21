@@ -66,6 +66,21 @@ test('detach is in the panel menu', async ({ page }) => {
   await expect(page.getByRole('menuitem', { name: 'Detach into a Window' })).toBeVisible()
 })
 
+test('panel menu text has room for ascenders and descenders', async ({ page }) => {
+  await page.goto('/?window=panel')
+  await page.locator('header').getByRole('button', { name: 'More' }).click()
+  const quit = page.getByRole('menuitem', { name: /^Quit gitmenu/ })
+  await expect(quit).toBeVisible()
+  for (const slot of ['menu-label-text', 'menu-shortcut']) {
+    const hasRoom = await quit.locator(`[data-slot="${slot}"]`).evaluate((text) => {
+      const { fontSize, lineHeight } = getComputedStyle(text)
+      const line = Number.parseFloat(lineHeight)
+      return line > Number.parseFloat(fontSize) && line <= text.parentElement!.clientHeight
+    })
+    expect(hasRoom, slot).toBe(true)
+  }
+})
+
 test('every header menu opens without a render error', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))

@@ -21,7 +21,7 @@ export const menuItemClassName =
   "relative mx-1 flex h-6 cursor-default select-none items-center rounded-action outline-none data-disabled:text-disabled data-highlighted:bg-list-hover data-popup-open:bg-list-hover";
 
 export const menuLabelClassName =
-  "min-w-0 flex-[1_1_auto] truncate px-[2em] leading-none";
+  "min-w-0 flex-[1_1_auto] truncate px-[2em] leading-(--leading-ui)";
 
 export const menuCheckClassName =
   "absolute inset-y-0 left-0 flex w-[2em] items-center justify-center";
@@ -48,7 +48,7 @@ export function MenuShortcut({
   return (
     <span
       className={cn(
-        "flex-[2_1_auto] shrink-0 whitespace-nowrap px-[2em] text-right leading-none opacity-70 in-data-disabled:opacity-40 in-data-highlighted:opacity-100",
+        "flex-[2_1_auto] shrink-0 whitespace-nowrap px-[2em] text-right leading-(--leading-ui) opacity-70 in-data-disabled:opacity-40 in-data-highlighted:opacity-100",
         className,
       )}
       data-slot="menu-shortcut"
