@@ -19,6 +19,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use objc2_app_kit::NSWindowOrderingMode;
 use serde::Serialize;
 use tauri::{
     AppHandle, Emitter, LogicalPosition, Manager, Rect,
@@ -241,12 +242,9 @@ pub fn note_detached_frame(app: &AppHandle) {
 /// they would cover the picker.
 pub fn set_picker_open(app: &AppHandle, open: bool) {
     app.state::<Arc<Tray>>().picker_open.store(open, Ordering::Relaxed);
-    let level = if open { PanelLevel::Normal } else { PanelLevel::Floating };
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
-        if let Ok(panel) = handle.get_webview_panel(PANEL) {
-            panel.set_level(level.value());
-        }
+        update_panel_order(&handle);
         let Some(detail) = handle.get_webview_window(DETAIL) else { return };
         let tray = handle.state::<Arc<Tray>>();
         if open {
@@ -259,6 +257,29 @@ pub fn set_picker_open(app: &AppHandle, open: bool) {
             let _ = detail.set_always_on_top(true);
         }
     });
+}
+
+/// Keep the floating panel above other apps, but behind our detail window when it has focus.
+/// Main thread only, like the other native panel operations.
+pub fn update_panel_order(app: &AppHandle) {
+    let Ok(panel) = app.get_webview_panel(PANEL) else { return };
+    if app.state::<Arc<Tray>>().picker_open.load(Ordering::Relaxed) {
+        panel.set_level(PanelLevel::Normal.value());
+        return;
+    }
+    let detail = app.get_webview_window(DETAIL).filter(|window| window.is_focused().unwrap_or(false));
+    if let Some(detail) = detail {
+        panel.set_level(PanelLevel::Normal.value());
+        if panel.is_visible()
+            && let Ok(native) = detail.ns_window()
+        {
+            // The Tauri window owns the native handle for this main-thread operation.
+            let native = unsafe { &*native.cast::<objc2_app_kit::NSWindow>() };
+            panel.as_panel().orderWindow_relativeTo(NSWindowOrderingMode::Below, native.windowNumber());
+        }
+    } else {
+        panel.set_level(PanelLevel::Floating.value());
+    }
 }
 
 pub fn save_detached_frame(app: &AppHandle) {
@@ -279,18 +300,29 @@ fn setup_panel(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
     let handler = GitmenuPanelEvents::new();
     let handle = app.clone();
-    handler.window_did_resign_key(move |_| {
-        let app = handle.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(BLUR_GRACE);
-            let app2 = app.clone();
-            let _ = app.run_on_main_thread(move || hide_if_unfocused(&app2));
-        });
-    });
+    handler.window_did_resign_key(move |_| schedule_blur_check(&handle));
     panel.set_event_handler(Some(handler.as_ref()));
     // The handler must outlive the panel's weak delegate reference
     std::mem::forget(handler);
     Ok(())
+}
+
+pub fn detail_focus_changed(app: &AppHandle, focused: bool) {
+    update_panel_order(app);
+    if focused {
+        *app.state::<Arc<Tray>>().suppress_hide_until.lock().unwrap() = None;
+    } else {
+        schedule_blur_check(app);
+    }
+}
+
+fn schedule_blur_check(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(BLUR_GRACE);
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || hide_if_unfocused(&handle));
+    });
 }
 
 /// Hides the panel after it lost key status, unless pinned, a picker is open, or another of
@@ -301,6 +333,9 @@ fn hide_if_unfocused(app: &AppHandle) {
         || tray.detached.load(Ordering::Relaxed)
         || tray.picker_open.load(Ordering::Relaxed)
     {
+        return;
+    }
+    if app.get_webview_window(DETAIL).is_some_and(|detail| detail.is_focused().unwrap_or(false)) {
         return;
     }
     if tray.suppress_hide_until.lock().unwrap().is_some_and(|t| Instant::now() < t) {
@@ -341,6 +376,10 @@ pub fn show_panel(app: &AppHandle) {
         let Ok(panel) = app.get_webview_panel(PANEL) else {
             return;
         };
+        let tray = app.state::<Arc<Tray>>();
+        if !tray.picker_open.load(Ordering::Relaxed) {
+            panel.set_level(PanelLevel::Floating.value());
+        }
         if panel.is_visible() {
             panel.show_and_make_key();
             return;
@@ -354,7 +393,6 @@ pub fn show_panel(app: &AppHandle) {
         }
         panel.show_and_make_key();
         let _ = app.emit("panel://shown", ());
-        let tray = app.state::<Arc<Tray>>();
         // Opening the panel acknowledges a failure; the panel shows what went wrong
         tray.update(|s| s.failure = false);
     });
@@ -382,7 +420,15 @@ pub fn hide_panel(app: &AppHandle) {
                 app.state::<Arc<UiState>>().set("panel.size", serde_json::json!([logical.width, logical.height]));
             }
         }
+        let was_focused = panel.as_panel().isKeyWindow();
         panel.hide();
+        if was_focused
+            && let Some(detail) = app.get_webview_window(DETAIL)
+            && detail.is_visible().unwrap_or(false)
+            && !detail.is_minimized().unwrap_or(true)
+        {
+            let _ = detail.set_focus();
+        }
         let _ = app.emit("panel://hidden", ());
     });
 }

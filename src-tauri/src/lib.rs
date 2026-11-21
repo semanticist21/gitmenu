@@ -235,7 +235,11 @@ pub fn run() {
             }
             tauri::RunEvent::WindowEvent { label, event, .. } if label == tray::DETAIL => match event {
                 // Terminal tabs live in the detail window; their shells end with it
-                tauri::WindowEvent::Destroyed => app.state::<Arc<Terminals>>().kill_all(),
+                tauri::WindowEvent::Destroyed => {
+                    app.state::<Arc<Terminals>>().kill_all();
+                    tray::update_panel_order(app);
+                }
+                tauri::WindowEvent::Focused(focused) => tray::detail_focus_changed(app, focused),
                 // In points, so a frame saved on a Retina display opens the same size on a 1x one
                 tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) => commands::note_detail_frame(app),
                 _ => {}
