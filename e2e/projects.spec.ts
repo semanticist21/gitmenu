@@ -1,6 +1,7 @@
 // Opening a folder that holds many repositories: the tab shows before the scan finishes, the
 // repositories stream in without another `projects_list`, and the list stays virtualized.
 import { expect, test } from '@playwright/test'
+import { ROW_HEIGHT } from '../src/theme/metrics'
 
 declare global {
   interface Window {
@@ -15,6 +16,40 @@ test('the Repositories list only renders the rows it shows', async ({ page }) =>
   const rendered = await options.count()
   expect(rendered).toBeGreaterThan(0)
   expect(rendered).toBeLessThan(40)
+})
+
+test('the Repositories divider resizes the scrollable list and leaves room for the views below', async ({ page }) => {
+  await page.goto('/?window=panel&repos=30&views=scm,commits')
+  const list = page.getByRole('listbox', { name: 'Repositories' })
+  const divider = page.getByRole('separator', { name: 'Repositories' })
+  const listHeight = () => list.evaluate((el) => el.clientHeight)
+  await expect(list.getByRole('option').first()).toBeVisible()
+  const originalHeight = 10 * ROW_HEIGHT
+  await expect.poll(listHeight).toBe(originalHeight)
+
+  const dragDivider = async (delta: number) => {
+    const { x, y, width, height } = (await divider.boundingBox())!
+    await page.mouse.move(x + width / 2, y + height / 2)
+    await page.mouse.down()
+    await page.mouse.move(x + width / 2, y + height / 2 + delta, { steps: 5 })
+    await page.mouse.up()
+  }
+  await dragDivider(-4 * ROW_HEIGHT)
+  await expect.poll(listHeight).toBe(6 * ROW_HEIGHT)
+  await list.hover()
+  await page.mouse.wheel(0, 1000)
+  await expect(list.getByRole('option', { name: 'playground-2', exact: false })).toBeInViewport()
+
+  await dragDivider(6 * ROW_HEIGHT)
+  await expect.poll(listHeight).toBe(12 * ROW_HEIGHT)
+  await divider.press('ArrowDown')
+  await expect.poll(listHeight).toBe(13 * ROW_HEIGHT)
+
+  await page.setViewportSize({ width: 300, height: 320 })
+  await expect.poll(listHeight).toBeLessThan(originalHeight)
+  await expect(page.getByRole('region', { name: 'Commits', exact: true })).toBeInViewport({ ratio: 1 })
+  await page.setViewportSize({ width: 360, height: 800 })
+  await expect.poll(listHeight).toBe(13 * ROW_HEIGHT)
 })
 
 test('a folder still being scanned shows progress and fills in without another projects_list', async ({ page }) => {

@@ -21,6 +21,7 @@ import { PromptDialog } from '@/features/prompt/PromptDialog'
 import { useRepoChangeSync } from '@/features/scm/api'
 import { ScmStatusBar } from '@/features/scm/components/ScmView'
 import { setActiveRepo } from '@/features/scm/state'
+import { MIN_EXPANDED } from '@/features/views/paneHeights'
 import { ViewContainer } from '@/features/views/ViewContainer'
 import { renderView, ViewActions } from '@/features/views/registry'
 import { t, useLocale, vsb } from '@/i18n'
@@ -184,6 +185,7 @@ export function PanelApp() {
   // the folder is still being scanned (`Model.doInitialScan`), when `git.showProgress` is on
   const busy = useOpsBusy()
   const showProgress = useSetting<boolean>('git.showProgress') ?? true
+  const showRepositories = active && (active.repos.length > 1 || active.scanTruncated)
 
   let body
   if (!loaded) body = null
@@ -194,16 +196,14 @@ export function PanelApp() {
       <div className="flex h-full min-h-0 flex-col">
         {active.parentCandidate && <ParentRepoQuestion project={active} />}
         {active.repos.length === 0 && !active.parentCandidate && !active.scanning && <NoRepository project={active} />}
-        {(active.repos.length > 1 || active.scanTruncated) && (
-          <div className="shrink-0 border-section-header-border border-b">
-            <RepoList repos={active.repos} selected={repo} onSelect={selectRepo} truncated={active.scanTruncated} />
-          </div>
+        {showRepositories && (
+          <RepoList repos={active.repos} selected={repo} onSelect={selectRepo} truncated={active.scanTruncated} />
         )}
         {/* The view container stays in place while a scan has not found its first repository,
             so the progress bar has somewhere to draw (VS Code wraps `Model.doInitialScan` in
             `ProgressLocation.SourceControl`) instead of leaving the panel blank */}
         {(repo || (active.scanning && !active.parentCandidate)) && (
-          <div className="min-h-0 flex-1">
+          <div className="flex-1" style={{ minHeight: showRepositories ? 2 * MIN_EXPANDED + 1 : 0 }}>
             <ViewContainer
               render={(id) => (repo ? renderView(id, repo) : null)}
               actions={repo ? (id) => <ViewActions view={id} repo={repo} /> : undefined}
