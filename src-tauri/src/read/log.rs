@@ -438,7 +438,7 @@ pub fn compare(repo: &gix::Repository, base: &str, head: &str) -> Result<Compari
     let count = |tip, other| -> Result<usize> {
         Ok(repo.rev_walk([tip]).with_hidden([other]).all().map_err(|e| err(&e))?.filter(|i| i.is_ok()).count())
     };
-    let merge_base = repo.merge_base(base_id, head_id).ok().map(|id| id.detach());
+    let merge_base = repo.merge_base(base_id, head_id).ok().flatten().map(|id| id.detach());
     let from = merge_base.unwrap_or(base_id);
     let (files, files_total) =
         capped(files(tree_changes(repo, Some(&tree_of(repo, from)?), &tree_of(repo, head_id)?)?));

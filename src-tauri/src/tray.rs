@@ -293,10 +293,13 @@ fn setup_panel(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let window = app.get_webview_window(PANEL).expect("panel window in tauri.conf.json");
     let panel = window.to_panel::<GitmenuPanel>().map_err(|e| e.to_string())?;
     panel.set_level(PanelLevel::Floating.value());
-    panel.set_style_mask(StyleMask::empty().nonactivating_panel().resizable().into());
+    panel.set_style_mask(StyleMask::empty().nonactivating_panel().resizable().into()).map_err(|e| e.to_string())?;
     panel.set_collection_behavior(CollectionBehavior::new().full_screen_auxiliary().can_join_all_spaces().into());
     panel.set_has_shadow(true);
     panel.set_corner_radius(10.0);
+    // The radius clips the webview only; an opaque panel would show its square white corners
+    // around it, which a dialog backdrop makes visible
+    panel.set_transparent(true);
 
     let handler = GitmenuPanelEvents::new();
     let handle = app.clone();

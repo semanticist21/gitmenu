@@ -73,6 +73,8 @@ interface MessageRequest {
   checkbox?: string
   /** The icon; defaults to `warning` when a button is destructive, else `info` */
   severity?: MessageSeverity
+  /** The implicit Cancel button's label (VS Code's `cancelButton`) */
+  cancel?: string
   resolve: (value: { value: unknown; checked: boolean } | undefined) => void
 }
 
@@ -112,6 +114,7 @@ export function showMessage<T>(options: {
   buttons: MessageButton<T>[]
   checkbox?: string
   severity?: MessageSeverity
+  cancel?: string
 }): Promise<{ value: T; checked: boolean } | undefined> {
   return new Promise((resolve) =>
     push({ kind: 'message', ...options, resolve: resolve as MessageRequest['resolve'] }),
@@ -361,7 +364,7 @@ function MessageDialog({ request }: { request: MessageRequest }) {
   // macOS order (dialog.ts rearrangeButtons): Cancel moves to index 1, then the row is reversed,
   // so the first (primary) button ends up rightmost
   const [first, ...rest] = request.buttons
-  const cancel = { label: t('prompt.cancel'), value: CANCEL as unknown }
+  const cancel = { label: request.cancel ?? t('prompt.cancel'), value: CANCEL as unknown }
   const ordered = (first ? [first, cancel, ...rest] : [cancel]).reverse()
 
   return (

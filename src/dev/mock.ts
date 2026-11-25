@@ -289,6 +289,13 @@ export function installMocks() {
         }
         case 'projects_recent':
           return ['/Users/me/code/archived']
+        case 'direct_updates_enabled':
+          return scenario.get('distribution') !== 'store'
+        case 'update_check':
+          return scenario.get('update') ? { version: '9.9.9', notes: 'Release notes' } : null
+        case 'update_install':
+          if (scenario.get('update') === 'fail') throw { kind: 'other', message: 'Failed to move the new app into place' }
+          return '9.9.9'
         case 'env_status':
           return { ready: true, git: scenario.get('git') === 'missing' ? null : '/usr/bin/git', gitVersion: 'git version 2.50.1', shellFailed: scenario.get('git') === 'shell' }
         case 'prompt_open':

@@ -6,6 +6,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import configuration from '@/commands/configuration.json'
+import { contextSnapshot } from '@/commands/context'
 import { Icon } from '@/components/Icon'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -296,7 +297,7 @@ export function SettingsTab() {
   const [activeSection, setActiveSection] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
   const treeRef = useRef<HTMLDivElement>(null)
-  const keys = useMemo(() => Object.keys(schemas), [])
+  const keys = useMemo(() => Object.keys(schemas).filter((key) => contextSnapshot()['gitmenu.directUpdates'] || !key.startsWith('update.')), [])
   const q = query.trim().toLowerCase()
   const matches = (key: string) => {
     const { category, label } = displayName(key)

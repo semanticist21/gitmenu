@@ -1,3 +1,3 @@
-# 0.1.12
+# 0.1.13
 
-Settings now opens in front of Source Control and stays open when you close a project tab or hide the panel.
+Updates now install in the background when gitmenu starts, so the next launch runs the new version even if you choose Later. A failed update is shown instead of disappearing with the panel. Dialogs in the panel no longer show white corners behind the dimmed background.

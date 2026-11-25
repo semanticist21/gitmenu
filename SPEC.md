@@ -37,7 +37,7 @@ VS Code와 GitLens가 이미 정해 둔 동작과 기본값은 그대로 따른�
 - **라이선스**: MIT. 복사한 VS Code 언어팩 번역은 THIRD_PARTY_NOTICES에 고지한다. GitLens 소스의 `plus` 디렉터리(GitLens Pro 라이선스) 코드와 구현은 가져오지 않는다.
 - **배포**: 직접 배포(Developer ID 서명 + notarize), 샌드박스 없음. Mac App Store는 보류(샌드박스가 git CLI 실행, ~/.gitconfig·~/.ssh·ssh-agent, hook, 서명을 막음).
   - 소스와 릴리스 모두 Kobbokkom 조직의 공개 GitHub 저장소 하나(MIT). 태그 푸시 → CI 빌드·서명·notarize → GitHub Releases.
-  - 업데이트: Tauri updater(서명 검증). 업데이트를 찾으면 모달로 확인을 받고 "재시작해서 업데이트"를 누를 때만 설치한다. 토스트는 패널이 닫히면 놓치므로 쓰지 않는다. 자동 재시작 없음.
+  - 업데이트: Tauri updater(서명 검증). 업데이트를 찾으면 바로 내려받아 앱 번들을 바꿔 두고(다음 실행부터 새 버전), 모달로 "재시작해서 업데이트"를 묻는다. 설치 실패도 모달로 알린다. 토스트는 패널이 닫히면 놓치므로 쓰지 않는다. 자동 재시작 없음.
   - 설치 경로: DMG 다운로드 + 자체 brew tap(`kobbokkom/tap`). 공식 homebrew/cask는 나중에.
   - 소개/다운로드 페이지: `~/code/kobbokkom-forum`(kkom.net, Cloudflare Pages)에 단일 페이지. 스크린샷, 기능 요약, DMG 버튼, brew 명령, 릴리스 노트 링크를 넣고 사이트의 inlang 10개 언어 구조를 따른다.
   - `tauri-nspanel`은 crates.io에 없으므로 git 태그가 아니라 커밋 해시로 고정한다. M1에서 실제 사용 범위를 보고 저장소에 복사(vendoring)하거나 `objc2`로 직접 구현할지 정한다.

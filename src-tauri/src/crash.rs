@@ -43,15 +43,11 @@ pub fn init(settings: &Settings) {
     if settings.get("gitmenu.crashReports.enabled").as_bool() != Some(true) {
         return;
     }
-    let guard = sentry::init((
-        dsn,
-        sentry::ClientOptions {
-            release: sentry::release_name!(),
-            send_default_pii: false,
-            before_send: Some(Arc::new(|event| Some(scrub_event(event)))),
-            ..Default::default()
-        },
-    ));
+    let mut options = sentry::ClientOptions::default();
+    options.release = sentry::release_name!();
+    options.send_default_pii = false;
+    options.before_send = Some(Arc::new(|event| Some(scrub_event(event))));
+    let guard = sentry::init((dsn, options));
     let _ = GUARD.set(guard);
 }
 

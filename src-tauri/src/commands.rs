@@ -511,13 +511,25 @@ pub fn login_item_set(enabled: bool) -> Result<LoginItem> {
 }
 
 #[tauri::command]
+pub fn direct_updates_enabled() -> bool {
+    cfg!(feature = "direct-updates")
+}
+
+#[cfg(feature = "direct-updates")]
+#[tauri::command]
 pub async fn update_check(app: AppHandle) -> Result<Option<update::Update>> {
     update::check(&app).await
 }
 
+#[cfg(feature = "direct-updates")]
 #[tauri::command]
-pub async fn update_install(app: AppHandle) -> Result<()> {
+pub async fn update_install(app: AppHandle) -> Result<Option<String>> {
     update::install(&app).await
+}
+
+#[tauri::command]
+pub fn app_restart(app: AppHandle) {
+    app.restart();
 }
 
 /// Reports a window's uncaught error when crash reports are on.

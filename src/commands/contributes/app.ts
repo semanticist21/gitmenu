@@ -38,12 +38,13 @@ export const appContribution: Contribution = {
       enablement: 'gitmenu.hasRepository',
     },
     { command: 'gitmenu.revealInFinder', title: { app: 'panel.revealInFinder' }, category, enablement: 'gitmenu.hasProject' },
-    { command: 'update.checkForUpdates', title: { app: 'update.check' }, category },
+    { command: 'update.checkForUpdates', title: { app: 'update.check' }, category, enablement: 'gitmenu.directUpdates' },
     { command: 'gitmenu.quit', title: { app: 'panel.quit' } },
   ],
   menus: {
     commandPalette: [
       { command: 'gitmenu.hidePanel', when: 'false' },
+      { command: 'update.checkForUpdates', when: 'gitmenu.directUpdates' },
       { command: 'workbench.action.closeActiveEditor', when: 'gitmenu.window == detail' },
     ],
     'gitmenu/panel/more': [
@@ -52,7 +53,7 @@ export const appContribution: Contribution = {
       { command: 'gitmenu.toggleDetach', group: '1_commands@2' },
       { command: 'workbench.action.openSettings', group: '2_preferences@1' },
       { command: 'workbench.action.openGlobalKeybindings', group: '2_preferences@2' },
-      { command: 'update.checkForUpdates', group: '3_update' },
+      { command: 'update.checkForUpdates', group: '3_update', when: 'gitmenu.directUpdates' },
       { command: 'gitmenu.quit', group: '9_quit' },
     ],
     'gitmenu/project/context': [

@@ -76,9 +76,15 @@ export interface TerminalInfo {
   reattached: boolean
 }
 
+export interface Update {
+  version: string
+  notes: string | null
+}
+
 export type LoginItem = 'enabled' | 'disabled' | 'requiresApproval' | 'unavailable'
 
 export const ipc = {
+  directUpdatesEnabled: () => invoke<boolean>('direct_updates_enabled'),
   envStatus: () => invoke<EnvStatus>('env_status'),
   envRefresh: () => invoke<void>('env_refresh'),
   settingsGet: () => invoke<Record<string, unknown>>('settings_get'),
@@ -136,13 +142,14 @@ export const ipc = {
   /** Ends the shell and its process group (no `terminal://exit` follows) */
   terminalKill: (key: string) => invoke<void>('terminal_kill', { key }),
   appQuit: () => invoke<void>('app_quit'),
+  appRestart: () => invoke<void>('app_restart'),
   crashReport: (message: string) => invoke<void>('crash_report', { message }),
   aiAvailability: () => invoke<string>('ai_availability'),
   aiCommitMessage: (root: string) => invoke<string>('ai_commit_message', { root }),
   loginItemStatus: () => invoke<LoginItem>('login_item_status'),
   loginItemSet: (enabled: boolean) => invoke<LoginItem>('login_item_set', { enabled }),
-  updateCheck: () => invoke<{ version: string; notes: string | null } | null>('update_check'),
-  updateInstall: () => invoke<void>('update_install'),
+  updateCheck: () => invoke<Update | null>('update_check'),
+  updateInstall: () => invoke<string | null>('update_install'),
 }
 
 /** Subscribes to a Rust event for the component's lifetime; the handler may change freely. */

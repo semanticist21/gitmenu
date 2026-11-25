@@ -1026,8 +1026,9 @@ pub fn watcher(
     mut handler: impl FnMut(Vec<PathBuf>, bool) + Send + 'static,
 ) -> Option<Debouncer<notify::RecommendedWatcher, NoCache>> {
     new_debouncer_opt::<_, notify::RecommendedWatcher, NoCache>(
-        WATCH_DEBOUNCE,
-        None,
+        notify_debouncer_full::Config::default()
+            .with_timeout(WATCH_DEBOUNCE)
+            .with_notify_config(notify::Config::default()),
         move |result: DebounceEventResult| {
             let Ok(events) = result else {
                 return;
@@ -1037,7 +1038,6 @@ pub fn watcher(
             handler(paths, need_rescan);
         },
         NoCache::new(),
-        notify::Config::default(),
     )
     .ok()
 }

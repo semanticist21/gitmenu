@@ -1,47 +1,51 @@
 [package]
 name = "gitmenu"
-version = "0.1.12"
+version = "0.1.13"
 description = "Menu bar git panel"
 authors = ["Kobbokkom"]
 license = "MIT"
 repository = "https://github.com/semanticist21/gitmenu"
 edition = "2024"
-rust-version = "1.90"
+rust-version = "1.92"
 
 [lib]
 name = "gitmenu_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+default = ["direct-updates"]
+direct-updates = ["dep:tauri-plugin-updater"]
+
 [build-dependencies]
-tauri-build = { version = "2.6", features = [] }
+tauri-build = { version = "2.7", features = [] }
 
 [dependencies]
-tauri = { version = "2.11", features = ["tray-icon", "image-png", "macos-private-api"] }
-tauri-plugin-positioner = { version = "2.3", features = ["tray-icon"] }
-tauri-plugin-global-shortcut = "2.3"
-tauri-plugin-opener = "2.5"
-tauri-plugin-dialog = "2.7"
+tauri = { version = "2.12", features = ["tray-icon", "image-png", "macos-private-api"] }
+tauri-plugin-positioner = { version = "2.4", features = ["tray-icon"] }
+tauri-plugin-global-shortcut = "2.4"
+tauri-plugin-opener = "2.7"
+tauri-plugin-dialog = "2.8"
 # Not published on crates.io; pinned to the v2.1 branch head (see SPEC.md)
-tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", rev = "c9ec2130422200f0863b23dfdad02b133a529b07" }
-gix = { version = "0.87.1", default-features = false, features = ["status", "blame", "revision", "parallel", "max-performance-safe", "sha1"] }
-notify = "8.2"
-notify-debouncer-full = "0.7"
+tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", rev = "3ffa93ed14e0f8e857e43619b4157f2a685d35a4" }
+gix = { version = "0.90.0", default-features = false, features = ["status", "blame", "revision", "parallel", "max-performance", "sha1"] }
+notify = "9.0"
+notify-debouncer-full = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "process", "time", "net", "io-util", "fs"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-base64 = "0.22"
+base64 = "0.23"
 thiserror = "2"
 log = "0.4"
-jsonc-parser = { version = "0.33", features = ["serde", "serde_json", "cst", "preserve_order"] }
+jsonc-parser = { version = "0.34", features = ["serde", "serde_json", "cst", "preserve_order"] }
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSString", "NSThread", "NSFileManager", "NSURL", "NSError"] }
 # The native picker as a standalone modal (the dialog plugin only has the async sheet)
-rfd = { version = "0.16", default-features = false }
+rfd = { version = "0.18", default-features = false }
 objc2-app-kit = { version = "0.3", features = ["NSStatusItem", "NSStatusBarButton", "NSButton", "NSControl", "NSView", "NSResponder", "NSAppearance", "NSApplication", "NSRunningApplication", "NSWorkspace"] }
 objc2-service-management = { version = "0.3", features = ["SMAppService"] }
-sha2 = "0.10.9"
-tauri-plugin-updater = "2"
-sentry = { version = "0.42", default-features = false, features = ["backtrace", "contexts", "panic", "reqwest", "rustls"] }
+sha2 = "0.11.1"
+tauri-plugin-updater = { version = "2", optional = true }
+sentry = { version = "0.49", default-features = false, features = ["backtrace", "contexts", "panic", "reqwest", "rustls"] }
 # The integrated terminal: a PTY for the shell, and signals to end its process group
 portable-pty = "0.9"
 libc = "0.2"

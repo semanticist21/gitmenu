@@ -44,6 +44,7 @@ pub fn set_login_item(enabled: bool) -> Result<LoginItem> {
 }
 
 /// Whether this build can update itself.
+#[cfg(feature = "direct-updates")]
 pub fn updater_configured(app: &tauri::AppHandle) -> bool {
     app.config()
         .plugins
@@ -54,6 +55,7 @@ pub fn updater_configured(app: &tauri::AppHandle) -> bool {
         .is_some_and(|k| !k.is_empty())
 }
 
+#[cfg(feature = "direct-updates")]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Update {
@@ -62,6 +64,7 @@ pub struct Update {
 }
 
 /// Checks the release feed; `None` when up to date or when this build can't update.
+#[cfg(feature = "direct-updates")]
 pub async fn check(app: &tauri::AppHandle) -> Result<Option<Update>> {
     use tauri_plugin_updater::UpdaterExt;
     if !updater_configured(app) {
@@ -72,11 +75,13 @@ pub async fn check(app: &tauri::AppHandle) -> Result<Option<Update>> {
     Ok(update.map(|u| Update { version: u.version, notes: u.body }))
 }
 
-/// Downloads and installs the available update, then restarts into it.
-pub async fn install(app: &tauri::AppHandle) -> Result<()> {
+/// Downloads the available update and replaces the app bundle with it. The running app stays
+/// on its version until it restarts; returns the version that will run then.
+#[cfg(feature = "direct-updates")]
+pub async fn install(app: &tauri::AppHandle) -> Result<Option<String>> {
     use tauri_plugin_updater::UpdaterExt;
     let updater = app.updater().map_err(|e| Error::Other(e.to_string()))?;
-    let Some(update) = updater.check().await.map_err(|e| Error::Other(e.to_string()))? else { return Ok(()) };
+    let Some(update) = updater.check().await.map_err(|e| Error::Other(e.to_string()))? else { return Ok(None) };
     update.download_and_install(|_, _| {}, || {}).await.map_err(|e| Error::Other(e.to_string()))?;
-    app.restart();
+    Ok(Some(update.version))
 }

@@ -595,7 +595,7 @@ pub struct ConflictText {
 fn conflict_marker_size(mut attrs: gix::AttributeStack<'_>, path: &str) -> Result<usize> {
     use gix::bstr::ByteSlice;
     let mut matches = gix::attrs::search::Outcome::default();
-    attrs.at_path(path, None)?.matching_attributes(&mut matches);
+    attrs.at_path(path, None).map_err(|e| Error::Other(e.to_string()))?.matching_attributes(&mut matches);
     Ok(matches
         .iter()
         .find(|m| m.assignment.name.as_str() == "conflict-marker-size")

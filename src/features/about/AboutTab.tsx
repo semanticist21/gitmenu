@@ -1,14 +1,14 @@
 // About gitmenu: version and license, the notices for code taken from other projects
 // (THIRD_PARTY_NOTICES.md), and the license of every package, crate and grammar the app
 // ships (licenses.json, built by scripts/licenses/licenses.ts).
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getVersion } from '@tauri-apps/api/app'
 import { Fragment, type ReactNode, useMemo, useState } from 'react'
 import { Icon } from '@/components/Icon'
 import { Input } from '@/components/ui/input'
 import { t, useLocale } from '@/i18n'
 import type { AppKey } from '@/i18n/app/en'
-import { ipc } from '@/lib/ipc'
+import { type EnvStatus, ipc, useTauriEvent } from '@/lib/ipc'
 import appIcon from '../../../src-tauri/icons/128x128@2x.png'
 import type { LicensedPackage, Licenses } from './licenses'
 
@@ -209,7 +209,10 @@ function Packages({ licenses }: { licenses: Licenses }) {
 
 export function AboutTab() {
   useLocale()
+  const client = useQueryClient()
   const { data: version } = useQuery({ queryKey: ['appVersion'], queryFn: getVersion, staleTime: Infinity })
+  const { data: gitVersion } = useQuery({ queryKey: ['envStatus'], queryFn: ipc.envStatus, select: (status) => status.gitVersion })
+  useTauriEvent<EnvStatus>('env://ready', (status) => client.setQueryData(['envStatus'], status))
   const { data: licenses, error } = useQuery({ queryKey: ['licenses'], queryFn: loadLicenses, staleTime: Infinity })
   const [showLicense, setShowLicense] = useState(false)
   const copyright = licenses?.license.split('\n').find((line) => line.startsWith('Copyright'))
@@ -221,6 +224,7 @@ export function AboutTab() {
           <div className="min-w-0">
             <h1 className="font-semibold text-[20px] leading-7">gitmenu</h1>
             {version && <div className="text-description">{t('about.version', version)}</div>}
+            {gitVersion && <div className="text-description">Git {gitVersion.replace(/^git version\s+/i, '')}</div>}
             <div className="mt-1.5">
               {copyright && <span>{copyright.replace('(c)', '©')} · </span>}
               <button

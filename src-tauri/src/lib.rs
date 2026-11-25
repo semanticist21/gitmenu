@@ -48,6 +48,7 @@ pub fn run() {
         .setup(|app| {
             app.set_activation_policy(ActivationPolicy::Accessory);
             let handle = app.handle().clone();
+            #[cfg(feature = "direct-updates")]
             if update::updater_configured(&handle) {
                 handle.plugin(tauri_plugin_updater::Builder::new().build())?;
             }
@@ -177,9 +178,13 @@ pub fn run() {
             commands::open_path,
             commands::terminal_apps,
             commands::app_quit,
+            commands::app_restart,
             commands::login_item_status,
             commands::login_item_set,
+            commands::direct_updates_enabled,
+            #[cfg(feature = "direct-updates")]
             commands::update_check,
+            #[cfg(feature = "direct-updates")]
             commands::update_install,
             commands::crash_report,
             git::repo_status,

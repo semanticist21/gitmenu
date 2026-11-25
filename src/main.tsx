@@ -4,7 +4,7 @@ import { HotkeysProvider } from '@tanstack/react-hotkeys'
 import { StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { CommandPalette } from '@/commands/CommandPalette'
-import { installFocusTracking, setSettingsContext } from '@/commands/context'
+import { installFocusTracking, setContext, setSettingsContext } from '@/commands/context'
 import { appContribution } from '@/commands/contributes/app'
 import { useCommandHotkeys, useKeybindingsSync } from '@/commands/keybindings'
 import { contribute } from '@/commands/registry'
@@ -13,6 +13,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ToastProvider } from '@/components/ui/toast'
 import { setScmQueryClient } from '@/features/scm/state'
 import { setLocale } from '@/i18n'
+import { ipc } from '@/lib/ipc'
 import { router } from '@/routes/router'
 import { settingDefault, settingsQuery, useSettings, useSettingsSync } from '@/settings/settings'
 import { useTheme } from '@/theme/theme'
@@ -21,6 +22,7 @@ import './index.css'
 
 if (import.meta.env.VITE_MOCK === '1') (await import('@/dev/mock')).installMocks()
 
+setContext('gitmenu.directUpdates', await ipc.directUpdatesEnabled().catch(() => false))
 contribute(appContribution)
 installFocusTracking()
 

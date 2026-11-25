@@ -41,6 +41,14 @@ declare global {
   }
 }
 
+test('the keyboard shortcuts editor opens with its two-step shortcut', async ({ page }) => {
+  await page.goto('/?window=panel')
+  await page.getByRole('tree').first().waitFor()
+  await page.keyboard.press('Meta+K')
+  await page.keyboard.press('Meta+S')
+  await expect.poll(() => page.evaluate(() => window.__ipcCalls.includes('detail_open'))).toBe(true)
+})
+
 test('Escape closes an open menu without hiding the panel', async ({ page }) => {
   await page.goto('/?window=panel')
   await page.getByRole('treeitem', { name: /^main\.tsx/ }).click({ button: 'right' })
@@ -141,6 +149,41 @@ test('About gitmenu opens from the top of the panel menu', async ({ page }) => {
   await page.getByRole('button', { name: 'More Actions...' }).first().click()
   const items = await menuTexts(page)
   expect(items.slice(0, 2)).toEqual(['About gitmenu', 'Command Palette…'])
+  await expect(page.getByRole('menuitem', { name: /Check for Updates/ })).toBeVisible()
   await page.getByRole('menuitem', { name: 'About gitmenu' }).click()
   await expect.poll(() => page.evaluate(() => (window as unknown as { __ipcCalls: string[] }).__ipcCalls.includes('detail_open'))).toBe(true)
+})
+
+test('About reports the Git executable version', async ({ page }) => {
+  await page.goto('/#/detail/about')
+  await expect(page.getByText('Git 2.50.1', { exact: true })).toBeVisible()
+})
+
+test('the Store build does not offer or call the direct updater', async ({ page }) => {
+  await page.goto('/?window=panel&distribution=store')
+  await page.getByRole('button', { name: 'More Actions...' }).first().click()
+  await expect(page.getByRole('menuitem', { name: 'About gitmenu' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: /Check for Updates/ })).toHaveCount(0)
+  const calls = await page.evaluate(() => (window as unknown as { __ipcCalls: string[] }).__ipcCalls)
+  expect(calls).not.toContain('update_check')
+
+  await page.goto('/?distribution=store#/detail/settings')
+  await page.getByRole('textbox', { name: /Search Settings/i }).fill('update.mode')
+  await expect(page.getByText('No Settings Found')).toBeVisible()
+})
+
+test('a found update installs at launch and the modal only asks to restart', async ({ page }) => {
+  await page.goto('/?window=panel&update=1')
+  await expect(page.getByText('gitmenu 9.9.9 is available.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Restart to Update' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Later' })).toBeVisible()
+  await expect(page.getByRole('dialog').getByText('Cancel', { exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Restart to Update' }).click()
+  await expect.poll(() => page.evaluate(() => window.__ipcCalls.includes('app_restart'))).toBe(true)
+})
+
+test('a failed update install is reported in a modal', async ({ page }) => {
+  await page.goto('/?window=panel&update=fail')
+  await expect(page.getByText('Failed to move the new app into place')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'OK' })).toBeVisible()
 })

@@ -1,7 +1,7 @@
 // Default keybindings from the registry plus the user's keybindings.json, resolved like
 // VS Code: later entries win, `-command` removes a default, `when` decides per keypress.
-import type { RawHotkey } from '@tanstack/hotkeys'
-import { useHotkeySequences, useHotkeys } from '@tanstack/react-hotkeys'
+import type { RawHotkeyChord } from '@tanstack/hotkeys'
+import { useHotkeys } from '@tanstack/react-hotkeys'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { ipc, useTauriEvent } from '@/lib/ipc'
@@ -99,7 +99,7 @@ const KEY_NAMES: Record<string, string> = {
   pagedown: 'PageDown',
 }
 
-function toRaw(chord: string): RawHotkey {
+function toRaw(chord: string): RawHotkeyChord {
   const parts = chord.split('+')
   const base = parts[parts.length - 1]
   const key = KEY_NAMES[base] ?? (/^f\d+$/.test(base) ? base.toUpperCase() : base.length === 1 ? base.toUpperCase() : base)
@@ -110,13 +110,6 @@ function toRaw(chord: string): RawHotkey {
     shift: parts.includes('shift'),
     alt: parts.includes('alt'),
   }
-}
-
-/** Sequences take hotkey strings (`Meta+K`), not raw objects. */
-function toHotkeyString(chord: string): string {
-  const raw = toRaw(chord)
-  const mods = [raw.ctrl && 'Control', raw.alt && 'Alt', raw.shift && 'Shift', raw.meta && 'Meta'].filter(Boolean)
-  return [...mods, raw.key].join('+')
 }
 
 /** The command a key triggers now: the last matching binding whose `when` holds. */
@@ -132,33 +125,23 @@ function resolve(bindings: EffectiveBinding[], key: string): EffectiveBinding | 
 /** Dispatches every bound key in this window. */
 export function useCommandHotkeys() {
   const bindings = useEffectiveBindings()
-  const singles = useMemo(() => [...new Set(bindings.map((b) => b.key).filter((k) => !k.includes(' ')))], [bindings])
-  const chords = useMemo(() => [...new Set(bindings.map((b) => b.key).filter((k) => k.includes(' ')))], [bindings])
+  const keys = useMemo(() => [...new Set(bindings.map((b) => b.key))], [bindings])
 
   useHotkeys(
-    singles.map((key) => ({
-      hotkey: toRaw(key),
-      callback: (event: KeyboardEvent) => {
-        const binding = resolve(bindings, key)
-        if (!binding) return
-        event.preventDefault()
-        event.stopPropagation()
-        void executeCommand(binding.command, binding.args)
-      },
-    })),
-    { ignoreInputs: false, preventDefault: false },
-  )
-
-  useHotkeySequences(
-    chords.map((key) => ({
-      sequence: key.split(' ').map(toHotkeyString) as never,
-      callback: (event: KeyboardEvent) => {
-        const binding = resolve(bindings, key)
-        if (!binding) return
-        event.preventDefault()
-        void executeCommand(binding.command, binding.args)
-      },
-    })),
+    keys.map((key) => {
+      const sequence = key.includes(' ')
+      return {
+        hotkey: sequence ? key.split(' ').map(toRaw) : toRaw(key),
+        options: { preventDefault: sequence },
+        callback: (event: KeyboardEvent) => {
+          const binding = resolve(bindings, key)
+          if (!binding) return
+          event.preventDefault()
+          if (!sequence) event.stopPropagation()
+          void executeCommand(binding.command, binding.args)
+        },
+      }
+    }),
     { ignoreInputs: false },
   )
 }
